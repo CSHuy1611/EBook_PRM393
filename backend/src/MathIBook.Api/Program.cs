@@ -12,15 +12,9 @@ using MathIBook.Api.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Kestrel config for dev - listen on HTTP 0.0.0.0:5000
-// Listen on both IPv4 and IPv6 explicitly (Windows requires both)
 if (builder.Environment.IsDevelopment())
 {
-    builder.WebHost.ConfigureKestrel(options =>
-    {
-        options.Listen(IPAddress.Any, 5000);
-        options.Listen(IPAddress.IPv6Any, 5000);
-    });
+    builder.WebHost.UseUrls("http://*:5000");
 }
 
 // Add services
