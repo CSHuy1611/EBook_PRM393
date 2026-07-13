@@ -1,0 +1,11 @@
+C:\Users\A\Desktop\finalproject\backend\src\MathIBook.Domain\bin\Debug\net8.0\MathIBook.Domain.deps.json
+C:\Users\A\Desktop\finalproject\backend\src\MathIBook.Domain\bin\Debug\net8.0\MathIBook.Domain.dll
+C:\Users\A\Desktop\finalproject\backend\src\MathIBook.Domain\bin\Debug\net8.0\MathIBook.Domain.pdb
+C:\Users\A\Desktop\finalproject\backend\src\MathIBook.Domain\obj\Debug\net8.0\MathIBook.Domain.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\A\Desktop\finalproject\backend\src\MathIBook.Domain\obj\Debug\net8.0\MathIBook.Domain.AssemblyInfoInputs.cache
+C:\Users\A\Desktop\finalproject\backend\src\MathIBook.Domain\obj\Debug\net8.0\MathIBook.Domain.AssemblyInfo.cs
+C:\Users\A\Desktop\finalproject\backend\src\MathIBook.Domain\obj\Debug\net8.0\MathIBook.Domain.csproj.CoreCompileInputs.cache
+C:\Users\A\Desktop\finalproject\backend\src\MathIBook.Domain\obj\Debug\net8.0\MathIBook.Domain.dll
+C:\Users\A\Desktop\finalproject\backend\src\MathIBook.Domain\obj\Debug\net8.0\refint\MathIBook.Domain.dll
+C:\Users\A\Desktop\finalproject\backend\src\MathIBook.Domain\obj\Debug\net8.0\MathIBook.Domain.pdb
+C:\Users\A\Desktop\finalproject\backend\src\MathIBook.Domain\obj\Debug\net8.0\ref\MathIBook.Domain.dll
