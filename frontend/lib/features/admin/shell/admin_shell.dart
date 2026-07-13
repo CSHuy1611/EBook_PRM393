@@ -1,0 +1,181 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import 'package:math_ibook/features/auth/domain/auth_provider.dart';
+
+class AdminShell extends StatelessWidget {
+  final StatefulNavigationShell navigationShell;
+
+  const AdminShell({super.key, required this.navigationShell});
+
+  @override
+  Widget build(BuildContext context) {
+    final user = context.watch<AuthProvider>().currentUser;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth > 900) {
+          return _buildNavigationRail(context, user);
+        }
+        return _buildDrawer(context, user);
+      },
+    );
+  }
+
+  void _logout(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Đăng xuất'),
+        content: const Text('Bạn có chắc muốn đăng xuất không?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.read<AuthProvider>().logout();
+            },
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Đăng xuất'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNavigationRail(BuildContext context, dynamic user) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Math IBook - Quản trị'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Center(
+              child: Text(
+                user?.name ?? 'Admin',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Đăng xuất',
+            onPressed: () => _logout(context),
+          ),
+        ],
+      ),
+      body: Row(
+        children: [
+          NavigationRail(
+            selectedIndex: navigationShell.currentIndex,
+            onDestinationSelected: (index) {
+              navigationShell.goBranch(index, initialLocation: true);
+            },
+            labelType: NavigationRailLabelType.all,
+            destinations: const [
+              NavigationRailDestination(
+                icon: Icon(Icons.dashboard),
+                label: Text('Dashboard'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.book),
+                label: Text('Chapters'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.menu_book),
+                label: Text('Lessons'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.help),
+                label: Text('Questions'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.emoji_events),
+                label: Text('Badges'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.people),
+                label: Text('Users'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.assessment),
+                label: Text('Reports'),
+              ),
+            ],
+          ),
+          const VerticalDivider(width: 1),
+          Expanded(child: navigationShell),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDrawer(BuildContext context, dynamic user) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Math IBook - Quản trị'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Center(
+              child: Text(
+                user?.name ?? 'Admin',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Đăng xuất',
+            onPressed: () => _logout(context),
+          ),
+        ],
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+              decoration: BoxDecoration(color: Theme.of(context).primaryColor),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  const Icon(Icons.library_books, size: 40, color: Colors.white),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Math IBook',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.white),
+                  ),
+                  Text(
+                    user?.name ?? 'Admin',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white70),
+                  ),
+                ],
+              ),
+            ),
+            _drawerItem(Icons.dashboard, 'Dashboard', 0),
+            _drawerItem(Icons.book, 'Chapters', 1),
+            _drawerItem(Icons.menu_book, 'Lessons', 2),
+            _drawerItem(Icons.help, 'Questions', 3),
+            _drawerItem(Icons.emoji_events, 'Badges', 4),
+            _drawerItem(Icons.people, 'Users', 5),
+            _drawerItem(Icons.assessment, 'Reports', 6),
+          ],
+        ),
+      ),
+      body: navigationShell,
+    );
+  }
+
+  Widget _drawerItem(IconData icon, String label, int index) {
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(label),
+      selected: navigationShell.currentIndex == index,
+      onTap: () {
+        navigationShell.goBranch(index, initialLocation: true);
+      },
+    );
+  }
+}
