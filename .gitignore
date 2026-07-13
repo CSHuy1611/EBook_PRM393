@@ -58,3 +58,6 @@ Thumbs.db
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
+
+# Agents workspace config
+.agents/
