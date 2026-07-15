@@ -3,24 +3,26 @@ class LessonModel {
   final String chapterId;
   final String title;
   final String contentBody;
-  final String simulationType;
+  final String? simulationType;
   final int orderIndex;
   final bool isPublished;
   final bool isCompleted;
   final double bestScore;
   final List<QuestionModel> questions;
+  final String? curriculumTopicId;
 
   LessonModel({
     required this.id,
     required this.chapterId,
     required this.title,
     this.contentBody = '',
-    this.simulationType = '',
+    this.simulationType,
     this.orderIndex = 0,
     this.isPublished = true,
     this.isCompleted = false,
     this.bestScore = 0.0,
     this.questions = const [],
+    this.curriculumTopicId,
   });
 
   factory LessonModel.fromJson(Map<String, dynamic> json) {
@@ -36,13 +38,14 @@ class LessonModel {
       title: json['title'] ?? '',
       contentBody: json['contentBody'] ?? json['content_body'] ?? '',
       simulationType:
-          json['simulationType'] ?? json['simulation_type'] ?? '',
+          json['simulationType'] ?? json['simulation_type'],
       orderIndex: json['orderIndex'] ?? json['order_index'] ?? 0,
       isPublished: json['isPublished'] ?? json['is_published'] ?? true,
       isCompleted: json['isCompleted'] ?? json['is_completed'] ?? false,
       bestScore:
           (json['bestScore'] ?? json['best_score'] ?? 0.0).toDouble(),
       questions: questionsList,
+      curriculumTopicId: json['curriculumTopicId'] ?? json['curriculum_topic_id'],
     );
   }
 
@@ -57,8 +60,10 @@ class LessonModel {
         'isCompleted': isCompleted,
         'bestScore': bestScore,
         'questions': questions.map((q) => q.toJson()).toList(),
+        'curriculumTopicId': curriculumTopicId,
       };
 }
+
 
 class QuestionModel {
   final String id;
