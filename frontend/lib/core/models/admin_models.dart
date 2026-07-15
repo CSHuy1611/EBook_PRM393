@@ -272,3 +272,101 @@ class DailyActivityDto {
         'newUsers': newUsers,
       };
 }
+
+class CurriculumTopicDto {
+  final String id;
+  final String code;
+  final String name;
+  final String strand;
+  final int grade;
+  final int orderIndex;
+  final bool isActive;
+
+  CurriculumTopicDto({
+    required this.id,
+    required this.code,
+    required this.name,
+    this.strand = '',
+    this.grade = 8,
+    this.orderIndex = 0,
+    this.isActive = true,
+  });
+
+  factory CurriculumTopicDto.fromJson(Map<String, dynamic> json) =>
+      CurriculumTopicDto(
+        id: json['id'] ?? '',
+        code: json['code'] ?? '',
+        name: json['name'] ?? '',
+        strand: json['strand'] ?? '',
+        grade: json['grade'] ?? 8,
+        orderIndex: json['orderIndex'] ?? 0,
+        isActive: json['isActive'] ?? true,
+      );
+
+  String get displayName => '[$code] $name';
+}
+
+class AdminQuizDto {
+  final String id;
+  final String title;
+  final String quizType;
+  final String? lessonId;
+  final String? chapterId;
+  final int passScore;
+  final int durationSeconds;
+  final int firstPassCoins;
+  final bool isPublished;
+  final int questionCount;
+
+  AdminQuizDto({
+    required this.id,
+    required this.title,
+    this.quizType = 'Lesson',
+    this.lessonId,
+    this.chapterId,
+    this.passScore = 5,
+    this.durationSeconds = 600,
+    this.firstPassCoins = 10,
+    this.isPublished = false,
+    this.questionCount = 0,
+  });
+
+  factory AdminQuizDto.fromJson(Map<String, dynamic> json) => AdminQuizDto(
+        id: json['id'] ?? '',
+        title: json['title'] ?? '',
+        quizType: _parseQuizType(json['quizType']),
+        lessonId: json['lessonId'],
+        chapterId: json['chapterId'],
+        passScore: (json['passScore'] ?? 5).toInt(),
+        durationSeconds: json['durationSeconds'] ?? 600,
+        firstPassCoins: json['firstPassCoins'] ?? 10,
+        isPublished: json['isPublished'] ?? false,
+        questionCount: json['questionCount'] ?? 0,
+      );
+
+  static String _parseQuizType(dynamic raw) {
+    if (raw == null) return 'Lesson';
+    if (raw is String) {
+      if (raw == '0' || raw.toLowerCase() == 'lesson') return 'Lesson';
+      if (raw == '1' || raw.toLowerCase() == 'chapter') return 'Chapter';
+      return raw;
+    }
+    if (raw is int) {
+      return raw == 0 ? 'Lesson' : 'Chapter';
+    }
+    return 'Lesson';
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'quizType': quizType,
+        'lessonId': lessonId,
+        'chapterId': chapterId,
+        'passScore': passScore,
+        'durationSeconds': durationSeconds,
+        'firstPassCoins': firstPassCoins,
+        'isPublished': isPublished,
+        'questionCount': questionCount,
+      };
+}
