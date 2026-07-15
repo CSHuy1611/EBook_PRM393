@@ -42,6 +42,9 @@ builder.Services.AddScoped<IProgressSyncService, ProgressSyncService>();
 builder.Services.AddScoped<IBadgeCheckService, BadgeCheckService>();
 builder.Services.AddScoped<ICoinCalculationService, CoinCalculationService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.AddScoped<IQuizRewardService, QuizRewardService>();
+builder.Services.AddScoped<IProfileService, ProfileService>();
+builder.Services.AddScoped<IContentValidationService, ContentValidationService>();
 
 // JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key is not configured");
@@ -101,6 +104,7 @@ if (app.Environment.IsDevelopment())
 app.UseCors("AllowFlutterDev");
 
 app.UseAuthentication();
+app.UseMiddleware<ActiveUserMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();

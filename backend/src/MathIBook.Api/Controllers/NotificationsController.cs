@@ -1,9 +1,9 @@
+using System.Security.Claims;
 using MathIBook.Application.DTOs;
 using MathIBook.Domain.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
 
 namespace MathIBook.Api.Controllers;
 
@@ -20,122 +20,72 @@ public class NotificationsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll()
+    public async Task<ActionResult<List<NotificationDto>>> GetAll()
     {
-        try
-        {
-            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-
-            var notifications = await _unitOfWork.Notifications.Query()
-                .Where(n => n.UserId == userId)
-                .OrderByDescending(n => n.CreatedAt)
-                .Select(n => new NotificationDto
-                {
-                    Id = n.Id,
-                    Title = n.Title,
-                    Body = n.Body,
-                    Link = n.Link,
-                    IsRead = n.IsRead,
-                    CreatedAt = n.CreatedAt
-                })
-                .ToListAsync();
-
-            return Ok(notifications);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new ProblemDetails
+        var userId = CurrentUserId();
+        return Ok(await _unitOfWork.Notifications.Query()
+            .Where(notification => notification.UserId == userId)
+            .OrderByDescending(notification => notification.CreatedAt)
+            .Select(notification => new NotificationDto
             {
-                Title = "Error fetching notifications",
-                Detail = ex.Message,
-                Status = 500
-            });
-        }
+                Id = notification.Id,
+                Title = notification.Title,
+                Body = notification.Body,
+                Link = notification.Link,
+                Type = notification.Type,
+                RelatedEntityId = notification.RelatedEntityId,
+                IsRead = notification.IsRead,
+                CreatedAt = notification.CreatedAt
+            })
+            .ToListAsync());
     }
 
     [HttpGet("unread-count")]
-    public async Task<IActionResult> GetUnreadCount()
+    public async Task<ActionResult<UnreadCountDto>> GetUnreadCount()
     {
-        try
+        var userId = CurrentUserId();
+        return Ok(new UnreadCountDto
         {
-            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-
-            var count = await _unitOfWork.Notifications.Query()
-                .Where(n => n.UserId == userId && !n.IsRead)
-                .CountAsync();
-
-            return Ok(new UnreadCountDto { Count = count });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new ProblemDetails
-            {
-                Title = "Error fetching unread count",
-                Detail = ex.Message,
-                Status = 500
-            });
-        }
+            Count = await _unitOfWork.Notifications.Query()
+                .CountAsync(notification =>
+                    notification.UserId == userId && !notification.IsRead)
+        });
     }
 
     [HttpPut("{id}/read")]
     public async Task<IActionResult> MarkAsRead(Guid id)
     {
-        try
+        var userId = CurrentUserId();
+        var notification = await _unitOfWork.Notifications.Query()
+            .FirstOrDefaultAsync(item => item.Id == id && item.UserId == userId);
+        if (notification is null)
         {
-            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-
-            var notification = await _unitOfWork.Notifications.FirstOrDefaultAsync(n =>
-                n.Id == id && n.UserId == userId);
-
-            if (notification == null)
-                return NotFound(new ProblemDetails { Title = "Notification not found", Status = 404 });
-
-            notification.IsRead = true;
-            _unitOfWork.Notifications.Update(notification);
-            await _unitOfWork.SaveChangesAsync();
-
-            return NoContent();
+            return NotFound();
         }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new ProblemDetails
-            {
-                Title = "Error marking notification as read",
-                Detail = ex.Message,
-                Status = 500
-            });
-        }
+
+        notification.IsRead = true;
+        _unitOfWork.Notifications.Update(notification);
+        await _unitOfWork.SaveChangesAsync();
+        return NoContent();
     }
 
     [HttpPut("read-all")]
     public async Task<IActionResult> MarkAllAsRead()
     {
-        try
+        var userId = CurrentUserId();
+        var notifications = await _unitOfWork.Notifications.Query()
+            .Where(item => item.UserId == userId && !item.IsRead)
+            .ToListAsync();
+        foreach (var notification in notifications)
         {
-            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-
-            var unread = await _unitOfWork.Notifications.Query()
-                .Where(n => n.UserId == userId && !n.IsRead)
-                .ToListAsync();
-
-            foreach (var notification in unread)
-            {
-                notification.IsRead = true;
-                _unitOfWork.Notifications.Update(notification);
-            }
-
-            await _unitOfWork.SaveChangesAsync();
-
-            return NoContent();
+            notification.IsRead = true;
+            _unitOfWork.Notifications.Update(notification);
         }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new ProblemDetails
-            {
-                Title = "Error marking all notifications as read",
-                Detail = ex.Message,
-                Status = 500
-            });
-        }
+
+        await _unitOfWork.SaveChangesAsync();
+        return NoContent();
     }
+
+    private Guid CurrentUserId() =>
+        Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }
