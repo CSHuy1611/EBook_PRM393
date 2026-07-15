@@ -14,9 +14,18 @@ public class CoinTransaction
     public int Amount { get; set; }
 
     [Required, MaxLength(50)]
-    public string SourceType { get; set; } = string.Empty; // quiz_reward/badge_unlock
+    public string SourceType { get; set; } = string.Empty;
 
     public Guid? SourceId { get; set; }
+
+    public Guid? RewardPolicyId { get; set; }
+
+    public Guid? ClientAttemptId { get; set; }
+
+    [MaxLength(150)]
+    public string? IdempotencyKey { get; set; }
+
+    public int BalanceAfter { get; set; }
 
     [Required, MaxLength(255)]
     public string Description { get; set; } = string.Empty;
@@ -25,4 +34,7 @@ public class CoinTransaction
 
     [ForeignKey(nameof(UserId))]
     public User User { get; set; } = null!;
+
+    [ForeignKey(nameof(RewardPolicyId))]
+    public RewardPolicy? RewardPolicy { get; set; }
 }

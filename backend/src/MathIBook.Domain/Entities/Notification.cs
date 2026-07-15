@@ -11,8 +11,7 @@ public class Notification
     [Required]
     public Guid UserId { get; set; }
 
-    [Required]
-    [MaxLength(200)]
+    [Required, MaxLength(200)]
     public string Title { get; set; } = string.Empty;
 
     [MaxLength(1000)]
@@ -21,7 +20,12 @@ public class Notification
     [MaxLength(100)]
     public string? Link { get; set; }
 
-    public bool IsRead { get; set; } = false;
+    [MaxLength(50)]
+    public string Type { get; set; } = "system";
+
+    public Guid? RelatedEntityId { get; set; }
+
+    public bool IsRead { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
