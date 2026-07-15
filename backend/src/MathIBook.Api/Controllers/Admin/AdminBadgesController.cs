@@ -12,6 +12,15 @@ namespace MathIBook.Api.Controllers.Admin;
 [Authorize(Roles = "Admin")]
 public class AdminBadgesController : ControllerBase
 {
+    private static readonly HashSet<string> SupportedRuleTypes =
+    [
+        "complete_chapter",
+        "complete_book",
+        "total_coins",
+        "passed_quizzes",
+        "perfect_quiz_streak"
+    ];
+
     private readonly IUnitOfWork _unitOfWork;
 
     public AdminBadgesController(IUnitOfWork unitOfWork)
@@ -22,125 +31,216 @@ public class AdminBadgesController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        try
-        {
-            var badges = await _unitOfWork.Badges.Query()
-                .OrderBy(b => b.Title)
-                .Select(b => new BadgeDto
-                {
-                    Id = b.Id,
-                    Title = b.Title,
-                    Description = b.Description,
-                    IconUrl = b.IconUrl,
-                    ConditionType = b.ConditionType,
-                    ConditionValue = b.ConditionValue
-                })
-                .ToListAsync();
-
-            return Ok(badges);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new ProblemDetails
+        var badges = await _unitOfWork.Badges.Query()
+            .Where(badge => !badge.IsDeleted)
+            .Include(badge => badge.Rules.OrderBy(rule => rule.OrderIndex))
+            .Select(badge => new
             {
-                Title = "Error fetching badges",
-                Detail = ex.Message,
-                Status = 500
-            });
+                badge.Id,
+                badge.Title,
+                badge.Description,
+                badge.IconUrl,
+                badge.RuleMatchMode,
+                badge.RewardCoins,
+                badge.IsActive,
+                earnedCount = badge.UserBadges.Count,
+                rules = badge.Rules.Select(rule => new
+                {
+                    rule.Id,
+                    rule.RuleType,
+                    rule.TargetChapterId,
+                    rule.TargetQuizId,
+                    rule.ThresholdValue,
+                    rule.OrderIndex,
+                    rule.Parameters
+                })
+            })
+            .ToListAsync();
+        return Ok(badges);
+    }
+
+    [HttpGet("{id}/preview")]
+    public async Task<IActionResult> Preview(Guid id)
+    {
+        var badge = await _unitOfWork.Badges.Query()
+            .Include(item => item.Rules.OrderBy(rule => rule.OrderIndex))
+            .FirstOrDefaultAsync(item => item.Id == id && !item.IsDeleted);
+        if (badge is null)
+        {
+            return NotFound();
         }
+
+        return Ok(new
+        {
+            badge.Id,
+            badge.Title,
+            badge.Description,
+            badge.RuleMatchMode,
+            badge.RewardCoins,
+            badge.IsActive,
+            earnedCount = await _unitOfWork.UserBadges.Query()
+                .CountAsync(item => item.BadgeId == id),
+            badge.Rules
+        });
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] BadgeCreateDto dto)
+    public async Task<IActionResult> Create([FromBody] BadgeAdminUpsertDto dto)
     {
-        try
+        var validation = await ValidateAsync(dto);
+        if (validation is not null)
         {
-            var badge = new Badge
-            {
-                Title = dto.Title,
-                Description = dto.Description,
-                IconUrl = dto.IconUrl,
-                ConditionType = dto.ConditionType,
-                ConditionValue = dto.ConditionValue
-            };
-
-            await _unitOfWork.Badges.AddAsync(badge);
-            await _unitOfWork.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(GetAll), new { id = badge.Id }, new BadgeDto
-            {
-                Id = badge.Id,
-                Title = badge.Title,
-                Description = badge.Description,
-                IconUrl = badge.IconUrl,
-                ConditionType = badge.ConditionType,
-                ConditionValue = badge.ConditionValue
-            });
+            return BadRequest(validation);
         }
-        catch (Exception ex)
+
+        var badge = new Badge
         {
-            return StatusCode(500, new ProblemDetails
-            {
-                Title = "Error creating badge",
-                Detail = ex.Message,
-                Status = 500
-            });
+            Title = dto.Title.Trim(),
+            Description = dto.Description.Trim(),
+            IconUrl = dto.IconUrl.Trim(),
+            ConditionType = dto.Rules.FirstOrDefault()?.RuleType ?? "structured",
+            ConditionValue = null,
+            RuleMatchMode = dto.RuleMatchMode.ToUpperInvariant(),
+            RewardCoins = dto.RewardCoins,
+            IsActive = dto.IsActive,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        await _unitOfWork.Badges.AddAsync(badge);
+        foreach (var rule in dto.Rules)
+        {
+            await _unitOfWork.BadgeRules.AddAsync(MapRule(badge.Id, rule));
         }
+
+        await _unitOfWork.SaveChangesAsync();
+        return Ok(new { badge.Id });
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(Guid id, [FromBody] BadgeUpdateDto dto)
+    public async Task<IActionResult> Update(Guid id, [FromBody] BadgeAdminUpsertDto dto)
     {
-        try
+        var validation = await ValidateAsync(dto);
+        if (validation is not null)
         {
-            var badge = await _unitOfWork.Badges.GetByIdAsync(id);
-            if (badge == null)
-                return NotFound(new ProblemDetails { Title = "Badge not found", Status = 404 });
-
-            badge.Title = dto.Title;
-            badge.Description = dto.Description;
-            badge.IconUrl = dto.IconUrl;
-            badge.ConditionType = dto.ConditionType;
-            badge.ConditionValue = dto.ConditionValue;
-
-            _unitOfWork.Badges.Update(badge);
-            await _unitOfWork.SaveChangesAsync();
-
-            return NoContent();
+            return BadRequest(validation);
         }
-        catch (Exception ex)
+
+        var badge = await _unitOfWork.Badges.GetByIdAsync(id);
+        if (badge is null || badge.IsDeleted)
         {
-            return StatusCode(500, new ProblemDetails
-            {
-                Title = "Error updating badge",
-                Detail = ex.Message,
-                Status = 500
-            });
+            return NotFound();
         }
+
+        badge.Title = dto.Title.Trim();
+        badge.Description = dto.Description.Trim();
+        badge.IconUrl = dto.IconUrl.Trim();
+        badge.ConditionType = dto.Rules.FirstOrDefault()?.RuleType ?? "structured";
+        badge.ConditionValue = null;
+        badge.RuleMatchMode = dto.RuleMatchMode.ToUpperInvariant();
+        badge.RewardCoins = dto.RewardCoins;
+        badge.IsActive = dto.IsActive;
+        badge.UpdatedAt = DateTime.UtcNow;
+        _unitOfWork.Badges.Update(badge);
+
+        var oldRules = await _unitOfWork.BadgeRules.Query()
+            .Where(rule => rule.BadgeId == id)
+            .ToListAsync();
+        foreach (var rule in oldRules)
+        {
+            _unitOfWork.BadgeRules.Remove(rule);
+        }
+
+        foreach (var rule in dto.Rules)
+        {
+            await _unitOfWork.BadgeRules.AddAsync(MapRule(id, rule));
+        }
+
+        await _unitOfWork.SaveChangesAsync();
+        return NoContent();
     }
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(Guid id)
     {
-        try
+        var badge = await _unitOfWork.Badges.GetByIdAsync(id);
+        if (badge is null || badge.IsDeleted)
         {
-            var badge = await _unitOfWork.Badges.GetByIdAsync(id);
-            if (badge == null)
-                return NotFound(new ProblemDetails { Title = "Badge not found", Status = 404 });
-
-            _unitOfWork.Badges.Remove(badge);
-            await _unitOfWork.SaveChangesAsync();
-
-            return NoContent();
+            return NotFound();
         }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new ProblemDetails
-            {
-                Title = "Error deleting badge",
-                Detail = ex.Message,
-                Status = 500
-            });
-        }
+
+        badge.IsDeleted = true;
+        badge.IsActive = false;
+        badge.UpdatedAt = DateTime.UtcNow;
+        _unitOfWork.Badges.Update(badge);
+        await _unitOfWork.SaveChangesAsync();
+        return NoContent();
     }
+
+    private async Task<ProblemDetails?> ValidateAsync(BadgeAdminUpsertDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Title)
+            || string.IsNullOrWhiteSpace(dto.Description)
+            || string.IsNullOrWhiteSpace(dto.IconUrl)
+            || dto.RewardCoins < 0
+            || dto.Rules.Count == 0
+            || dto.RuleMatchMode.ToUpperInvariant() is not ("ALL" or "ANY")
+            || dto.Rules.Select(rule => rule.OrderIndex).Distinct().Count() != dto.Rules.Count)
+        {
+            return new ProblemDetails
+            {
+                Title = "Thông tin huy hiệu hoặc danh sách quy tắc không hợp lệ.",
+                Status = 400
+            };
+        }
+
+        foreach (var rule in dto.Rules)
+        {
+            var type = rule.RuleType.ToLowerInvariant();
+            if (!SupportedRuleTypes.Contains(type)
+                || rule.ThresholdValue < 0)
+            {
+                return new ProblemDetails
+                {
+                    Title = $"Quy tắc huy hiệu không được hỗ trợ: {rule.RuleType}.",
+                    Status = 400
+                };
+            }
+
+            if (type == "complete_chapter"
+                && (!rule.TargetChapterId.HasValue
+                    || !await _unitOfWork.Chapters.Query().AnyAsync(chapter =>
+                        chapter.Id == rule.TargetChapterId && !chapter.IsDeleted)))
+            {
+                return new ProblemDetails
+                {
+                    Title = "Quy tắc hoàn thành chương phải trỏ đến chương hợp lệ.",
+                    Status = 400
+                };
+            }
+
+            if (rule.TargetQuizId.HasValue
+                && !await _unitOfWork.Quizzes.Query().AnyAsync(quiz =>
+                    quiz.Id == rule.TargetQuizId && !quiz.IsDeleted))
+            {
+                return new ProblemDetails
+                {
+                    Title = "TargetQuizId không hợp lệ.",
+                    Status = 400
+                };
+            }
+        }
+
+        return null;
+    }
+
+    private static BadgeRule MapRule(Guid badgeId, BadgeRuleUpsertDto dto) => new()
+    {
+        BadgeId = badgeId,
+        RuleType = dto.RuleType.ToLowerInvariant(),
+        TargetChapterId = dto.TargetChapterId,
+        TargetQuizId = dto.TargetQuizId,
+        ThresholdValue = dto.ThresholdValue,
+        OrderIndex = dto.OrderIndex,
+        Parameters = dto.Parameters
+    };
 }

@@ -1,5 +1,9 @@
+using System.Security.Claims;
+using System.Text.Json;
 using MathIBook.Application.DTOs;
+using MathIBook.Application.Interfaces;
 using MathIBook.Domain.Entities;
+using MathIBook.Domain.Enums;
 using MathIBook.Domain.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,277 +17,329 @@ namespace MathIBook.Api.Controllers.Admin;
 public class AdminLessonsController : ControllerBase
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IContentValidationService _validationService;
 
-    public AdminLessonsController(IUnitOfWork unitOfWork)
+    public AdminLessonsController(
+        IUnitOfWork unitOfWork,
+        IContentValidationService validationService)
     {
         _unitOfWork = unitOfWork;
+        _validationService = validationService;
     }
 
     [HttpGet("chapter/{chapterId}")]
-    public async Task<IActionResult> GetByChapter(Guid chapterId)
+    public async Task<ActionResult<List<LessonDto>>> GetByChapter(Guid chapterId)
     {
-        try
-        {
-            var lessons = await _unitOfWork.Lessons.Query()
-                .Where(l => l.ChapterId == chapterId)
-                .OrderBy(l => l.OrderIndex)
-                .Include(l => l.Questions)
-                .ToListAsync();
-
-            var result = lessons.Select(l => new LessonDto
-            {
-                Id = l.Id,
-                ChapterId = l.ChapterId,
-                Title = l.Title,
-                ContentBody = l.ContentBody,
-                SimulationType = l.SimulationType,
-                OrderIndex = l.OrderIndex,
-                IsPublished = l.IsPublished,
-                IsCompleted = false,
-                Questions = l.Questions.OrderBy(q => q.OrderIndex).Select(q => new QuestionDto
-                {
-                    Id = q.Id,
-                    LessonId = q.LessonId,
-                    QuestionText = q.QuestionText,
-                    Options = System.Text.Json.JsonSerializer.Deserialize<List<string>>(q.Options) ?? new(),
-                    CorrectOption = q.CorrectOption,
-                    Explanation = q.Explanation,
-                    OrderIndex = q.OrderIndex
-                }).ToList()
-            }).ToList();
-
-            return Ok(result);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new ProblemDetails
-            {
-                Title = "Error fetching lessons",
-                Detail = ex.Message,
-                Status = 500
-            });
-        }
+        var lessons = await LessonQuery()
+            .Where(lesson => lesson.ChapterId == chapterId && !lesson.IsDeleted)
+            .OrderBy(lesson => lesson.OrderIndex)
+            .ToListAsync();
+        return Ok(lessons.Select(Map).ToList());
     }
 
     [HttpGet("{id}")]
-    public async Task<IActionResult> GetById(Guid id)
+    public async Task<ActionResult<LessonDto>> GetById(Guid id)
     {
-        try
-        {
-            var lesson = await _unitOfWork.Lessons.Query()
-                .Include(l => l.Questions.OrderBy(q => q.OrderIndex))
-                .FirstOrDefaultAsync(l => l.Id == id);
-
-            if (lesson == null)
-                return NotFound(new ProblemDetails { Title = "Lesson not found", Status = 404 });
-
-            var result = new LessonDto
-            {
-                Id = lesson.Id,
-                ChapterId = lesson.ChapterId,
-                Title = lesson.Title,
-                ContentBody = lesson.ContentBody,
-                SimulationType = lesson.SimulationType,
-                OrderIndex = lesson.OrderIndex,
-                IsPublished = lesson.IsPublished,
-                Questions = lesson.Questions.Select(q => new QuestionDto
-                {
-                    Id = q.Id,
-                    LessonId = q.LessonId,
-                    QuestionText = q.QuestionText,
-                    Options = System.Text.Json.JsonSerializer.Deserialize<List<string>>(q.Options) ?? new(),
-                    CorrectOption = q.CorrectOption,
-                    Explanation = q.Explanation,
-                    OrderIndex = q.OrderIndex
-                }).ToList()
-            };
-
-            return Ok(result);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new ProblemDetails
-            {
-                Title = "Error fetching lesson",
-                Detail = ex.Message,
-                Status = 500
-            });
-        }
+        var lesson = await LessonQuery()
+            .FirstOrDefaultAsync(item => item.Id == id && !item.IsDeleted);
+        return lesson is null ? NotFound() : Ok(Map(lesson));
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] LessonCreateDto dto)
+    public async Task<ActionResult<LessonDto>> Create([FromBody] LessonCreateDto dto)
     {
-        try
+        var relationError = await ValidateRelationsAsync(dto.ChapterId, dto.CurriculumTopicId);
+        if (relationError is not null)
         {
-            var chapter = await _unitOfWork.Chapters.GetByIdAsync(dto.ChapterId);
-            if (chapter == null)
-                return NotFound(new ProblemDetails { Title = "Chapter not found", Status = 404 });
-
-            var lesson = new Lesson
-            {
-                ChapterId = dto.ChapterId,
-                Title = dto.Title,
-                ContentBody = dto.ContentBody,
-                SimulationType = dto.SimulationType,
-                OrderIndex = dto.OrderIndex
-            };
-
-            await _unitOfWork.Lessons.AddAsync(lesson);
-            await _unitOfWork.SaveChangesAsync();
-
-            try
-            {
-                var students = await _unitOfWork.Users.Query()
-                    .Where(u => u.Role == "Student")
-                    .ToListAsync();
-
-                foreach (var student in students)
-                {
-                    var notification = new Notification
-                    {
-                        UserId = student.Id,
-                        Title = "New Lesson Available",
-                        Body = $"A new lesson \"{lesson.Title}\" has been added.",
-                        Link = $"/lessons/{lesson.Id}"
-                    };
-
-                    await _unitOfWork.Notifications.AddAsync(notification);
-                }
-
-                await _unitOfWork.SaveChangesAsync();
-            }
-            catch
-            {
-                // Notification failure should not block lesson creation
-            }
-
-            return CreatedAtAction(nameof(GetByChapter), new { chapterId = lesson.ChapterId }, new LessonDto
-            {
-                Id = lesson.Id,
-                ChapterId = lesson.ChapterId,
-                Title = lesson.Title,
-                ContentBody = lesson.ContentBody,
-                SimulationType = lesson.SimulationType,
-                OrderIndex = lesson.OrderIndex,
-                IsPublished = lesson.IsPublished
-            });
+            return BadRequest(relationError);
         }
-        catch (Exception ex)
+
+        var lesson = new Lesson
         {
-            return StatusCode(500, new ProblemDetails
-            {
-                Title = "Error creating lesson",
-                Detail = ex.Message,
-                Status = 500
-            });
-        }
+            ChapterId = dto.ChapterId,
+            CurriculumTopicId = dto.CurriculumTopicId,
+            Title = dto.Title.Trim(),
+            ContentBody = dto.ContentBody,
+            SimulationType = dto.SimulationType,
+            OrderIndex = dto.OrderIndex,
+            ContentVersion = 1,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        await _unitOfWork.Lessons.AddAsync(lesson);
+        await AuditAsync(lesson.Id, "Create", null, lesson);
+        await _unitOfWork.SaveChangesAsync();
+        return Ok(Map(lesson));
     }
 
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] LessonUpdateDto dto)
     {
-        try
+        var lesson = await _unitOfWork.Lessons.GetByIdAsync(id);
+        if (lesson is null || lesson.IsDeleted)
         {
-            var lesson = await _unitOfWork.Lessons.GetByIdAsync(id);
-            if (lesson == null)
-                return NotFound(new ProblemDetails { Title = "Lesson not found", Status = 404 });
-
-            lesson.Title = dto.Title;
-            lesson.ContentBody = dto.ContentBody;
-            lesson.SimulationType = dto.SimulationType;
-            lesson.OrderIndex = dto.OrderIndex;
-
-            _unitOfWork.Lessons.Update(lesson);
-            await _unitOfWork.SaveChangesAsync();
-
-            try
-            {
-                var students = await _unitOfWork.Users.Query()
-                    .Where(u => u.Role == "Student")
-                    .ToListAsync();
-
-                foreach (var student in students)
-                {
-                    var notification = new Notification
-                    {
-                        UserId = student.Id,
-                        Title = "Lesson Updated",
-                        Body = $"The lesson \"{lesson.Title}\" has been updated.",
-                        Link = $"/lessons/{lesson.Id}"
-                    };
-
-                    await _unitOfWork.Notifications.AddAsync(notification);
-                }
-
-                await _unitOfWork.SaveChangesAsync();
-            }
-            catch
-            {
-                // Notification failure should not block lesson update
-            }
-
-            return NoContent();
+            return NotFound();
         }
-        catch (Exception ex)
+
+        var relationError = await ValidateRelationsAsync(
+            lesson.ChapterId,
+            dto.CurriculumTopicId);
+        if (relationError is not null)
         {
-            return StatusCode(500, new ProblemDetails
-            {
-                Title = "Error updating lesson",
-                Detail = ex.Message,
-                Status = 500
-            });
+            return BadRequest(relationError);
         }
+
+        var before = Snapshot(lesson);
+        var contentChanged = lesson.ContentBody != dto.ContentBody
+            || lesson.Title != dto.Title
+            || lesson.SimulationType != dto.SimulationType;
+        lesson.CurriculumTopicId = dto.CurriculumTopicId;
+        lesson.Title = dto.Title.Trim();
+        lesson.ContentBody = dto.ContentBody;
+        lesson.SimulationType = dto.SimulationType;
+        lesson.OrderIndex = dto.OrderIndex;
+        lesson.ContentVersion += contentChanged ? 1 : 0;
+        lesson.UpdatedAt = DateTime.UtcNow;
+        if (contentChanged)
+        {
+            lesson.IsPublished = false;
+            lesson.PublishedAt = null;
+        }
+
+        _unitOfWork.Lessons.Update(lesson);
+        await AuditAsync(lesson.Id, "Update", before, lesson);
+        await _unitOfWork.SaveChangesAsync();
+        return NoContent();
     }
 
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(Guid id)
+    [HttpGet("{id}/validation")]
+    public async Task<ActionResult<ContentValidationResultDto>> Validate(Guid id)
     {
-        try
+        var lesson = await _unitOfWork.Lessons.Query()
+            .Include(item => item.CurriculumTopic)
+            .FirstOrDefaultAsync(item => item.Id == id && !item.IsDeleted);
+        if (lesson is null)
         {
-            var lesson = await _unitOfWork.Lessons.GetByIdAsync(id);
-            if (lesson == null)
-                return NotFound(new ProblemDetails { Title = "Lesson not found", Status = 404 });
-
-            _unitOfWork.Lessons.Remove(lesson);
-            await _unitOfWork.SaveChangesAsync();
-
-            return NoContent();
+            return NotFound();
         }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new ProblemDetails
-            {
-                Title = "Error deleting lesson",
-                Detail = ex.Message,
-                Status = 500
-            });
-        }
+
+        return Ok(_validationService.ValidateLesson(
+            lesson,
+            lesson.CurriculumTopic is { Grade: 8, IsActive: true }));
     }
 
     [HttpPatch("{id}/publish")]
     public async Task<IActionResult> TogglePublish(Guid id)
     {
-        try
+        var lesson = await _unitOfWork.Lessons.Query()
+            .Include(item => item.CurriculumTopic)
+            .Include(item => item.Chapter)
+            .FirstOrDefaultAsync(item => item.Id == id && !item.IsDeleted);
+        if (lesson is null)
         {
-            var lesson = await _unitOfWork.Lessons.GetByIdAsync(id);
-            if (lesson == null)
-                return NotFound(new ProblemDetails { Title = "Lesson not found", Status = 404 });
-
-            lesson.IsPublished = !lesson.IsPublished;
-            _unitOfWork.Lessons.Update(lesson);
-            await _unitOfWork.SaveChangesAsync();
-
-            return NoContent();
+            return NotFound();
         }
-        catch (Exception ex)
+
+        var before = Snapshot(lesson);
+        if (lesson.IsPublished)
         {
-            return StatusCode(500, new ProblemDetails
+            lesson.IsPublished = false;
+            lesson.PublishedAt = null;
+        }
+        else
+        {
+            var validation = _validationService.ValidateLesson(
+                lesson,
+                lesson.CurriculumTopic is { Grade: 8, IsActive: true });
+            if (!validation.IsValid)
             {
-                Title = "Error toggling publish status",
-                Detail = ex.Message,
-                Status = 500
+                return BadRequest(validation);
+            }
+
+            if (!lesson.Chapter.IsPublished || lesson.Chapter.IsDeleted)
+            {
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Chương phải được xuất bản trước bài học.",
+                    Status = 400
+                });
+            }
+
+            lesson.IsPublished = true;
+            lesson.PublishedAt = DateTime.UtcNow;
+            await NotifyStudentsAsync(lesson);
+        }
+
+        lesson.UpdatedAt = DateTime.UtcNow;
+        _unitOfWork.Lessons.Update(lesson);
+        await AuditAsync(
+            lesson.Id,
+            lesson.IsPublished ? "Publish" : "Unpublish",
+            before,
+            lesson);
+        await _unitOfWork.SaveChangesAsync();
+        return NoContent();
+    }
+
+    [HttpPut("chapter/{chapterId}/reorder")]
+    public async Task<IActionResult> Reorder(
+        Guid chapterId,
+        [FromBody] Dictionary<Guid, int> order)
+    {
+        if (order.Values.Distinct().Count() != order.Count)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Thứ tự bài học không được trùng.",
+                Status = 400
+            });
+        }
+
+        var lessons = await _unitOfWork.Lessons.Query()
+            .Where(lesson =>
+                lesson.ChapterId == chapterId
+                && order.Keys.Contains(lesson.Id)
+                && !lesson.IsDeleted)
+            .ToListAsync();
+        if (lessons.Count != order.Count)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Danh sách chứa bài học không tồn tại.",
+                Status = 400
+            });
+        }
+
+        foreach (var lesson in lessons)
+        {
+            lesson.OrderIndex = order[lesson.Id];
+            lesson.UpdatedAt = DateTime.UtcNow;
+            _unitOfWork.Lessons.Update(lesson);
+        }
+
+        await _unitOfWork.SaveChangesAsync();
+        return NoContent();
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        var lesson = await _unitOfWork.Lessons.GetByIdAsync(id);
+        if (lesson is null || lesson.IsDeleted)
+        {
+            return NotFound();
+        }
+
+        var before = Snapshot(lesson);
+        lesson.IsDeleted = true;
+        lesson.IsPublished = false;
+        lesson.PublishedAt = null;
+        lesson.UpdatedAt = DateTime.UtcNow;
+        _unitOfWork.Lessons.Update(lesson);
+        await AuditAsync(lesson.Id, "SoftDelete", before, lesson);
+        await _unitOfWork.SaveChangesAsync();
+        return NoContent();
+    }
+
+    private IQueryable<Lesson> LessonQuery() =>
+        _unitOfWork.Lessons.Query()
+            .Include(lesson => lesson.Questions.Where(question => !question.IsDeleted))
+            .Include(lesson => lesson.Quizzes.Where(quiz => !quiz.IsDeleted));
+
+    private async Task<ProblemDetails?> ValidateRelationsAsync(
+        Guid chapterId,
+        Guid? topicId)
+    {
+        if (!await _unitOfWork.Chapters.Query().AnyAsync(
+            chapter => chapter.Id == chapterId && !chapter.IsDeleted))
+        {
+            return new ProblemDetails { Title = "Không tìm thấy chương.", Status = 400 };
+        }
+
+        if (!topicId.HasValue
+            || !await _unitOfWork.CurriculumTopics.Query().AnyAsync(topic =>
+                topic.Id == topicId && topic.Grade == 8 && topic.IsActive))
+        {
+            return new ProblemDetails
+            {
+                Title = "Bài học phải thuộc taxonomy Toán lớp 8 đang hoạt động.",
+                Status = 400
+            };
+        }
+
+        return null;
+    }
+
+    private async Task NotifyStudentsAsync(Lesson lesson)
+    {
+        var studentIds = await _unitOfWork.Users.Query()
+            .Where(user => user.Role == "Student" && user.IsActive)
+            .Select(user => user.Id)
+            .ToListAsync();
+        foreach (var studentId in studentIds)
+        {
+            await _unitOfWork.Notifications.AddAsync(new Notification
+            {
+                UserId = studentId,
+                Title = "Bài học mới",
+                Body = $"Bài “{lesson.Title}” đã được xuất bản.",
+                Link = $"/lessons/{lesson.Id}",
+                Type = "new_lesson",
+                RelatedEntityId = lesson.Id,
+                CreatedAt = DateTime.UtcNow
             });
         }
     }
+
+    private LessonDto Map(Lesson lesson) => new()
+    {
+        Id = lesson.Id,
+        ChapterId = lesson.ChapterId,
+        CurriculumTopicId = lesson.CurriculumTopicId,
+        Title = lesson.Title,
+        ContentBody = lesson.ContentBody,
+        SimulationType = lesson.SimulationType,
+        OrderIndex = lesson.OrderIndex,
+        ContentVersion = lesson.ContentVersion,
+        IsPublished = lesson.IsPublished,
+        QuizId = lesson.Quizzes.FirstOrDefault()?.Id,
+        Questions = lesson.Questions.OrderBy(question => question.OrderIndex)
+            .Select(question => new QuestionDto
+            {
+                Id = question.Id,
+                LessonId = question.LessonId,
+                ChapterId = question.ChapterId,
+                QuestionText = question.QuestionText,
+                Options = JsonSerializer.Deserialize<List<string>>(question.Options) ?? new(),
+                CorrectOption = question.CorrectOption,
+                Explanation = question.Explanation,
+                OrderIndex = question.OrderIndex
+            }).ToList()
+    };
+
+    private async Task AuditAsync(Guid id, string action, object? before, object? after)
+    {
+        await _unitOfWork.ContentAuditLogs.AddAsync(new ContentAuditLog
+        {
+            AdminUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!),
+            EntityType = "Lesson",
+            EntityId = id,
+            Action = action,
+            BeforeData = before is null ? null : JsonSerializer.Serialize(before),
+            AfterData = after is null ? null : JsonSerializer.Serialize(after),
+            CreatedAt = DateTime.UtcNow
+        });
+    }
+
+    private static object Snapshot(Lesson lesson) => new
+    {
+        lesson.Title,
+        lesson.ContentBody,
+        lesson.SimulationType,
+        lesson.OrderIndex,
+        lesson.CurriculumTopicId,
+        lesson.ContentVersion,
+        lesson.IsPublished,
+        lesson.IsDeleted
+    };
 }
