@@ -8,6 +8,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Moq;
 
+using MathIBook.Application.Interfaces;
+using Microsoft.Extensions.Caching.Memory;
+
 namespace MathIBook.UnitTests;
 
 public class AuthServiceTests
@@ -31,7 +34,9 @@ public class AuthServiceTests
         var service = new AuthService(
             unitOfWork.Object,
             Mock.Of<IConfiguration>(),
-            Mock.Of<ILogger<AuthService>>());
+            Mock.Of<ILogger<AuthService>>(),
+            Mock.Of<IMemoryCache>(),
+            Mock.Of<IEmailService>());
 
         var action = () => service.LoginAsync(new LoginRequest
         {

@@ -60,10 +60,11 @@ class AuthProvider extends ChangeNotifier {
     String email,
     String password,
     String confirmPassword,
+    String otp,
   ) async {
     _setLoading(true);
     try {
-      final data = await _apiClient.register(name, email, password, confirmPassword);
+      final data = await _apiClient.register(name, email, password, confirmPassword, otp);
       final response = AuthResponse.fromJson(data);
       await _secureStorage.saveAccessToken(response.token);
       await _secureStorage.saveRefreshToken(response.refreshToken);
@@ -71,6 +72,15 @@ class AuthProvider extends ChangeNotifier {
       _currentUser = response.user;
       _isAuthenticated = true;
       return response;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<void> requestOtp(String email) async {
+    _setLoading(true);
+    try {
+      await _apiClient.sendOtp(email);
     } finally {
       _setLoading(false);
     }

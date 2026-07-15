@@ -36,6 +36,35 @@ public class AuthController : ControllerBase
     }
 
     [AllowAnonymous]
+    [HttpPost("send-otp")]
+    public async Task<IActionResult> SendOtp([FromBody] OtpRequest request)
+    {
+        try
+        {
+            await _authService.SendOtpAsync(request);
+            return Ok(new { Message = "Mã OTP đã được gửi đến email của bạn." });
+        }
+        catch (ArgumentException exception)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Yêu cầu gửi OTP thất bại.",
+                Detail = exception.Message,
+                Status = 400
+            });
+        }
+        catch (Exception exception)
+        {
+            return StatusCode(500, new ProblemDetails
+            {
+                Title = "Lỗi hệ thống.",
+                Detail = exception.Message,
+                Status = 500
+            });
+        }
+    }
+
+    [AllowAnonymous]
     [HttpPost("register")]
     public async Task<ActionResult<AuthResponse>> Register([FromBody] RegisterRequest request)
     {

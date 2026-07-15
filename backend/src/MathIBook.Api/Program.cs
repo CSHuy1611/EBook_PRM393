@@ -4,6 +4,8 @@ using MathIBook.Application.Interfaces;
 using MathIBook.Application.Services;
 using MathIBook.Domain.Interfaces;
 using MathIBook.Infrastructure.Data;
+using MathIBook.Infrastructure.Services;
+using MathIBook.Application.Common;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -36,6 +38,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 // Application services
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IQuizScoringService, QuizScoringService>();
 builder.Services.AddScoped<IProgressSyncService, ProgressSyncService>();
@@ -65,6 +69,27 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = builder.Configuration["Jwt:Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
         ClockSkew = TimeSpan.Zero
+    };
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var authorization = context.Request.Headers["Authorization"].ToString();
+            if (!string.IsNullOrEmpty(authorization) && authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+            {
+                var encryptedToken = authorization.Substring("Bearer ".Length).Trim();
+                try
+                {
+                    var decryptedToken = EncryptionHelper.Decrypt(encryptedToken);
+                    context.Token = decryptedToken;
+                }
+                catch
+                {
+                    // Let validation fail if decryption fails
+                }
+            }
+            return Task.CompletedTask;
+        }
     };
 });
 

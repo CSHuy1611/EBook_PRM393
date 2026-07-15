@@ -2,10 +2,12 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using System.Text.RegularExpressions;
+using MathIBook.Application.Common;
 using MathIBook.Application.DTOs;
 using MathIBook.Application.Interfaces;
 using MathIBook.Domain.Entities;
 using MathIBook.Domain.Interfaces;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
@@ -17,12 +19,21 @@ public partial class AuthService : IAuthService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IConfiguration _configuration;
     private readonly ILogger<AuthService> _logger;
+    private readonly IMemoryCache _memoryCache;
+    private readonly IEmailService _emailService;
 
-    public AuthService(IUnitOfWork unitOfWork, IConfiguration configuration, ILogger<AuthService> logger)
+    public AuthService(
+        IUnitOfWork unitOfWork,
+        IConfiguration configuration,
+        ILogger<AuthService> logger,
+        IMemoryCache memoryCache,
+        IEmailService emailService)
     {
         _unitOfWork = unitOfWork;
         _configuration = configuration;
         _logger = logger;
+        _memoryCache = memoryCache;
+        _emailService = emailService;
     }
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request)
@@ -68,6 +79,12 @@ public partial class AuthService : IAuthService
 
         ValidatePassword(request.Password, request.ConfirmPassword);
 
+        // Verify OTP
+        if (string.IsNullOrEmpty(request.Otp) || !VerifyOtp(email, request.Otp.Trim()))
+        {
+            throw new ArgumentException("Mã OTP không chính xác hoặc đã hết hạn.");
+        }
+
         var existingUser = await _unitOfWork.Users.FirstOrDefaultAsync(user => user.Email.ToLower() == email);
         if (existingUser is not null)
         {
@@ -98,8 +115,9 @@ public partial class AuthService : IAuthService
 
     public async Task<AuthResponse> RefreshTokenAsync(string refreshToken)
     {
+        var decryptedToken = EncryptionHelper.Decrypt(refreshToken);
         var storedToken = await _unitOfWork.RefreshTokens.FirstOrDefaultAsync(
-            token => token.Token == refreshToken);
+            token => token.Token == decryptedToken);
 
         if (storedToken is null
             || storedToken.RevokedAt is not null
@@ -128,8 +146,9 @@ public partial class AuthService : IAuthService
 
     public async Task LogoutAsync(string refreshToken)
     {
+        var decryptedToken = EncryptionHelper.Decrypt(refreshToken);
         var storedToken = await _unitOfWork.RefreshTokens.FirstOrDefaultAsync(
-            token => token.Token == refreshToken);
+            token => token.Token == decryptedToken);
         if (storedToken is null || storedToken.RevokedAt is not null)
         {
             return;
@@ -186,8 +205,8 @@ public partial class AuthService : IAuthService
     {
         return new AuthResponse
         {
-            AccessToken = accessToken,
-            RefreshToken = refreshToken,
+            AccessToken = EncryptionHelper.Encrypt(accessToken),
+            RefreshToken = EncryptionHelper.Encrypt(refreshToken),
             User = new UserInfo
             {
                 Id = user.Id,
