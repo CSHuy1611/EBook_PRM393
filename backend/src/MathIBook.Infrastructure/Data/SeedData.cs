@@ -16,7 +16,6 @@ public static class SeedData
 
         // --- Users ---
         var admin1Id = Guid.NewGuid();
-        var admin2Id = Guid.NewGuid();
         var studentId = Guid.NewGuid();
 
         var admin1 = new User
@@ -42,7 +41,7 @@ public static class SeedData
             CreatedAt = DateTime.UtcNow
         };
 
-        context.Users.AddRange(admin1, admin2, student);
+        context.Users.AddRange(admin1, student);
 
         // --- Grade 8 curriculum taxonomy ---
         var topicFunctionsId = Guid.NewGuid();
