@@ -86,6 +86,24 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> forgotPassword(String email) async {
+    _setLoading(true);
+    try {
+      await _apiClient.forgotPassword(email);
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<void> resetPassword(String email, String otp, String newPassword, String confirmNewPassword) async {
+    _setLoading(true);
+    try {
+      await _apiClient.resetPassword(email, otp, newPassword, confirmNewPassword);
+    } finally {
+      _setLoading(false);
+    }
+  }
+
   Future<void> logout() async {
     _setLoading(true);
     try {

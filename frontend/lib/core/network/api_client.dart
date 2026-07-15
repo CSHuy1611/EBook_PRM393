@@ -141,6 +141,25 @@ class ApiClient {
     );
   }
 
+  Future<void> forgotPassword(String email) async {
+    await post(
+      '/auth/forgot-password',
+      data: {'email': email},
+    );
+  }
+
+  Future<void> resetPassword(String email, String otp, String newPassword, String confirmNewPassword) async {
+    await post(
+      '/auth/reset-password',
+      data: {
+        'email': email,
+        'otp': otp,
+        'newPassword': newPassword,
+        'confirmNewPassword': confirmNewPassword,
+      },
+    );
+  }
+
   Future<void> logout() async {
     final refreshToken = await _storageService.getRefreshToken();
     if (refreshToken != null) {

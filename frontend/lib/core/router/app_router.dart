@@ -5,6 +5,7 @@ import 'package:math_ibook/features/auth/domain/auth_provider.dart';
 import 'package:math_ibook/features/auth/presentation/splash_screen.dart';
 import 'package:math_ibook/features/auth/presentation/login_screen.dart';
 import 'package:math_ibook/features/auth/presentation/register_screen.dart';
+import 'package:math_ibook/features/auth/presentation/forgot_password_screen.dart';
 import 'package:math_ibook/features/student/shell/student_shell.dart';
 import 'package:math_ibook/features/student/chapters/chapters_screen.dart';
 import 'package:math_ibook/features/student/chapters/lessons_screen.dart';
@@ -39,18 +40,18 @@ GoRouter createAppRouter(AuthProvider authProvider) {
       final location = state.uri.toString();
 
       if (!isLoggedIn) {
-        if (location == '/splash' || location == '/login' || location == '/register') return null;
+        if (location == '/splash' || location == '/login' || location == '/register' || location == '/forgot-password') return null;
         return '/login';
       }
       if (role == 'Admin') {
         if (location.startsWith('/student')) return '/admin/dashboard';
-        if (location == '/splash' || location == '/login' || location == '/register') return '/admin/dashboard';
+        if (location == '/splash' || location == '/login' || location == '/register' || location == '/forgot-password') return '/admin/dashboard';
         if (location == '/') return '/admin/dashboard';
         return null;
       }
       if (role == 'Student') {
         if (location.startsWith('/admin')) return '/student/home';
-        if (location == '/splash' || location == '/login' || location == '/register') return '/student/home';
+        if (location == '/splash' || location == '/login' || location == '/register' || location == '/forgot-password') return '/student/home';
         if (location == '/') return '/student/home';
         return null;
       }
@@ -61,6 +62,7 @@ GoRouter createAppRouter(AuthProvider authProvider) {
       GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
+      GoRoute(path: '/forgot-password', builder: (_, __) => const ForgotPasswordScreen()),
       GoRoute(path: '/student/notifications', builder: (_, __) => const NotificationsScreen(),
         parentNavigatorKey: _rootNavigator,
       ),

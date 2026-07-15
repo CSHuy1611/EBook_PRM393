@@ -103,6 +103,64 @@ public class AuthController : ControllerBase
         }
     }
 
+    [AllowAnonymous]
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+    {
+        try
+        {
+            await _authService.SendResetPasswordOtpAsync(request);
+            return Ok(new { Message = "Mã OTP đặt lại mật khẩu đã được gửi đến email của bạn." });
+        }
+        catch (ArgumentException exception)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Yêu cầu đặt lại mật khẩu thất bại.",
+                Detail = exception.Message,
+                Status = 400
+            });
+        }
+        catch (Exception exception)
+        {
+            return StatusCode(500, new ProblemDetails
+            {
+                Title = "Lỗi hệ thống.",
+                Detail = exception.Message,
+                Status = 500
+            });
+        }
+    }
+
+    [AllowAnonymous]
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+    {
+        try
+        {
+            await _authService.ResetPasswordAsync(request);
+            return Ok(new { Message = "Đặt lại mật khẩu thành công." });
+        }
+        catch (ArgumentException exception)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Đặt lại mật khẩu thất bại.",
+                Detail = exception.Message,
+                Status = 400
+            });
+        }
+        catch (Exception exception)
+        {
+            return StatusCode(500, new ProblemDetails
+            {
+                Title = "Lỗi hệ thống.",
+                Detail = exception.Message,
+                Status = 500
+            });
+        }
+    }
+
     [Authorize]
     [HttpPost("logout")]
     public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request)
