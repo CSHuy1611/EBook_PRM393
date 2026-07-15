@@ -81,16 +81,25 @@ flutter build apk --release              # Build APK
 | `/api/dashboard` | GET | Dashboard tổng quan |
 | `/api/badges` | GET | Danh sách huy hiệu |
 
-### Admin
+### Admin (Hiếu — ADM-01 đến ADM-04)
 
 | Endpoint | Phương thức | Mô tả |
 |---|---|---|
-| `/api/admin/chapters` | CRUD | Quản lý chương |
-| `/api/admin/chapters/{id}/lessons` | CRUD | Quản lý bài học |
-| `/api/admin/chapters/{id}/lessons/{lid}/questions` | CRUD | Quản lý câu hỏi |
+| `/api/admin/reports/overview` | GET | Dashboard thống kê (ADM-01) |
+| `/api/admin/curriculum-topics` | CRUD | Taxonomy Toán 8 |
+| `/api/admin/chapters` | GET, POST | Danh sách & tạo chương (ADM-02) |
+| `/api/admin/chapters/{id}` | PUT, DELETE | Sửa & xóa chương |
+| `/api/admin/chapters/{id}/publish` | PATCH | Toggle publish chương |
+| `/api/admin/lessons` | GET, POST | Danh sách & tạo bài học (ADM-03) |
+| `/api/admin/lessons/{id}` | PUT, DELETE | Sửa & xóa bài học |
+| `/api/admin/lessons/{id}/publish` | PATCH | Toggle publish bài học |
+| `/api/admin/lessons/chapter/{id}` | GET | Bài học theo chương |
+| `/api/admin/questions` | CRUD | Quản lý câu hỏi |
+| `/api/admin/quizzes` | GET, POST | Danh sách & tạo quiz (ADM-04) |
+| `/api/admin/quizzes/{id}` | PUT, DELETE | Sửa & xóa quiz |
+| `/api/admin/quizzes/{id}/publish` | PATCH | Toggle publish quiz |
 | `/api/admin/badges` | CRUD | Quản lý huy hiệu |
 | `/api/admin/users` | GET | Quản lý người dùng |
-| `/api/admin/reports` | GET | Báo cáo thống kê |
 
 ## Tài khoản mẫu
 
@@ -113,5 +122,16 @@ flutter build apk --release              # Build APK
 | Windows | ❌ Cần bật Developer Mode | Symlink requirement |
 
 ### Frontend Tests
-- `flutter analyze`: 0 errors
+- `flutter analyze`: 0 errors (64 warnings/infos, phần lớn pre-existing)
 - `flutter test`: 33 unit/working tests passed, widget tests có rendering issues trong test env (complex math widgets)
+
+## Ghi chú phân công
+
+| Thành viên | Module | Phạm vi |
+|---|---|---|
+| **Hiếu** | ADM-01 → ADM-04 | Dashboard, Chapters, Lessons, Quiz Admin |
+| Hùng | (xem phân công riêng) | — |
+| Hoàng | (xem phân công riêng) | — |
+| Tuấn Anh | (xem phân công riêng) | — |
+
+> **Ngày cập nhật:** 15/07/2026 — Hoàn thiện ADM-02/03/04 (thêm taxonomy dropdown, publish toggle, màn hình quiz admin)
