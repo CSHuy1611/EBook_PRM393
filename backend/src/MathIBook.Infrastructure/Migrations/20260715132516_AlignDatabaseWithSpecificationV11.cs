@@ -661,7 +661,7 @@ namespace MathIBook.Infrastructure.Migrations
                     '8a7f1bd8-6bb0-4ee0-a6af-08a3bfb8aa08',
                     'M8-LEGACY',
                     'Nội dung Toán lớp 8 hiện có',
-                    1, 8, 0, TRUE, CURRENT_TIMESTAMP)
+                    1, 8, 0, TRUE, CURRENT_TIMESTAMP);
 
 
                 UPDATE "Chapters"
