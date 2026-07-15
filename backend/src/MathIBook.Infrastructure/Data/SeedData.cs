@@ -16,7 +16,6 @@ public static class SeedData
 
         // --- Users ---
         var admin1Id = Guid.NewGuid();
-        var admin2Id = Guid.NewGuid();
         var studentId = Guid.NewGuid();
 
         var admin1 = new User
@@ -30,21 +29,11 @@ public static class SeedData
             CreatedAt = DateTime.UtcNow
         };
 
-        var admin2 = new User
-        {
-            Id = admin2Id,
-            Name = "Admin 2",
-            Email = "admin2@mathibook.vn",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123"),
-            Role = "Admin",
-            Coins = 0,
-            CreatedAt = DateTime.UtcNow
-        };
 
         var student = new User
         {
             Id = studentId,
-            Name = "Há»c sinh",
+            Name = "Học sinh",
             Email = "student@mathibook.vn",
             PasswordHash = BCrypt.Net.BCrypt.HashPassword("Student@123"),
             Role = "Student",
@@ -52,7 +41,7 @@ public static class SeedData
             CreatedAt = DateTime.UtcNow
         };
 
-        context.Users.AddRange(admin1, admin2, student);
+        context.Users.AddRange(admin1, student);
 
         // --- Grade 8 curriculum taxonomy ---
         var topicFunctionsId = Guid.NewGuid();
@@ -84,8 +73,8 @@ public static class SeedData
         var chapter1 = new Chapter
         {
             Id = chapter1Id,
-            Title = "ChÆ°Æ¡ng 1: Biá»ƒu thá»©c Ä‘áº¡i sá»‘ vÃ  HÃ m sá»‘ báº­c nháº¥t",
-            Description = "TÃ¬m hiá»ƒu vá» biá»ƒu thá»©c Ä‘áº¡i sá»‘ vÃ  hÃ m sá»‘ báº­c nháº¥t",
+            Title = "Chương 1: Biểu thức đại số và Hàm số bậc nhất",
+            Description = "Tìm hiểu về biểu thức đại số và hàm số bậc nhất",
             OrderIndex = 1,
             CurriculumTopicId = topicFunctionsId,
             IsPublished = true,
@@ -95,8 +84,8 @@ public static class SeedData
         var chapter2 = new Chapter
         {
             Id = chapter2Id,
-            Title = "ChÆ°Æ¡ng 2: PhÆ°Æ¡ng trÃ¬nh vÃ  Há»‡ phÆ°Æ¡ng trÃ¬nh",
-            Description = "Giáº£i phÆ°Æ¡ng trÃ¬nh vÃ  há»‡ phÆ°Æ¡ng trÃ¬nh",
+            Title = "Chương 2: Phương trình và Hệ phương trình",
+            Description = "Giải phương trình và hệ phương trình",
             OrderIndex = 2,
             CurriculumTopicId = topicEquationsId,
             IsPublished = true,
@@ -112,8 +101,8 @@ public static class SeedData
             Id = lesson11Id,
             ChapterId = chapter1Id,
             CurriculumTopicId = topicFunctionsId,
-            Title = "HÃ m sá»‘ báº­c nháº¥t $y=ax+b$",
-            ContentBody = "# HÃ m sá»‘ báº­c nháº¥t\n\nHÃ m sá»‘ báº­c nháº¥t cÃ³ dáº¡ng $y=ax+b$ vá»›i $a \\neq 0$.\n\nÄá»“ thá»‹ lÃ  má»™t Ä‘Æ°á»ng tháº³ng.\n\n## VÃ­ dá»¥\n\n$$y=2x+3$$\n\nKhi $x=0$, $y=3$. Khi $x=1$, $y=5$.\n\n### TÃ­nh cháº¥t\n- Há»‡ sá»‘ $a$ quyáº¿t Ä‘á»‹nh Ä‘á»™ dá»‘c cá»§a Ä‘Æ°á»ng tháº³ng\n- Há»‡ sá»‘ $b$ lÃ  tung Ä‘á»™ gá»‘c",
+            Title = "Hàm số bậc nhất $y=ax+b$",
+            ContentBody = "# Hàm số bậc nhất\n\nHàm số bậc nhất có dạng $y=ax+b$ với $a \\neq 0$.\n\nĐồ thị là một đường thẳng.\n\n## Ví dụ\n\n$$y=2x+3$$\n\nKhi $x=0$, $y=3$. Khi $x=1$, $y=5$.\n\n### Tính chất\n- Hệ số $a$ quyết định độ dốc của đường thẳng\n- Hệ số $b$ là tung độ gốc",
             SimulationType = "linear_graph",
             OrderIndex = 1,
             IsPublished = true
@@ -126,8 +115,8 @@ public static class SeedData
             Id = lesson12Id,
             ChapterId = chapter1Id,
             CurriculumTopicId = topicFunctionsId,
-            Title = "Äá»“ thá»‹ hÃ m sá»‘ báº­c nháº¥t",
-            ContentBody = "# Äá»“ thá»‹ hÃ m sá»‘ báº­c nháº¥t\n\nÄá»“ thá»‹ cá»§a hÃ m sá»‘ báº­c nháº¥t $y=ax+b$ $(a \\neq 0)$ lÃ  má»™t Ä‘Æ°á»ng tháº³ng.\n\n## CÃ¡ch váº½ Ä‘á»“ thá»‹\n\n1. TÃ¬m giao Ä‘iá»ƒm vá»›i trá»¥c tung: $x=0 \\Rightarrow y=b$\n2. TÃ¬m giao Ä‘iá»ƒm vá»›i trá»¥c hoÃ nh: $y=0 \\Rightarrow x=-\\frac{b}{a}$\n3. Váº½ Ä‘Æ°á»ng tháº³ng qua hai Ä‘iá»ƒm Ä‘Ã³.\n\n## VÃ­ dá»¥\n\nVáº½ Ä‘á»“ thá»‹ hÃ m sá»‘ $y=2x+1$:\n\n- $A(0,1)$\n- $B\\left(-\\frac12,0\\right)$\n\n### Nháº­n xÃ©t\n- Há»‡ sá»‘ $a>0$: Ä‘á»“ thá»‹ Ä‘i lÃªn tá»« trÃ¡i sang pháº£i\n- Há»‡ sá»‘ $a<0$: Ä‘á»“ thá»‹ Ä‘i xuá»‘ng tá»« trÃ¡i sang pháº£i",
+            Title = "Đồ thị hàm số bậc nhất",
+            ContentBody = "# Đồ thị hàm số bậc nhất\n\nĐồ thị của hàm số bậc nhất $y=ax+b$ $(a \\neq 0)$ là một đường thẳng.\n\n## Cách vẽ đồ thị\n\n1. Tìm giao điểm với trục tung: $x=0 \\Rightarrow y=b$\n2. Tìm giao điểm với trục hoành: $y=0 \\Rightarrow x=-\\frac{b}{a}$\n3. Vẽ đường thẳng qua hai điểm đó.\n\n## Ví dụ\n\nVẽ đồ thị hàm số $y=2x+1$:\n\n- $A(0,1)$\n- $B\\left(-\\frac12,0\\right)$\n\n### Nhận xét\n- Hệ số $a>0$: đồ thị đi lên từ trái sang phải\n- Hệ số $a<0$: đồ thị đi xuống từ trái sang phải",
             SimulationType = "linear_graph",
             OrderIndex = 2,
             IsPublished = true
@@ -140,8 +129,8 @@ public static class SeedData
             Id = lesson21Id,
             ChapterId = chapter2Id,
             CurriculumTopicId = topicEquationsId,
-            Title = "PhÆ°Æ¡ng trÃ¬nh báº­c nháº¥t má»™t áº©n",
-            ContentBody = "# PhÆ°Æ¡ng trÃ¬nh báº­c nháº¥t má»™t áº©n\n\nPhÆ°Æ¡ng trÃ¬nh báº­c nháº¥t má»™t áº©n cÃ³ dáº¡ng $ax+b=0$ vá»›i $a \\neq 0$.\n\n## CÃ¡ch giáº£i\n\n$$ax+b=0 \\Leftrightarrow x=-\\frac{b}{a}$$\n\n## VÃ­ dá»¥\n\nGiáº£i phÆ°Æ¡ng trÃ¬nh $2x-4=0$\n\n$$2x-4=0 \\Leftrightarrow 2x=4 \\Leftrightarrow x=2$$\n\nVáº­y phÆ°Æ¡ng trÃ¬nh cÃ³ nghiá»‡m $x=2$.",
+            Title = "Phương trình bậc nhất một ẩn",
+            ContentBody = "# Phương trình bậc nhất một ẩn\n\nPhương trình bậc nhất một ẩn có dạng $ax+b=0$ với $a \\neq 0$.\n\n## Cách giải\n\n$$ax+b=0 \\Leftrightarrow x=-\\frac{b}{a}$$\n\n## Ví dụ\n\nGiải phương trình $2x-4=0$\n\n$$2x-4=0 \\Leftrightarrow 2x=4 \\Leftrightarrow x=2$$\n\nVậy phương trình có nghiệm $x=2$.",
             SimulationType = null,
             OrderIndex = 1,
             IsPublished = true
@@ -154,8 +143,8 @@ public static class SeedData
             Id = lesson22Id,
             ChapterId = chapter2Id,
             CurriculumTopicId = topicEquationsId,
-            Title = "Giáº£i bÃ i toÃ¡n báº±ng cÃ¡ch láº­p phÆ°Æ¡ng trÃ¬nh",
-            ContentBody = "# Giáº£i bÃ i toÃ¡n báº±ng cÃ¡ch láº­p phÆ°Æ¡ng trÃ¬nh\n\n## CÃ¡c bÆ°á»›c giáº£i\n\n1. Äáº·t áº©n vÃ  Ä‘iá»u kiá»‡n cho áº©n\n2. Biá»ƒu diá»…n cÃ¡c Ä‘áº¡i lÆ°á»£ng chÆ°a biáº¿t qua áº©n\n3. Láº­p phÆ°Æ¡ng trÃ¬nh\n4. Giáº£i phÆ°Æ¡ng trÃ¬nh\n5. Äá»‘i chiáº¿u Ä‘iá»u kiá»‡n vÃ  káº¿t luáº­n\n\n## VÃ­ dá»¥\n\nMá»™t ngÆ°á»i Ä‘i xe mÃ¡y tá»« A Ä‘áº¿n B vá»›i váº­n tá»‘c $40$ km/h. LÃºc vá» Ä‘i vá»›i váº­n tá»‘c $30$ km/h. Thá»i gian cáº£ Ä‘i vÃ  vá» lÃ  $3.5$ giá». TÃ­nh quÃ£ng Ä‘Æ°á»ng AB.\n\nGiáº£i: Gá»i quÃ£ng Ä‘Æ°á»ng AB lÃ  $x$ (km), $x>0$.\n\nThá»i gian Ä‘i: $\\frac{x}{40}$ (giá»)\n\nThá»i gian vá»: $\\frac{x}{30}$ (giá»)\n\nTa cÃ³ phÆ°Æ¡ng trÃ¬nh: $\\frac{x}{40}+\\frac{x}{30}=3.5$\n\n$$\\Leftrightarrow \\frac{3x+4x}{120}=3.5 \\Leftrightarrow 7x=420 \\Leftrightarrow x=60$$\n\nVáº­y quÃ£ng Ä‘Æ°á»ng AB dÃ i $60$ km.",
+            Title = "Giải bài toán bằng cách lập phương trình",
+            ContentBody = "# Giải bài toán bằng cách lập phương trình\n\n## Các bước giải\n\n1. Đặt ẩn và điều kiện cho ẩn\n2. Biểu diễn các đại lượng chưa biết qua ẩn\n3. Lập phương trình\n4. Giải phương trình\n5. Đối chiếu điều kiện và kết luận\n\n## Ví dụ\n\nMột người đi xe máy từ A đến B với vận tốc $40$ km/h. Lúc về đi với vận tốc $30$ km/h. Thời gian cả đi và về là $3.5$ giờ. Tính quãng đường AB.\n\nGiải: Gọi quãng đường AB là $x$ (km), $x>0$.\n\nThời gian đi: $\\frac{x}{40}$ (giờ)\n\nThời gian về: $\\frac{x}{30}$ (giờ)\n\nTa có phương trình: $\\frac{x}{40}+\\frac{x}{30}=3.5$\n\n$$\\Leftrightarrow \\frac{3x+4x}{120}=3.5 \\Leftrightarrow 7x=420 \\Leftrightarrow x=60$$\n\nVậy quãng đường AB dài $60$ km.",
             SimulationType = null,
             OrderIndex = 2,
             IsPublished = true
@@ -168,10 +157,10 @@ public static class SeedData
         {
             Id = Guid.NewGuid(),
             LessonId = lesson11Id,
-            QuestionText = "HÃ m sá»‘ $y=2x+3$ cÃ³ há»‡ sá»‘ gÃ³c lÃ :",
+            QuestionText = "Hàm số $y=2x+3$ có hệ số góc là:",
             Options = JsonSerializer.Serialize(new[] { "$1$", "$2$", "$3$", "$4$" }),
             CorrectOption = 1,
-            Explanation = "HÃ m sá»‘ $y=ax+b$ cÃ³ há»‡ sá»‘ gÃ³c lÃ  $a$. á»ž Ä‘Ã¢y $a=2$.",
+            Explanation = "Hàm số $y=ax+b$ có hệ số góc là $a$. Ở đây $a=2$.",
             OrderIndex = 1
         };
 
@@ -179,10 +168,10 @@ public static class SeedData
         {
             Id = Guid.NewGuid(),
             LessonId = lesson11Id,
-            QuestionText = "Tung Ä‘á»™ gá»‘c cá»§a hÃ m sá»‘ $y=-x+5$ lÃ :",
+            QuestionText = "Tung độ gốc của hàm số $y=-x+5$ là:",
             Options = JsonSerializer.Serialize(new[] { "$-1$", "$0$", "$5$", "$-5$" }),
             CorrectOption = 2,
-            Explanation = "Tung Ä‘á»™ gá»‘c lÃ  giÃ¡ trá»‹ $b$ trong $y=ax+b$. á»ž Ä‘Ã¢y $b=5$.",
+            Explanation = "Tung độ gốc là giá trị $b$ trong $y=ax+b$. Ở đây $b=5$.",
             OrderIndex = 2
         };
 
@@ -190,10 +179,10 @@ public static class SeedData
         {
             Id = Guid.NewGuid(),
             LessonId = lesson11Id,
-            QuestionText = "HÃ m sá»‘ nÃ o sau Ä‘Ã¢y lÃ  hÃ m sá»‘ báº­c nháº¥t?",
+            QuestionText = "Hàm số nào sau đây là hàm số bậc nhất?",
             Options = JsonSerializer.Serialize(new[] { "$y=x^2+1$", "$y=\\frac{1}{x}$", "$y=3x-2$", "$y=\\sqrt{x}$" }),
             CorrectOption = 2,
-            Explanation = "HÃ m sá»‘ báº­c nháº¥t cÃ³ dáº¡ng $y=ax+b$ vá»›i $a \\neq 0$. $y=3x-2$ thá»a mÃ£n.",
+            Explanation = "Hàm số bậc nhất có dạng $y=ax+b$ với $a \\neq 0$. $y=3x-2$ thỏa mãn.",
             OrderIndex = 3
         };
 
@@ -201,10 +190,10 @@ public static class SeedData
         {
             Id = Guid.NewGuid(),
             LessonId = lesson11Id,
-            QuestionText = "Äá»“ thá»‹ cá»§a hÃ m sá»‘ $y=ax+b$ $(a \\neq 0)$ lÃ :",
-            Options = JsonSerializer.Serialize(new[] { "Má»™t Ä‘Æ°á»ng parabol", "Má»™t Ä‘Æ°á»ng hypebol", "Má»™t Ä‘Æ°á»ng tháº³ng", "Má»™t Ä‘Æ°á»ng trÃ²n" }),
+            QuestionText = "Đồ thị của hàm số $y=ax+b$ $(a \\neq 0)$ là:",
+            Options = JsonSerializer.Serialize(new[] { "Một đường parabol", "Một đường hypebol", "Một đường thẳng", "Một đường tròn" }),
             CorrectOption = 2,
-            Explanation = "Äá»“ thá»‹ hÃ m sá»‘ báº­c nháº¥t lÃ  má»™t Ä‘Æ°á»ng tháº³ng.",
+            Explanation = "Đồ thị hàm số bậc nhất là một đường thẳng.",
             OrderIndex = 4
         };
 
@@ -213,10 +202,10 @@ public static class SeedData
         {
             Id = Guid.NewGuid(),
             LessonId = lesson12Id,
-            QuestionText = "Äá»“ thá»‹ hÃ m sá»‘ $y=2x$ Ä‘i qua Ä‘iá»ƒm nÃ o sau Ä‘Ã¢y?",
+            QuestionText = "Đồ thị hàm số $y=2x$ đi qua điểm nào sau đây?",
             Options = JsonSerializer.Serialize(new[] { "$(0,1)$", "$(1,2)$", "$(2,1)$", "$(0,0)$" }),
             CorrectOption = 3,
-            Explanation = "Thay $x=0$ Ä‘Æ°á»£c $y=0$, thay $x=1$ Ä‘Æ°á»£c $y=2$. Cáº£ $(0,0)$ vÃ  $(1,2)$ Ä‘á»u thuá»™c Ä‘á»“ thá»‹. ÄÃ¡p Ã¡n $(0,0)$.",
+            Explanation = "Thay $x=0$ được $y=0$, thay $x=1$ được $y=2$. Cả $(0,0)$ và $(1,2)$ đều thuộc đồ thị. Đáp án $(0,0)$.",
             OrderIndex = 1
         };
 
@@ -224,7 +213,7 @@ public static class SeedData
         {
             Id = Guid.NewGuid(),
             LessonId = lesson12Id,
-            QuestionText = "Äá»“ thá»‹ hÃ m sá»‘ $y=3x-6$ cáº¯t trá»¥c hoÃ nh táº¡i Ä‘iá»ƒm cÃ³ hoÃ nh Ä‘á»™:",
+            QuestionText = "Đồ thị hàm số $y=3x-6$ cắt trục hoành tại điểm có hoành độ:",
             Options = JsonSerializer.Serialize(new[] { "$x=0$", "$x=2$", "$x=-2$", "$x=6$" }),
             CorrectOption = 1,
             Explanation = "Cho $y=0 \\Rightarrow 3x-6=0 \\Rightarrow x=2$.",
@@ -235,10 +224,10 @@ public static class SeedData
         {
             Id = Guid.NewGuid(),
             LessonId = lesson12Id,
-            QuestionText = "Cho hÃ m sá»‘ $y=(m-1)x+2$. TÃ¬m $m$ Ä‘á»ƒ hÃ m sá»‘ Ä‘á»“ng biáº¿n.",
+            QuestionText = "Cho hàm số $y=(m-1)x+2$. Tìm $m$ để hàm số đồng biến.",
             Options = JsonSerializer.Serialize(new[] { "$m<1$", "$m>1$", "$m=1$", "$m \\neq 1$" }),
             CorrectOption = 1,
-            Explanation = "HÃ m sá»‘ Ä‘á»“ng biáº¿n khi $a>0 \\Rightarrow m-1>0 \\Rightarrow m>1$.",
+            Explanation = "Hàm số đồng biến khi $a>0 \\Rightarrow m-1>0 \\Rightarrow m>1$.",
             OrderIndex = 3
         };
 
@@ -246,10 +235,10 @@ public static class SeedData
         {
             Id = Guid.NewGuid(),
             LessonId = lesson12Id,
-            QuestionText = "ÄÆ°á»ng tháº³ng $y=-2x+4$ cáº¯t trá»¥c tung táº¡i Ä‘iá»ƒm:",
+            QuestionText = "Đường thẳng $y=-2x+4$ cắt trục tung tại điểm:",
             Options = JsonSerializer.Serialize(new[] { "$(0,0)$", "$(0,2)$", "$(0,4)$", "$(0,-2)$" }),
             CorrectOption = 2,
-            Explanation = "Cho $x=0 \\Rightarrow y=4$. Äiá»ƒm $(0,4)$.",
+            Explanation = "Cho $x=0 \\Rightarrow y=4$. Điểm $(0,4)$.",
             OrderIndex = 4
         };
 
@@ -258,7 +247,7 @@ public static class SeedData
         {
             Id = Guid.NewGuid(),
             LessonId = lesson21Id,
-            QuestionText = "Giáº£i phÆ°Æ¡ng trÃ¬nh $2x+3=7$:",
+            QuestionText = "Giải phương trình $2x+3=7$:",
             Options = JsonSerializer.Serialize(new[] { "$x=1$", "$x=2$", "$x=3$", "$x=4$" }),
             CorrectOption = 1,
             Explanation = "$2x+3=7 \\Leftrightarrow 2x=4 \\Leftrightarrow x=2$.",
@@ -269,7 +258,7 @@ public static class SeedData
         {
             Id = Guid.NewGuid(),
             LessonId = lesson21Id,
-            QuestionText = "Nghiá»‡m cá»§a phÆ°Æ¡ng trÃ¬nh $3x-6=0$ lÃ :",
+            QuestionText = "Nghiệm của phương trình $3x-6=0$ là:",
             Options = JsonSerializer.Serialize(new[] { "$x=-2$", "$x=0$", "$x=2$", "$x=6$" }),
             CorrectOption = 2,
             Explanation = "$3x-6=0 \\Leftrightarrow 3x=6 \\Leftrightarrow x=2$.",
@@ -280,7 +269,7 @@ public static class SeedData
         {
             Id = Guid.NewGuid(),
             LessonId = lesson21Id,
-            QuestionText = "Giáº£i phÆ°Æ¡ng trÃ¬nh $5-2x=1$:",
+            QuestionText = "Giải phương trình $5-2x=1$:",
             Options = JsonSerializer.Serialize(new[] { "$x=1$", "$x=2$", "$x=3$", "$x=4$" }),
             CorrectOption = 1,
             Explanation = "$5-2x=1 \\Leftrightarrow -2x=-4 \\Leftrightarrow x=2$.",
@@ -291,10 +280,10 @@ public static class SeedData
         {
             Id = Guid.NewGuid(),
             LessonId = lesson21Id,
-            QuestionText = "PhÆ°Æ¡ng trÃ¬nh nÃ o sau Ä‘Ã¢y lÃ  phÆ°Æ¡ng trÃ¬nh báº­c nháº¥t má»™t áº©n?",
+            QuestionText = "Phương trình nào sau đây là phương trình bậc nhất một ẩn?",
             Options = JsonSerializer.Serialize(new[] { "$x^2+1=0$", "$\\frac{1}{x}=2$", "$3x+5=0$", "$xy=1$" }),
             CorrectOption = 2,
-            Explanation = "PhÆ°Æ¡ng trÃ¬nh báº­c nháº¥t má»™t áº©n cÃ³ dáº¡ng $ax+b=0$ vá»›i $a \\neq 0$. $3x+5=0$ thá»a mÃ£n.",
+            Explanation = "Phương trình bậc nhất một ẩn có dạng $ax+b=0$ với $a \\neq 0$. $3x+5=0$ thỏa mãn.",
             OrderIndex = 4
         };
 
@@ -303,10 +292,10 @@ public static class SeedData
         {
             Id = Guid.NewGuid(),
             LessonId = lesson22Id,
-            QuestionText = "Tá»•ng hai sá»‘ lÃ  10 vÃ  hiá»‡u cá»§a chÃºng lÃ  4. Sá»‘ lá»›n hÆ¡n lÃ :",
+            QuestionText = "Tổng hai số là 10 và hiệu của chúng là 4. Số lớn hơn là:",
             Options = JsonSerializer.Serialize(new[] { "$5$", "$6$", "$7$", "$8$" }),
             CorrectOption = 2,
-            Explanation = "Gá»i sá»‘ lá»›n lÃ  $x$, sá»‘ bÃ© lÃ  $10-x$. Ta cÃ³ $x-(10-x)=4 \\Leftrightarrow 2x=14 \\Leftrightarrow x=7$.",
+            Explanation = "Gọi số lớn là $x$, số bé là $10-x$. Ta có $x-(10-x)=4 \\Leftrightarrow 2x=14 \\Leftrightarrow x=7$.",
             OrderIndex = 1
         };
 
@@ -314,10 +303,10 @@ public static class SeedData
         {
             Id = Guid.NewGuid(),
             LessonId = lesson22Id,
-            QuestionText = "Má»™t hÃ¬nh chá»¯ nháº­t cÃ³ chu vi 30cm, chiá»u dÃ i gáº¥p Ä‘Ã´i chiá»u rá»™ng. Diá»‡n tÃ­ch lÃ :",
+            QuestionText = "Một hình chữ nhật có chu vi 30cm, chiều dài gấp đôi chiều rộng. Diện tích là:",
             Options = JsonSerializer.Serialize(new[] { "$30\\text{cm}^2$", "$40\\text{cm}^2$", "$50\\text{cm}^2$", "$60\\text{cm}^2$" }),
             CorrectOption = 1,
-            Explanation = "Gá»i chiá»u rá»™ng lÃ  $x$, chiá»u dÃ i lÃ  $2x$. Chu vi: $2(x+2x)=30 \\Rightarrow 6x=30 \\Rightarrow x=5$. Diá»‡n tÃ­ch: $5\\cdot10=50\\text{cm}^2$.",
+            Explanation = "Gọi chiều rộng là $x$, chiều dài là $2x$. Chu vi: $2(x+2x)=30 \\Rightarrow 6x=30 \\Rightarrow x=5$. Diện tích: $5\\cdot10=50\\text{cm}^2$.",
             OrderIndex = 2
         };
 
@@ -325,10 +314,10 @@ public static class SeedData
         {
             Id = Guid.NewGuid(),
             LessonId = lesson22Id,
-            QuestionText = "Tuá»•i cha gáº¥p 3 láº§n tuá»•i con. Sau 10 nÄƒm, tuá»•i cha gáº¥p Ä‘Ã´i tuá»•i con. Tuá»•i con hiá»‡n nay lÃ :",
+            QuestionText = "Tuổi cha gấp 3 lần tuổi con. Sau 10 năm, tuổi cha gấp đôi tuổi con. Tuổi con hiện nay là:",
             Options = JsonSerializer.Serialize(new[] { "$10$", "$15$", "$20$", "$25$" }),
             CorrectOption = 0,
-            Explanation = "Gá»i tuá»•i con lÃ  $x$, tuá»•i cha lÃ  $3x$. Sau 10 nÄƒm: $3x+10=2(x+10) \\Rightarrow 3x+10=2x+20 \\Rightarrow x=10$.",
+            Explanation = "Gọi tuổi con là $x$, tuổi cha là $3x$. Sau 10 năm: $3x+10=2(x+10) \\Rightarrow 3x+10=2x+20 \\Rightarrow x=10$.",
             OrderIndex = 3
         };
 
@@ -336,10 +325,10 @@ public static class SeedData
         {
             Id = Guid.NewGuid(),
             LessonId = lesson22Id,
-            QuestionText = "Hai xe xuáº¥t phÃ¡t cÃ¹ng lÃºc tá»« cÃ¹ng má»™t Ä‘iá»ƒm. Xe A Ä‘i vá»›i váº­n tá»‘c 60km/h, xe B Ä‘i vá»›i váº­n tá»‘c 40km/h. Sau bao lÃ¢u chÃºng cÃ¡ch nhau 50km?",
-            Options = JsonSerializer.Serialize(new[] { "1 giá»", "1.5 giá»", "2 giá»", "2.5 giá»" }),
+            QuestionText = "Hai xe xuất phát cùng lúc từ cùng một điểm. Xe A đi với vận tốc 60km/h, xe B đi với vận tốc 40km/h. Sau bao lâu chúng cách nhau 50km?",
+            Options = JsonSerializer.Serialize(new[] { "1 giờ", "1.5 giờ", "2 giờ", "2.5 giờ" }),
             CorrectOption = 2,
-            Explanation = "Hiá»‡u váº­n tá»‘c: $60-40=20$ km/h. Thá»i gian: $50/20=2.5$ giá».",
+            Explanation = "Hiệu vận tốc: $60-40=20$ km/h. Thời gian: $50/20=2.5$ giờ.",
             OrderIndex = 4
         };
 
@@ -356,8 +345,8 @@ public static class SeedData
         var badge1 = new Badge
         {
             Id = badge1Id,
-            Title = "HoÃ n thÃ nh ChÆ°Æ¡ng 1",
-            Description = "HoÃ n thÃ nh táº¥t cáº£ bÃ i há»c trong ChÆ°Æ¡ng 1",
+            Title = "Hoàn thành Chương 1",
+            Description = "Hoàn thành tất cả bài học trong Chương 1",
             IconUrl = "/images/badges/chapter1.png",
             ConditionType = "complete_chapter",
             ConditionValue = JsonSerializer.Serialize(new { chapterId = chapter1Id.ToString() })
@@ -366,8 +355,8 @@ public static class SeedData
         var badge2 = new Badge
         {
             Id = badge2Id,
-            Title = "Há»c sinh xuáº¥t sáº¯c",
-            Description = "Äáº¡t 3 láº§n Ä‘iá»ƒm tuyá»‡t Ä‘á»‘i liÃªn tiáº¿p trong bÃ i kiá»ƒm tra",
+            Title = "Học sinh xuất sắc",
+            Description = "Đạt 3 lần điểm tuyệt đối liên tiếp trong bài kiểm tra",
             IconUrl = "/images/badges/excellent.png",
             ConditionType = "perfect_quiz_streak",
             ConditionValue = JsonSerializer.Serialize(new { streak = 3 })
@@ -376,8 +365,8 @@ public static class SeedData
         var badge3 = new Badge
         {
             Id = badge3Id,
-            Title = "NhÃ  toÃ¡n há»c",
-            Description = "TÃ­ch lÅ©y 100 xu",
+            Title = "Nhà toán học",
+            Description = "Tích lũy 100 xu",
             IconUrl = "/images/badges/mathematician.png",
             ConditionType = "total_coins",
             ConditionValue = JsonSerializer.Serialize(new { coins = 100 })
