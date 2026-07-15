@@ -6,10 +6,17 @@ public class AdminUserDto
     public string Name { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;
+    public string? AvatarUrl { get; set; }
+    public bool IsActive { get; set; }
     public int Coins { get; set; }
+    public int BadgeCount { get; set; }
+    public int? Rank { get; set; }
     public DateTime CreatedAt { get; set; }
+    public DateTime? LastLoginAt { get; set; }
     public int TotalQuizAttempts { get; set; }
     public double AverageScore { get; set; }
+    public int CompletedLessons { get; set; }
+    public int CompletedChapters { get; set; }
 }
 
 public class UserHistoryDto
@@ -17,15 +24,29 @@ public class UserHistoryDto
     public List<QuizAttemptHistoryDto> QuizAttempts { get; set; } = new();
     public List<BadgeEarnedDto> Badges { get; set; } = new();
     public List<CoinTransactionDto> CoinTransactions { get; set; } = new();
+    public List<ProgressHistoryDto> LessonProgress { get; set; } = new();
+    public List<ProgressHistoryDto> ChapterProgress { get; set; } = new();
+}
+
+public class ProgressHistoryDto
+{
+    public Guid TargetId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public double BestScore { get; set; }
+    public DateTime UpdatedAt { get; set; }
 }
 
 public class QuizAttemptHistoryDto
 {
     public Guid Id { get; set; }
+    public Guid? QuizId { get; set; }
     public string LessonTitle { get; set; } = string.Empty;
     public string ChapterTitle { get; set; } = string.Empty;
-    public int Score { get; set; }
+    public double Score { get; set; }
+    public bool IsPassed { get; set; }
     public int TotalQuestions { get; set; }
+    public int CoinsEarned { get; set; }
     public int DurationSeconds { get; set; }
     public DateTime CreatedAt { get; set; }
 }
@@ -34,6 +55,8 @@ public class CoinTransactionDto
 {
     public int Amount { get; set; }
     public string SourceType { get; set; } = string.Empty;
+    public Guid? SourceId { get; set; }
+    public int BalanceAfter { get; set; }
     public string Description { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
 }

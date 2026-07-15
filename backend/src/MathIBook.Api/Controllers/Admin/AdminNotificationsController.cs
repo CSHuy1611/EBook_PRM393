@@ -20,127 +20,92 @@ public class AdminNotificationsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] Guid? userId)
+    public async Task<ActionResult<List<NotificationDto>>> GetAll([FromQuery] Guid? userId)
     {
-        try
+        var query = _unitOfWork.Notifications.Query();
+        if (userId.HasValue)
         {
-            var query = _unitOfWork.Notifications.Query();
-
-            if (userId.HasValue)
-                query = query.Where(n => n.UserId == userId.Value);
-
-            var notifications = await query
-                .OrderByDescending(n => n.CreatedAt)
-                .Select(n => new NotificationDto
-                {
-                    Id = n.Id,
-                    Title = n.Title,
-                    Body = n.Body,
-                    Link = n.Link,
-                    IsRead = n.IsRead,
-                    CreatedAt = n.CreatedAt
-                })
-                .ToListAsync();
-
-            return Ok(notifications);
+            query = query.Where(notification => notification.UserId == userId);
         }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new ProblemDetails
+
+        return Ok(await query.OrderByDescending(notification => notification.CreatedAt)
+            .Select(notification => new NotificationDto
             {
-                Title = "Error fetching notifications",
-                Detail = ex.Message,
-                Status = 500
-            });
-        }
+                Id = notification.Id,
+                Title = notification.Title,
+                Body = notification.Body,
+                Link = notification.Link,
+                Type = notification.Type,
+                RelatedEntityId = notification.RelatedEntityId,
+                IsRead = notification.IsRead,
+                CreatedAt = notification.CreatedAt
+            })
+            .ToListAsync());
     }
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateNotificationDto dto)
     {
-        try
+        if (string.IsNullOrWhiteSpace(dto.Title)
+            || dto.Title.Length > 200
+            || dto.Body.Length > 1000)
         {
-            if (string.IsNullOrWhiteSpace(dto.Title))
-                return BadRequest(new ProblemDetails
-                {
-                    Title = "Validation error",
-                    Detail = "Title is required",
-                    Status = 400
-                });
-
-            if (dto.UserId.HasValue)
+            return BadRequest(new ProblemDetails
             {
-                var user = await _unitOfWork.Users.GetByIdAsync(dto.UserId.Value);
-                if (user == null)
-                    return NotFound(new ProblemDetails { Title = "User not found", Status = 404 });
-
-                var notification = new Notification
-                {
-                    UserId = dto.UserId.Value,
-                    Title = dto.Title,
-                    Body = dto.Body,
-                    Link = dto.Link
-                };
-
-                await _unitOfWork.Notifications.AddAsync(notification);
-            }
-            else
-            {
-                var students = await _unitOfWork.Users.Query()
-                    .Where(u => u.Role == "Student")
-                    .ToListAsync();
-
-                foreach (var student in students)
-                {
-                    var notification = new Notification
-                    {
-                        UserId = student.Id,
-                        Title = dto.Title,
-                        Body = dto.Body,
-                        Link = dto.Link
-                    };
-
-                    await _unitOfWork.Notifications.AddAsync(notification);
-                }
-            }
-
-            await _unitOfWork.SaveChangesAsync();
-
-            return Ok(new { message = "Notification(s) created successfully" });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new ProblemDetails
-            {
-                Title = "Error creating notification",
-                Detail = ex.Message,
-                Status = 500
+                Title = "Tiêu đề hoặc nội dung thông báo không hợp lệ.",
+                Status = 400
             });
         }
+
+        List<Guid> recipients;
+        if (dto.UserId.HasValue)
+        {
+            var exists = await _unitOfWork.Users.Query().AnyAsync(user =>
+                user.Id == dto.UserId && user.Role == "Student");
+            if (!exists)
+            {
+                return NotFound(new ProblemDetails { Title = "Không tìm thấy học sinh.", Status = 404 });
+            }
+
+            recipients = [dto.UserId.Value];
+        }
+        else
+        {
+            recipients = await _unitOfWork.Users.Query()
+                .Where(user => user.Role == "Student" && user.IsActive)
+                .Select(user => user.Id)
+                .ToListAsync();
+        }
+
+        foreach (var recipient in recipients)
+        {
+            await _unitOfWork.Notifications.AddAsync(new Notification
+            {
+                UserId = recipient,
+                Title = dto.Title.Trim(),
+                Body = dto.Body.Trim(),
+                Link = dto.Link,
+                Type = string.IsNullOrWhiteSpace(dto.Type) ? "admin_message" : dto.Type,
+                RelatedEntityId = dto.RelatedEntityId,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+
+        await _unitOfWork.SaveChangesAsync();
+        return Ok(new { recipientCount = recipients.Count });
     }
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(Guid id)
     {
-        try
+        var notification = await _unitOfWork.Notifications.GetByIdAsync(id);
+        if (notification is null)
         {
-            var notification = await _unitOfWork.Notifications.GetByIdAsync(id);
-            if (notification == null)
-                return NotFound(new ProblemDetails { Title = "Notification not found", Status = 404 });
-
-            _unitOfWork.Notifications.Remove(notification);
-            await _unitOfWork.SaveChangesAsync();
-
-            return NoContent();
+            return NotFound();
         }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new ProblemDetails
-            {
-                Title = "Error deleting notification",
-                Detail = ex.Message,
-                Status = 500
-            });
-        }
+
+        _unitOfWork.Notifications.Remove(notification);
+        await _unitOfWork.SaveChangesAsync();
+        return NoContent();
     }
 }

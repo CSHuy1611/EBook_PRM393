@@ -8,6 +8,8 @@ namespace MathIBook.Application.Services;
 
 public class ProgressSyncService : IProgressSyncService
 {
+    private const decimal DefaultPassScore = 5.0m;
+
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<ProgressSyncService> _logger;
 
@@ -19,72 +21,74 @@ public class ProgressSyncService : IProgressSyncService
 
     public async Task<List<ProgressResultDto>> SyncProgressAsync(Guid userId, ProgressSyncDto dto)
     {
-        var results = new List<ProgressResultDto>();
+        if (dto.Items.Select(item => item.LessonId).Distinct().Count() != dto.Items.Count)
+        {
+            throw new InvalidOperationException("Mỗi bài học chỉ được xuất hiện một lần trong gói đồng bộ.");
+        }
 
+        var results = new List<ProgressResultDto>();
         foreach (var item in dto.Items)
         {
-            var serverProgress = await _unitOfWork.Progresses.FirstOrDefaultAsync(
-                p => p.UserId == userId && p.LessonId == item.LessonId);
-
-            if (serverProgress is null)
+            var lesson = await _unitOfWork.Lessons.GetByIdAsync(item.LessonId);
+            if (lesson is null || lesson.IsDeleted || !lesson.IsPublished)
             {
-                var newProgress = new Progress
+                throw new InvalidOperationException($"Bài học {item.LessonId} không tồn tại hoặc chưa xuất bản.");
+            }
+
+            var progress = await _unitOfWork.Progresses.FirstOrDefaultAsync(
+                current => current.UserId == userId && current.LessonId == item.LessonId);
+            var now = DateTime.UtcNow;
+            if (progress is null)
+            {
+                progress = new Progress
                 {
                     UserId = userId,
                     LessonId = item.LessonId,
-                    IsCompleted = item.IsCompleted,
-                    BestScore = item.BestScore,
-                    CompletedAt = item.IsCompleted ? DateTime.UtcNow : null,
-                    UpdatedAt = DateTime.UtcNow,
-                    ClientUpdatedAt = item.ClientUpdatedAt
+                    ClientUpdatedAt = item.ClientUpdatedAt == default ? now : item.ClientUpdatedAt
                 };
-
-                await _unitOfWork.Progresses.AddAsync(newProgress);
-
-                results.Add(new ProgressResultDto
-                {
-                    LessonId = item.LessonId,
-                    IsCompleted = item.IsCompleted,
-                    BestScore = item.BestScore,
-                    UpdatedAt = DateTime.UtcNow
-                });
+                progress.MarkContentViewed(now);
+                await _unitOfWork.Progresses.AddAsync(progress);
             }
-            else
+            else if (item.ClientUpdatedAt >= progress.ClientUpdatedAt)
             {
-                var useClient = item.ClientUpdatedAt > serverProgress.ClientUpdatedAt
-                                || item.BestScore > serverProgress.BestScore;
-
-                if (useClient)
-                {
-                    serverProgress.IsCompleted = item.IsCompleted;
-                    serverProgress.BestScore = item.BestScore;
-                    serverProgress.UpdatedAt = DateTime.UtcNow;
-                    serverProgress.ClientUpdatedAt = item.ClientUpdatedAt;
-
-                    if (item.IsCompleted && serverProgress.CompletedAt is null)
-                    {
-                        serverProgress.CompletedAt = DateTime.UtcNow;
-                    }
-
-                    _unitOfWork.Progresses.Update(serverProgress);
-
-                    _logger.LogInformation(
-                        "Progress synced for user {UserId}, lesson {LessonId}: client data accepted (best_score={BestScore})",
-                        userId, item.LessonId, serverProgress.BestScore);
-                }
-
-                results.Add(new ProgressResultDto
-                {
-                    LessonId = serverProgress.LessonId,
-                    IsCompleted = serverProgress.IsCompleted,
-                    BestScore = serverProgress.BestScore,
-                    UpdatedAt = serverProgress.UpdatedAt
-                });
+                progress.ClientUpdatedAt = item.ClientUpdatedAt;
+                progress.MarkContentViewed(now);
+                _unitOfWork.Progresses.Update(progress);
             }
+
+            var attempts = (await _unitOfWork.QuizAttempts.FindAsync(attempt =>
+                    attempt.UserId == userId && attempt.LessonId == item.LessonId))
+                .ToList();
+            if (attempts.Count > 0)
+            {
+                var bestAttempt = attempts.OrderByDescending(attempt => attempt.Score10).First();
+                var quiz = bestAttempt.QuizId.HasValue
+                    ? await _unitOfWork.Quizzes.GetByIdAsync(bestAttempt.QuizId.Value)
+                    : null;
+                progress.BestScore = Math.Max(progress.BestScore, bestAttempt.Score);
+                progress.ApplyQuizResult(
+                    bestAttempt.Score10,
+                    quiz?.PassScore ?? DefaultPassScore,
+                    now);
+                _unitOfWork.Progresses.Update(progress);
+            }
+
+            results.Add(new ProgressResultDto
+            {
+                LessonId = item.LessonId,
+                IsCompleted = progress.IsCompleted,
+                BestScore = progress.BestScore,
+                UpdatedAt = progress.UpdatedAt
+            });
+
+            _logger.LogInformation(
+                "Progress synchronized for user {UserId}, lesson {LessonId}; verified attempts: {AttemptCount}",
+                userId,
+                item.LessonId,
+                attempts.Count);
         }
 
         await _unitOfWork.SaveChangesAsync();
-
         return results;
     }
 }
