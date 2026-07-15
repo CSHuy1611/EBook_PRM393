@@ -1,4 +1,5 @@
 using MathIBook.Application.DTOs;
+using MathIBook.Domain.Enums;
 using MathIBook.Domain.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -19,117 +20,90 @@ public class AdminReportsController : ControllerBase
     }
 
     [HttpGet("overview")]
-    public async Task<IActionResult> GetOverview([FromQuery] Guid? userId)
+    public async Task<ActionResult<ReportOverviewDto>> GetOverview([FromQuery] Guid? userId)
     {
-        try
+        var studentQuery = _unitOfWork.Users.Query()
+            .Where(user => user.Role == "Student");
+        if (userId.HasValue)
         {
-            var totalUsers = await _unitOfWork.Users.Query().CountAsync();
+            studentQuery = studentQuery.Where(user => user.Id == userId);
+        }
 
-            var quizAttemptsQuery = _unitOfWork.QuizAttempts.Query();
-            if (userId.HasValue)
-                quizAttemptsQuery = quizAttemptsQuery.Where(qa => qa.UserId == userId.Value);
+        var studentIds = await studentQuery.Select(user => user.Id).ToListAsync();
+        var attempts = await _unitOfWork.QuizAttempts.Query()
+            .Where(attempt => studentIds.Contains(attempt.UserId))
+            .Include(attempt => attempt.Quiz)
+            .ThenInclude(quiz => quiz!.Lesson)
+            .ToListAsync();
+        var transactions = await _unitOfWork.CoinTransactions.Query()
+            .Where(transaction => studentIds.Contains(transaction.UserId))
+            .ToListAsync();
+        var badgeCount = await _unitOfWork.UserBadges.Query()
+            .CountAsync(item => studentIds.Contains(item.UserId));
+        var chapters = await _unitOfWork.Chapters.Query()
+            .Where(chapter => !chapter.IsDeleted)
+            .Include(chapter => chapter.Lessons.Where(lesson => !lesson.IsDeleted))
+            .OrderBy(chapter => chapter.OrderIndex)
+            .ToListAsync();
+        var progress = await _unitOfWork.Progresses.Query()
+            .Where(item =>
+                studentIds.Contains(item.UserId)
+                && item.Status == LearningStatus.Passed)
+            .ToListAsync();
 
-            var totalQuizAttempts = await quizAttemptsQuery.CountAsync();
+        var chapterReports = chapters.Select(chapter =>
+        {
+            var chapterAttempts = attempts.Where(attempt =>
+                attempt.Quiz?.ChapterId == chapter.Id
+                || attempt.Quiz?.Lesson?.ChapterId == chapter.Id
+                || chapter.Lessons.Any(lesson => lesson.Id == attempt.LessonId))
+                .ToList();
+            var possibleCompletions = studentIds.Count * chapter.Lessons.Count;
+            var completed = progress.Count(item =>
+                chapter.Lessons.Any(lesson => lesson.Id == item.LessonId));
 
-            var coinTransactionsQuery = _unitOfWork.CoinTransactions.Query()
-                .Where(ct => ct.Amount > 0);
-            if (userId.HasValue)
-                coinTransactionsQuery = coinTransactionsQuery.Where(ct => ct.UserId == userId.Value);
-            var totalCoinsAwarded = await coinTransactionsQuery
-                .SumAsync(ct => (int?)ct.Amount) ?? 0;
-
-            var userBadgesQuery = _unitOfWork.UserBadges.Query();
-            if (userId.HasValue)
-                userBadgesQuery = userBadgesQuery.Where(ub => ub.UserId == userId.Value);
-            var totalBadgesAwarded = await userBadgesQuery.CountAsync();
-
-            var averageScoreData = await quizAttemptsQuery
-                .Where(qa => qa.TotalQuestions > 0)
-                .Select(qa => (double)qa.Score / qa.TotalQuestions * 100)
-                .ToListAsync();
-
-            var overallAverageScore = averageScoreData.Any()
-                ? Math.Round(averageScoreData.Average(), 2)
-                : 0;
-
-            var chapters = await _unitOfWork.Chapters.Query()
-                .Include(c => c.Lessons)
-                .ThenInclude(l => l.QuizAttempts)
-                .ToListAsync();
-
-            var chapterReports = chapters.Select(c =>
+            return new ChapterReportDto
             {
-                var chapterAttempts = userId.HasValue
-                    ? c.Lessons.SelectMany(l => l.QuizAttempts.Where(qa => qa.UserId == userId.Value)).ToList()
-                    : c.Lessons.SelectMany(l => l.QuizAttempts).ToList();
-
-                var totalAttempts = chapterAttempts.Count;
-                var avgScore = chapterAttempts.Where(qa => qa.TotalQuestions > 0)
-                    .Select(qa => (double)qa.Score / qa.TotalQuestions * 100)
-                    .DefaultIfEmpty()
-                    .Average();
-
-                var completedLessons = userId.HasValue
-                    ? c.Lessons.Count(l => l.QuizAttempts.Any(qa => qa.UserId == userId.Value))
-                    : c.Lessons.Count(l => l.QuizAttempts.Any());
-
-                return new ChapterReportDto
-                {
-                    ChapterId = c.Id,
-                    ChapterTitle = c.Title,
-                    TotalAttempts = totalAttempts,
-                    AverageScore = Math.Round(avgScore, 2),
-                    CompletionRate = c.Lessons.Any()
-                        ? Math.Round((double)completedLessons / c.Lessons.Count * 100, 2)
-                        : 0
-                };
-            }).ToList();
-
-            var dailyActivities = await quizAttemptsQuery
-                .GroupBy(qa => qa.CreatedAt.Date)
-                .Select(g => new DailyActivityDto
-                {
-                    Date = g.Key,
-                    QuizCount = g.Count()
-                })
-                .OrderByDescending(d => d.Date)
-                .Take(30)
-                .ToListAsync();
-
-            var newUsersByDay = await _unitOfWork.Users.Query()
-                .GroupBy(u => u.CreatedAt.Date)
-                .Select(g => new { Date = g.Key, Count = g.Count() })
-                .ToListAsync();
-
-            foreach (var daily in dailyActivities)
-            {
-                var newUserCount = newUsersByDay
-                    .Where(n => n.Date == daily.Date)
-                    .Sum(n => n.Count);
-                daily.NewUsers = newUserCount;
-            }
-
-            var result = new ReportOverviewDto
-            {
-                TotalUsers = totalUsers,
-                TotalQuizAttempts = totalQuizAttempts,
-                OverallAverageScore = overallAverageScore,
-                TotalCoinsAwarded = totalCoinsAwarded,
-                TotalBadgesAwarded = totalBadgesAwarded,
-                ChapterReports = chapterReports,
-                DailyActivities = dailyActivities
+                ChapterId = chapter.Id,
+                ChapterTitle = chapter.Title,
+                TotalAttempts = chapterAttempts.Count,
+                AverageScore = chapterAttempts.Count == 0
+                    ? 0
+                    : Math.Round(chapterAttempts.Average(item => (double)item.Score10), 2),
+                CompletionRate = possibleCompletions == 0
+                    ? 0
+                    : Math.Round((double)completed / possibleCompletions * 100, 2)
             };
+        }).ToList();
 
-            return Ok(result);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new ProblemDetails
+        var newUsers = await _unitOfWork.Users.Query()
+            .Where(user => user.Role == "Student")
+            .GroupBy(user => user.CreatedAt.Date)
+            .Select(group => new { Date = group.Key, Count = group.Count() })
+            .ToListAsync();
+        var daily = attempts
+            .GroupBy(attempt => attempt.CreatedAt.Date)
+            .Select(group => new DailyActivityDto
             {
-                Title = "Error fetching reports",
-                Detail = ex.Message,
-                Status = 500
-            });
-        }
+                Date = group.Key,
+                QuizCount = group.Count(),
+                NewUsers = newUsers.FirstOrDefault(item => item.Date == group.Key)?.Count ?? 0
+            })
+            .OrderByDescending(item => item.Date)
+            .Take(30)
+            .ToList();
+
+        return Ok(new ReportOverviewDto
+        {
+            TotalUsers = studentIds.Count,
+            TotalQuizAttempts = attempts.Count,
+            OverallAverageScore = attempts.Count == 0
+                ? 0
+                : Math.Round(attempts.Average(attempt => (double)attempt.Score10), 2),
+            TotalCoinsAwarded = transactions.Sum(transaction => transaction.Amount),
+            TotalBadgesAwarded = badgeCount,
+            ChapterReports = chapterReports,
+            DailyActivities = daily
+        });
     }
 }

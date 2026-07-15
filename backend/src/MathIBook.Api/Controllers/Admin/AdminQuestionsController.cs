@@ -1,5 +1,7 @@
+using System.Text.Json;
 using MathIBook.Application.DTOs;
 using MathIBook.Domain.Entities;
+using MathIBook.Domain.Enums;
 using MathIBook.Domain.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -20,194 +22,166 @@ public class AdminQuestionsController : ControllerBase
     }
 
     [HttpGet("lesson/{lessonId}")]
-    public async Task<IActionResult> GetByLesson(Guid lessonId)
+    public async Task<ActionResult<List<QuestionDto>>> GetByLesson(Guid lessonId)
     {
-        try
-        {
-            var questions = await _unitOfWork.Questions.Query()
-                .Where(q => q.LessonId == lessonId)
-                .OrderBy(q => q.OrderIndex)
-                .ToListAsync();
-
-            var result = questions.Select(q => new QuestionDto
-            {
-                Id = q.Id,
-                LessonId = q.LessonId,
-                QuestionText = q.QuestionText,
-                Options = System.Text.Json.JsonSerializer.Deserialize<List<string>>(q.Options) ?? new(),
-                CorrectOption = q.CorrectOption,
-                Explanation = q.Explanation,
-                OrderIndex = q.OrderIndex
-            }).ToList();
-
-            return Ok(result);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new ProblemDetails
-            {
-                Title = "Error fetching questions",
-                Detail = ex.Message,
-                Status = 500
-            });
-        }
+        var questions = await _unitOfWork.Questions.Query()
+            .Where(question => question.LessonId == lessonId && !question.IsDeleted)
+            .OrderBy(question => question.OrderIndex)
+            .ToListAsync();
+        return Ok(questions.Select(Map).ToList());
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] QuestionCreateDto dto)
+    public async Task<ActionResult<QuestionDto>> Create([FromBody] QuestionCreateDto dto)
     {
-        try
+        var validation = Validate(dto.QuestionText, dto.Options, dto.CorrectOption);
+        if (validation is not null)
         {
-            if (dto.Options.Count != 4 || dto.Options.Any(string.IsNullOrWhiteSpace))
-                return BadRequest(new ProblemDetails
+            return BadRequest(validation);
+        }
+
+        var lesson = await _unitOfWork.Lessons.GetByIdAsync(dto.LessonId);
+        if (lesson is null || lesson.IsDeleted)
+        {
+            return NotFound(new ProblemDetails { Title = "Không tìm thấy bài học.", Status = 404 });
+        }
+
+        var question = new Question
+        {
+            LessonId = dto.LessonId,
+            QuestionText = dto.QuestionText.Trim(),
+            Options = JsonSerializer.Serialize(dto.Options.Select(option => option.Trim())),
+            CorrectOption = dto.CorrectOption,
+            Explanation = dto.Explanation,
+            OrderIndex = dto.OrderIndex,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        await _unitOfWork.Questions.AddAsync(question);
+
+        var quiz = await _unitOfWork.Quizzes.Query().FirstOrDefaultAsync(item =>
+            item.LessonId == dto.LessonId
+            && item.QuizType == QuizType.Lesson
+            && !item.IsDeleted);
+        if (quiz is not null)
+        {
+            var occupied = await _unitOfWork.QuizQuestions.Query()
+                .AnyAsync(link =>
+                    link.QuizId == quiz.Id && link.OrderIndex == dto.OrderIndex);
+            if (occupied)
+            {
+                return Conflict(new ProblemDetails
                 {
-                    Title = "Validation error",
-                    Detail = "Exactly 4 non-empty options are required",
-                    Status = 400
+                    Title = "Thứ tự câu hỏi đã tồn tại trong quiz bài học.",
+                    Status = 409
                 });
-
-            if (dto.CorrectOption < 0 || dto.CorrectOption > 3)
-                return BadRequest(new ProblemDetails
-                {
-                    Title = "Validation error",
-                    Detail = "CorrectOption must be between 0 and 3",
-                    Status = 400
-                });
-
-            var lesson = await _unitOfWork.Lessons.GetByIdAsync(dto.LessonId);
-            if (lesson == null)
-                return NotFound(new ProblemDetails { Title = "Lesson not found", Status = 404 });
-
-            var question = new Question
-            {
-                LessonId = dto.LessonId,
-                QuestionText = dto.QuestionText,
-                Options = System.Text.Json.JsonSerializer.Serialize(dto.Options),
-                CorrectOption = dto.CorrectOption,
-                Explanation = dto.Explanation,
-                OrderIndex = dto.OrderIndex
-            };
-
-            await _unitOfWork.Questions.AddAsync(question);
-            await _unitOfWork.SaveChangesAsync();
-
-            try
-            {
-                var students = await _unitOfWork.Users.Query()
-                    .Where(u => u.Role == "Student")
-                    .ToListAsync();
-
-                foreach (var student in students)
-                {
-                    var notification = new Notification
-                    {
-                        UserId = student.Id,
-                        Title = "New Question Added",
-                        Body = $"A new question has been added to a lesson.",
-                        Link = $"/lessons/{question.LessonId}"
-                    };
-
-                    await _unitOfWork.Notifications.AddAsync(notification);
-                }
-
-                await _unitOfWork.SaveChangesAsync();
-            }
-            catch
-            {
-                // Notification failure should not block question creation
             }
 
-            return CreatedAtAction(nameof(GetByLesson), new { lessonId = question.LessonId }, new QuestionDto
+            await _unitOfWork.QuizQuestions.AddAsync(new QuizQuestion
             {
-                Id = question.Id,
-                LessonId = question.LessonId,
-                QuestionText = question.QuestionText,
-                Options = dto.Options,
-                CorrectOption = question.CorrectOption,
-                Explanation = question.Explanation,
-                OrderIndex = question.OrderIndex
+                QuizId = quiz.Id,
+                QuestionId = question.Id,
+                OrderIndex = dto.OrderIndex,
+                Weight = 1
             });
+            quiz.IsPublished = false;
+            quiz.PublishedAt = null;
+            quiz.UpdatedAt = DateTime.UtcNow;
+            _unitOfWork.Quizzes.Update(quiz);
         }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new ProblemDetails
-            {
-                Title = "Error creating question",
-                Detail = ex.Message,
-                Status = 500
-            });
-        }
+
+        await _unitOfWork.SaveChangesAsync();
+        return Ok(Map(question));
     }
 
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] QuestionUpdateDto dto)
     {
-        try
+        var validation = Validate(dto.QuestionText, dto.Options, dto.CorrectOption);
+        if (validation is not null)
         {
-            if (dto.Options.Count != 4 || dto.Options.Any(string.IsNullOrWhiteSpace))
-                return BadRequest(new ProblemDetails
-                {
-                    Title = "Validation error",
-                    Detail = "Exactly 4 non-empty options are required",
-                    Status = 400
-                });
-
-            if (dto.CorrectOption < 0 || dto.CorrectOption > 3)
-                return BadRequest(new ProblemDetails
-                {
-                    Title = "Validation error",
-                    Detail = "CorrectOption must be between 0 and 3",
-                    Status = 400
-                });
-
-            var question = await _unitOfWork.Questions.GetByIdAsync(id);
-            if (question == null)
-                return NotFound(new ProblemDetails { Title = "Question not found", Status = 404 });
-
-            question.QuestionText = dto.QuestionText;
-            question.Options = System.Text.Json.JsonSerializer.Serialize(dto.Options);
-            question.CorrectOption = dto.CorrectOption;
-            question.Explanation = dto.Explanation;
-            question.OrderIndex = dto.OrderIndex;
-
-            _unitOfWork.Questions.Update(question);
-            await _unitOfWork.SaveChangesAsync();
-
-            return NoContent();
+            return BadRequest(validation);
         }
-        catch (Exception ex)
+
+        var question = await _unitOfWork.Questions.GetByIdAsync(id);
+        if (question is null || question.IsDeleted)
         {
-            return StatusCode(500, new ProblemDetails
-            {
-                Title = "Error updating question",
-                Detail = ex.Message,
-                Status = 500
-            });
+            return NotFound();
         }
+
+        question.QuestionText = dto.QuestionText.Trim();
+        question.Options = JsonSerializer.Serialize(dto.Options.Select(option => option.Trim()));
+        question.CorrectOption = dto.CorrectOption;
+        question.Explanation = dto.Explanation;
+        question.OrderIndex = dto.OrderIndex;
+        question.UpdatedAt = DateTime.UtcNow;
+        _unitOfWork.Questions.Update(question);
+        await UnpublishLinkedQuizzesAsync(id);
+        await _unitOfWork.SaveChangesAsync();
+        return NoContent();
     }
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(Guid id)
     {
-        try
+        var question = await _unitOfWork.Questions.GetByIdAsync(id);
+        if (question is null || question.IsDeleted)
         {
-            var question = await _unitOfWork.Questions.GetByIdAsync(id);
-            if (question == null)
-                return NotFound(new ProblemDetails { Title = "Question not found", Status = 404 });
-
-            _unitOfWork.Questions.Remove(question);
-            await _unitOfWork.SaveChangesAsync();
-
-            return NoContent();
+            return NotFound();
         }
-        catch (Exception ex)
+
+        question.IsDeleted = true;
+        question.UpdatedAt = DateTime.UtcNow;
+        _unitOfWork.Questions.Update(question);
+        await UnpublishLinkedQuizzesAsync(id);
+        await _unitOfWork.SaveChangesAsync();
+        return NoContent();
+    }
+
+    private async Task UnpublishLinkedQuizzesAsync(Guid questionId)
+    {
+        var quizzes = await _unitOfWork.QuizQuestions.Query()
+            .Where(link => link.QuestionId == questionId)
+            .Select(link => link.Quiz)
+            .ToListAsync();
+        foreach (var quiz in quizzes)
         {
-            return StatusCode(500, new ProblemDetails
-            {
-                Title = "Error deleting question",
-                Detail = ex.Message,
-                Status = 500
-            });
+            quiz.IsPublished = false;
+            quiz.PublishedAt = null;
+            quiz.UpdatedAt = DateTime.UtcNow;
+            _unitOfWork.Quizzes.Update(quiz);
         }
     }
+
+    private static ProblemDetails? Validate(
+        string questionText,
+        IReadOnlyCollection<string> options,
+        int correctOption)
+    {
+        if (string.IsNullOrWhiteSpace(questionText)
+            || options.Count != 4
+            || options.Any(string.IsNullOrWhiteSpace)
+            || correctOption is < 0 or > 3)
+        {
+            return new ProblemDetails
+            {
+                Title = "Câu hỏi phải có nội dung, đúng 4 lựa chọn và đáp án đúng từ 0 đến 3.",
+                Status = 400
+            };
+        }
+
+        return null;
+    }
+
+    private static QuestionDto Map(Question question) => new()
+    {
+        Id = question.Id,
+        LessonId = question.LessonId,
+        ChapterId = question.ChapterId,
+        QuestionText = question.QuestionText,
+        Options = JsonSerializer.Deserialize<List<string>>(question.Options) ?? new(),
+        CorrectOption = question.CorrectOption,
+        Explanation = question.Explanation,
+        OrderIndex = question.OrderIndex
+    };
 }

@@ -1,5 +1,8 @@
+using System.Security.Claims;
+using System.Text.Json;
 using MathIBook.Application.DTOs;
 using MathIBook.Domain.Entities;
+using MathIBook.Domain.Enums;
 using MathIBook.Domain.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -20,125 +23,262 @@ public class AdminChaptersController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll()
+    public async Task<ActionResult<List<ChapterDto>>> GetAll()
     {
-        try
-        {
-            var chapters = await _unitOfWork.Chapters.Query()
-                .OrderBy(c => c.OrderIndex)
-                .Select(c => new ChapterDto
-                {
-                    Id = c.Id,
-                    Title = c.Title,
-                    Description = c.Description,
-                    OrderIndex = c.OrderIndex,
-                    LessonCount = c.Lessons.Count,
-                    CompletionPercentage = 0
-                })
-                .ToListAsync();
+        var chapters = await _unitOfWork.Chapters.Query()
+            .Where(chapter => !chapter.IsDeleted)
+            .OrderBy(chapter => chapter.OrderIndex)
+            .Include(chapter => chapter.Lessons.Where(lesson => !lesson.IsDeleted))
+            .Include(chapter => chapter.Quizzes.Where(quiz =>
+                quiz.QuizType == QuizType.Chapter && !quiz.IsDeleted))
+            .ToListAsync();
 
-            return Ok(chapters);
-        }
-        catch (Exception ex)
+        return Ok(chapters.Select(chapter => new ChapterDto
         {
-            return StatusCode(500, new ProblemDetails
-            {
-                Title = "Error fetching chapters",
-                Detail = ex.Message,
-                Status = 500
-            });
-        }
+            Id = chapter.Id,
+            Title = chapter.Title,
+            Description = chapter.Description,
+            OrderIndex = chapter.OrderIndex,
+            CurriculumTopicId = chapter.CurriculumTopicId,
+            IsPublished = chapter.IsPublished,
+            LessonCount = chapter.Lessons.Count,
+            ChapterQuizId = chapter.Quizzes.FirstOrDefault()?.Id,
+            ChapterQuizStatus = chapter.Quizzes.FirstOrDefault() is { } quiz
+                ? quiz.IsPublished ? "Published" : "Draft"
+                : "Unavailable"
+        }).ToList());
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] ChapterCreateDto dto)
+    public async Task<ActionResult<ChapterDto>> Create([FromBody] ChapterCreateDto dto)
     {
-        try
+        var validation = await ValidateAsync(dto.Title, dto.CurriculumTopicId);
+        if (validation is not null)
         {
-            var chapter = new Chapter
-            {
-                Title = dto.Title,
-                Description = dto.Description,
-                OrderIndex = dto.OrderIndex
-            };
-
-            await _unitOfWork.Chapters.AddAsync(chapter);
-            await _unitOfWork.SaveChangesAsync();
-
-            var result = new ChapterDto
-            {
-                Id = chapter.Id,
-                Title = chapter.Title,
-                Description = chapter.Description,
-                OrderIndex = chapter.OrderIndex,
-                LessonCount = 0,
-                CompletionPercentage = 0
-            };
-
-            return CreatedAtAction(nameof(GetAll), new { id = chapter.Id }, result);
+            return BadRequest(validation);
         }
-        catch (Exception ex)
+
+        var chapter = new Chapter
         {
-            return StatusCode(500, new ProblemDetails
-            {
-                Title = "Error creating chapter",
-                Detail = ex.Message,
-                Status = 500
-            });
-        }
+            Title = dto.Title.Trim(),
+            Description = dto.Description?.Trim(),
+            OrderIndex = dto.OrderIndex,
+            CurriculumTopicId = dto.CurriculumTopicId,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        await _unitOfWork.Chapters.AddAsync(chapter);
+        await AuditAsync(chapter.Id, "Create", null, chapter);
+        await _unitOfWork.SaveChangesAsync();
+        return Ok(new ChapterDto
+        {
+            Id = chapter.Id,
+            Title = chapter.Title,
+            Description = chapter.Description,
+            OrderIndex = chapter.OrderIndex,
+            CurriculumTopicId = chapter.CurriculumTopicId
+        });
     }
 
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] ChapterUpdateDto dto)
     {
-        try
+        var chapter = await _unitOfWork.Chapters.GetByIdAsync(id);
+        if (chapter is null || chapter.IsDeleted)
         {
-            var chapter = await _unitOfWork.Chapters.GetByIdAsync(id);
-            if (chapter == null)
-                return NotFound(new ProblemDetails { Title = "Chapter not found", Status = 404 });
-
-            chapter.Title = dto.Title;
-            chapter.Description = dto.Description;
-            chapter.OrderIndex = dto.OrderIndex;
-
-            _unitOfWork.Chapters.Update(chapter);
-            await _unitOfWork.SaveChangesAsync();
-
-            return NoContent();
+            return NotFound();
         }
-        catch (Exception ex)
+
+        var validation = await ValidateAsync(dto.Title, dto.CurriculumTopicId);
+        if (validation is not null)
         {
-            return StatusCode(500, new ProblemDetails
+            return BadRequest(validation);
+        }
+
+        var before = Snapshot(chapter);
+        chapter.Title = dto.Title.Trim();
+        chapter.Description = dto.Description?.Trim();
+        chapter.OrderIndex = dto.OrderIndex;
+        chapter.CurriculumTopicId = dto.CurriculumTopicId;
+        chapter.UpdatedAt = DateTime.UtcNow;
+        _unitOfWork.Chapters.Update(chapter);
+        await AuditAsync(chapter.Id, "Update", before, chapter);
+        await _unitOfWork.SaveChangesAsync();
+        return NoContent();
+    }
+
+    [HttpPatch("{id}/publish")]
+    public async Task<IActionResult> TogglePublish(Guid id)
+    {
+        var chapter = await _unitOfWork.Chapters.GetByIdAsync(id);
+        if (chapter is null || chapter.IsDeleted)
+        {
+            return NotFound();
+        }
+
+        var before = Snapshot(chapter);
+        if (chapter.IsPublished)
+        {
+            chapter.IsPublished = false;
+            chapter.PublishedAt = null;
+        }
+        else
+        {
+            var validation = await ValidateAsync(chapter.Title, chapter.CurriculumTopicId);
+            if (validation is not null || string.IsNullOrWhiteSpace(chapter.Description))
             {
-                Title = "Error updating chapter",
-                Detail = ex.Message,
-                Status = 500
+                return BadRequest(validation ?? new ProblemDetails
+                {
+                    Title = "Chương phải có mô tả trước khi xuất bản.",
+                    Status = 400
+                });
+            }
+
+            chapter.IsPublished = true;
+            chapter.PublishedAt = DateTime.UtcNow;
+            await NotifyStudentsAsync(
+                "Chương học mới",
+                $"Chương “{chapter.Title}” đã được xuất bản.",
+                $"/chapters/{chapter.Id}",
+                "new_chapter",
+                chapter.Id);
+        }
+
+        chapter.UpdatedAt = DateTime.UtcNow;
+        _unitOfWork.Chapters.Update(chapter);
+        await AuditAsync(
+            chapter.Id,
+            chapter.IsPublished ? "Publish" : "Unpublish",
+            before,
+            chapter);
+        await _unitOfWork.SaveChangesAsync();
+        return NoContent();
+    }
+
+    [HttpPut("reorder")]
+    public async Task<IActionResult> Reorder([FromBody] Dictionary<Guid, int> order)
+    {
+        if (order.Values.Distinct().Count() != order.Count)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Thứ tự chương không được trùng.",
+                Status = 400
             });
         }
+
+        var chapters = await _unitOfWork.Chapters.Query()
+            .Where(chapter => order.Keys.Contains(chapter.Id) && !chapter.IsDeleted)
+            .ToListAsync();
+        if (chapters.Count != order.Count)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Danh sách chứa chương không tồn tại.",
+                Status = 400
+            });
+        }
+
+        foreach (var chapter in chapters)
+        {
+            chapter.OrderIndex = order[chapter.Id];
+            chapter.UpdatedAt = DateTime.UtcNow;
+            _unitOfWork.Chapters.Update(chapter);
+        }
+
+        await _unitOfWork.SaveChangesAsync();
+        return NoContent();
     }
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(Guid id)
     {
-        try
+        var chapter = await _unitOfWork.Chapters.GetByIdAsync(id);
+        if (chapter is null || chapter.IsDeleted)
         {
-            var chapter = await _unitOfWork.Chapters.GetByIdAsync(id);
-            if (chapter == null)
-                return NotFound(new ProblemDetails { Title = "Chapter not found", Status = 404 });
-
-            _unitOfWork.Chapters.Remove(chapter);
-            await _unitOfWork.SaveChangesAsync();
-
-            return NoContent();
+            return NotFound();
         }
-        catch (Exception ex)
+
+        var before = Snapshot(chapter);
+        chapter.IsDeleted = true;
+        chapter.IsPublished = false;
+        chapter.PublishedAt = null;
+        chapter.UpdatedAt = DateTime.UtcNow;
+        _unitOfWork.Chapters.Update(chapter);
+        await AuditAsync(chapter.Id, "SoftDelete", before, chapter);
+        await _unitOfWork.SaveChangesAsync();
+        return NoContent();
+    }
+
+    private async Task<ProblemDetails?> ValidateAsync(string title, Guid? topicId)
+    {
+        if (string.IsNullOrWhiteSpace(title) || !topicId.HasValue)
         {
-            return StatusCode(500, new ProblemDetails
+            return new ProblemDetails
             {
-                Title = "Error deleting chapter",
-                Detail = ex.Message,
-                Status = 500
+                Title = "Tiêu đề và taxonomy Toán lớp 8 là bắt buộc.",
+                Status = 400
+            };
+        }
+
+        var validTopic = await _unitOfWork.CurriculumTopics.Query().AnyAsync(
+            topic => topic.Id == topicId && topic.Grade == 8 && topic.IsActive);
+        return validTopic
+            ? null
+            : new ProblemDetails
+            {
+                Title = "Taxonomy phải thuộc Toán lớp 8 và đang hoạt động.",
+                Status = 400
+            };
+    }
+
+    private async Task NotifyStudentsAsync(
+        string title,
+        string body,
+        string link,
+        string type,
+        Guid relatedId)
+    {
+        var students = await _unitOfWork.Users.Query()
+            .Where(user => user.Role == "Student" && user.IsActive)
+            .Select(user => user.Id)
+            .ToListAsync();
+        foreach (var studentId in students)
+        {
+            await _unitOfWork.Notifications.AddAsync(new Notification
+            {
+                UserId = studentId,
+                Title = title,
+                Body = body,
+                Link = link,
+                Type = type,
+                RelatedEntityId = relatedId,
+                CreatedAt = DateTime.UtcNow
             });
         }
     }
+
+    private async Task AuditAsync(Guid id, string action, object? before, object? after)
+    {
+        await _unitOfWork.ContentAuditLogs.AddAsync(new ContentAuditLog
+        {
+            AdminUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!),
+            EntityType = "Chapter",
+            EntityId = id,
+            Action = action,
+            BeforeData = before is null ? null : JsonSerializer.Serialize(before),
+            AfterData = after is null ? null : JsonSerializer.Serialize(after),
+            CreatedAt = DateTime.UtcNow
+        });
+    }
+
+    private static object Snapshot(Chapter chapter) => new
+    {
+        chapter.Title,
+        chapter.Description,
+        chapter.OrderIndex,
+        chapter.CurriculumTopicId,
+        chapter.IsPublished,
+        chapter.IsDeleted
+    };
 }

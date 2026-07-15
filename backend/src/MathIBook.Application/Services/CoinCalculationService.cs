@@ -16,21 +16,29 @@ public class CoinCalculationService : ICoinCalculationService
         _logger = logger;
     }
 
-    public async Task<int> CalculateQuizCoinsAsync(Guid userId, int score, int totalQuestions, Guid? quizAttemptId)
+    public async Task<int> CalculateQuizCoinsAsync(
+        Guid userId,
+        int score,
+        int totalQuestions,
+        Guid? quizAttemptId)
     {
         if (quizAttemptId.HasValue)
         {
             var existing = await _unitOfWork.CoinTransactions.FirstOrDefaultAsync(
-                ct => ct.UserId == userId && ct.SourceId == quizAttemptId.Value && ct.SourceType == "quiz_reward");
+                transaction =>
+                    transaction.UserId == userId
+                    && transaction.SourceId == quizAttemptId.Value
+                    && transaction.SourceType == "quiz_reward");
             if (existing is not null)
             {
-                _logger.LogWarning("Duplicate coin transaction attempted for quiz attempt {QuizAttemptId}", quizAttemptId.Value);
+                _logger.LogWarning(
+                    "Duplicate coin transaction attempted for quiz attempt {QuizAttemptId}",
+                    quizAttemptId.Value);
                 return 0;
             }
         }
 
         var coins = score * 10;
-
         if (score == totalQuestions)
         {
             coins += 5;
@@ -42,7 +50,10 @@ public class CoinCalculationService : ICoinCalculationService
             throw new InvalidOperationException("User not found.");
         }
 
+        var occurredAt = DateTime.UtcNow;
         user.Coins += coins;
+        user.CoinsUpdatedAt = occurredAt;
+        user.UpdatedAt = occurredAt;
         _unitOfWork.Users.Update(user);
 
         var transaction = new CoinTransaction
@@ -51,16 +62,25 @@ public class CoinCalculationService : ICoinCalculationService
             Amount = coins,
             SourceType = "quiz_reward",
             SourceId = quizAttemptId,
+            ClientAttemptId = quizAttemptId,
+            IdempotencyKey = quizAttemptId.HasValue
+                ? $"quiz_reward:{quizAttemptId.Value:N}"
+                : null,
+            BalanceAfter = user.Coins,
             Description = score == totalQuestions
                 ? $"Perfect score! Earned {coins} coins ({score * 10} base + 5 bonus)"
                 : $"Earned {coins} coins for scoring {score}/{totalQuestions}",
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = occurredAt
         };
 
         await _unitOfWork.CoinTransactions.AddAsync(transaction);
         await _unitOfWork.SaveChangesAsync();
 
-        _logger.LogInformation("Awarded {Coins} coins to user {UserId} for quiz attempt {QuizAttemptId}", coins, userId, quizAttemptId);
+        _logger.LogInformation(
+            "Awarded {Coins} coins to user {UserId} for quiz attempt {QuizAttemptId}",
+            coins,
+            userId,
+            quizAttemptId);
 
         return coins;
     }
