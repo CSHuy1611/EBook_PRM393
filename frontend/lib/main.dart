@@ -68,6 +68,12 @@ class MathIBookApp extends StatelessWidget {
           darkTheme: AppTheme.darkTheme,
           themeMode: prefs.getThemeMode() == 'dark' ? ThemeMode.dark : ThemeMode.light,
           routerConfig: appRouter,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaler: TextScaler.linear(prefs.getFontScale()),
+            ),
+            child: child ?? const SizedBox.shrink(),
+          ),
         );
       },
     );

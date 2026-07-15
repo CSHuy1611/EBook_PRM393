@@ -4,6 +4,9 @@ import 'package:math_ibook/core/math/math_text.dart';
 import 'package:math_ibook/core/models/lesson_model.dart';
 import 'package:math_ibook/core/network/api_client.dart';
 import 'package:math_ibook/core/storage/local_prefs_service.dart';
+import 'package:math_ibook/core/storage/local_db_service.dart';
+import 'package:provider/provider.dart';
+import 'package:math_ibook/features/auth/domain/auth_provider.dart';
 import 'package:math_ibook/core/widgets/loading_widget.dart';
 import 'package:math_ibook/core/widgets/error_widget.dart';
 import 'package:math_ibook/features/student/simulation/simulation_widget.dart';
@@ -39,13 +42,37 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
       final response = await ApiClient.instance.get('/lessons/${widget.lessonId}');
       final data = response.data as Map<String, dynamic>;
       _lesson = LessonModel.fromJson(data);
+      await _cacheAndQueueProgress(_lesson!);
       setState(() => _isLoading = false);
     } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
+      final cached = await LocalDbService().getCachedLessonDto(widget.lessonId);
+      if (cached != null) {
+        _lesson = LessonModel.fromJson(cached);
+        await _queueProgress();
+        setState(() => _isLoading = false);
+      } else {
+        setState(() { _error = e.toString(); _isLoading = false; });
+      }
     }
+  }
+
+  Future<void> _cacheAndQueueProgress(LessonModel lesson) async {
+    final db = LocalDbService();
+    await db.cacheLesson(lesson.toJson());
+    await db.cacheQuestions(lesson.id, lesson.questions.map((question) {
+      final value = question.toJson();
+      value.remove('correctOption');
+      value.remove('explanation');
+      return value;
+    }).toList());
+    await _queueProgress();
+  }
+
+  Future<void> _queueProgress() async {
+    if (!mounted) return;
+    final userId = context.read<AuthProvider>().currentUser?.id;
+    if (userId == null || userId.isEmpty) return;
+    await LocalDbService().upsertProgress(userId: userId, lessonId: widget.lessonId, updatedAt: DateTime.now());
   }
 
   @override

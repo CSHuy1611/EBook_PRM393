@@ -1,11 +1,15 @@
 class QuizSubmitDto {
   final String lessonId;
+  final String? quizId;
+  final String clientAttemptId;
   final int durationSeconds;
   final List<AnswerDto> answers;
   final String clientCreatedAt;
 
   QuizSubmitDto({
     required this.lessonId,
+    this.quizId,
+    required this.clientAttemptId,
     required this.durationSeconds,
     required this.answers,
     required this.clientCreatedAt,
@@ -20,6 +24,8 @@ class QuizSubmitDto {
     }
     return QuizSubmitDto(
       lessonId: json['lessonId'] ?? '',
+      quizId: json['quizId'],
+      clientAttemptId: json['clientAttemptId'] ?? '',
       durationSeconds: json['durationSeconds'] ?? 0,
       answers: answersList,
       clientCreatedAt: json['clientCreatedAt'] ?? '',
@@ -28,6 +34,8 @@ class QuizSubmitDto {
 
   Map<String, dynamic> toJson() => {
         'lessonId': lessonId,
+        if (quizId != null) 'quizId': quizId,
+        'clientAttemptId': clientAttemptId,
         'durationSeconds': durationSeconds,
         'answers': answers.map((a) => a.toJson()).toList(),
         'clientCreatedAt': clientCreatedAt,

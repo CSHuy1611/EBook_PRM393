@@ -39,6 +39,15 @@ public class BadgeCollectionItemDto
     public string Requirement { get; set; } = string.Empty;
     public int CurrentValue { get; set; }
     public int TargetValue { get; set; }
+    public List<BadgeRuleProgressDto> Rules { get; set; } = new();
+}
+
+public class BadgeRuleProgressDto
+{
+    public string Requirement { get; set; } = string.Empty;
+    public int CurrentValue { get; set; }
+    public int TargetValue { get; set; }
+    public double Percentage { get; set; }
 }
 
 public class BadgeCollectionDto

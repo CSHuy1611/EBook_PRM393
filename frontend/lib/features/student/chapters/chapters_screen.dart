@@ -6,6 +6,7 @@ import 'package:math_ibook/core/network/api_client.dart';
 import 'package:math_ibook/core/progress/progress_notifier.dart';
 import 'package:math_ibook/core/widgets/loading_widget.dart';
 import 'package:math_ibook/core/widgets/error_widget.dart';
+import 'package:math_ibook/core/storage/local_db_service.dart';
 
 class ChaptersScreen extends StatefulWidget {
   const ChaptersScreen({super.key});
@@ -35,12 +36,15 @@ class _ChaptersScreenState extends State<ChaptersScreen> {
       final response = await ApiClient.instance.get('/chapters');
       final List<dynamic> data = response.data as List<dynamic>;
       _chapters = data.map((e) => ChapterModel.fromJson(e as Map<String, dynamic>)).toList();
+      await LocalDbService().cacheChapters(_chapters!.map((chapter) => chapter.toJson()).toList());
       setState(() => _isLoading = false);
     } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
+      final cached = await LocalDbService().getCachedChapters();
+      if (cached.isNotEmpty) {
+        setState(() { _chapters = cached.map(ChapterModel.fromJson).toList(); _isLoading = false; });
+      } else {
+        setState(() { _error = e.toString(); _isLoading = false; });
+      }
     }
   }
 

@@ -11,6 +11,7 @@ public static class SeedData
     {
         if (await context.Users.AnyAsync())
         {
+            await RepairLegacyBadgeRuleThresholdsAsync(context);
             return;
         }
 
@@ -346,7 +347,7 @@ public static class SeedData
         {
             Id = badge1Id,
             Title = "Hoàn thành Chương 1",
-            Description = "Hoàn thành tất cả bài học trong Chương 1",
+            Description = "Vượt qua quiz Chương 1 sau khi hoàn thành các bài học",
             IconUrl = "/images/badges/chapter1.png",
             ConditionType = "complete_chapter",
             ConditionValue = JsonSerializer.Serialize(new { chapterId = chapter1Id.ToString() })
@@ -447,6 +448,64 @@ public static class SeedData
 
         await context.SaveChangesAsync();
     }
+
+    private static async Task RepairLegacyBadgeRuleThresholdsAsync(AppDbContext context)
+    {
+        var rules = await context.BadgeRules
+            .Include(rule => rule.Badge)
+            .Where(rule =>
+                (rule.RuleType == "total_coins"
+                    || rule.RuleType == "passed_quizzes"
+                    || rule.RuleType == "perfect_quiz_streak")
+                && (!rule.ThresholdValue.HasValue || rule.ThresholdValue <= 0)
+                && rule.Badge.ConditionValue != null)
+            .ToListAsync();
+
+        var repaired = false;
+        foreach (var rule in rules)
+        {
+            var threshold = ExtractThreshold(rule.Badge.ConditionValue);
+            if (threshold <= 0)
+            {
+                continue;
+            }
+
+            rule.ThresholdValue = threshold;
+            repaired = true;
+        }
+
+        if (repaired)
+        {
+            await context.SaveChangesAsync();
+        }
+    }
+
+    private static int ExtractThreshold(string? value)
+    {
+        if (int.TryParse(value?.Trim('"'), out var direct))
+        {
+            return direct;
+        }
+
+        try
+        {
+            var values = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(value ?? "{}");
+            foreach (var key in new[] { "value", "coins", "streak", "count" })
+            {
+                if (values?.TryGetValue(key, out var element) == true
+                    && element.TryGetInt32(out var threshold))
+                {
+                    return threshold;
+                }
+            }
+        }
+        catch (JsonException)
+        {
+        }
+
+        return 0;
+    }
+
     private static Quiz CreateQuiz(
         QuizType type,
         Guid? lessonId,

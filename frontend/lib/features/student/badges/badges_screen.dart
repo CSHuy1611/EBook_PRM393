@@ -1,123 +1,106 @@
 import 'package:flutter/material.dart';
-import 'package:math_ibook/core/models/quiz_models.dart';
-import 'package:math_ibook/core/network/api_client.dart';
-import 'package:math_ibook/core/widgets/loading_widget.dart';
+import 'package:intl/intl.dart';
+import 'package:math_ibook/core/models/student_feature_models.dart';
+import 'package:math_ibook/core/network/student_feature_api.dart';
 import 'package:math_ibook/core/widgets/error_widget.dart';
+import 'package:math_ibook/core/widgets/loading_widget.dart';
 
 class BadgesScreen extends StatefulWidget {
   const BadgesScreen({super.key});
-
   @override
   State<BadgesScreen> createState() => _BadgesScreenState();
 }
 
-class _BadgesScreenState extends State<BadgesScreen> {
-  List<BadgeEarnedDto>? _badges;
-  bool _isLoading = true;
+class _BadgesScreenState extends State<BadgesScreen> with SingleTickerProviderStateMixin {
+  BadgeCollectionModel? _collection;
   String? _error;
+  bool _loading = true;
+  late final TabController _tabs;
 
   @override
-  void initState() {
-    super.initState();
-    _fetchBadges();
-  }
+  void initState() { super.initState(); _tabs = TabController(length: 3, vsync: this); _load(); }
+  @override
+  void dispose() { _tabs.dispose(); super.dispose(); }
 
-  Future<void> _fetchBadges() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+  Future<void> _load() async {
+    setState(() { _loading = true; _error = null; });
     try {
-      final response = await ApiClient.instance.get('/dashboard/me');
-      final data = response.data as Map<String, dynamic>;
-      final badgesList = <BadgeEarnedDto>[];
-      if (data['badges'] != null && data['badges'] is List) {
-        for (final b in data['badges']) {
-          badgesList.add(BadgeEarnedDto.fromJson(b));
-        }
-      }
-      setState(() {
-        _badges = badgesList;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
+      await StudentFeatureApi.instance.reconcileBadges();
+      final collection = await StudentFeatureApi.instance.getBadges();
+      if (mounted) setState(() { _collection = collection; _loading = false; });
+    } catch (error) {
+      if (mounted) setState(() { _error = error.toString(); _loading = false; });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) return const AppLoadingWidget(message: 'Đang tải danh hiệu...');
-    if (_error != null) return AppErrorWidget(message: _error!, onRetry: _fetchBadges);
+    if (_loading) return const AppLoadingWidget(message: 'Đang tải huy hiệu...');
+    if (_error != null) return AppErrorWidget(message: _error!, onRetry: _load);
+    final all = _collection!.items;
+    return Column(children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
+        child: Align(alignment: Alignment.centerLeft, child: Text('Đã đạt ${_collection!.earnedCount}/${_collection!.totalCount}', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold))),
+      ),
+      TabBar(controller: _tabs, tabs: const [Tab(text: 'Đã đạt'), Tab(text: 'Đang tiến tới'), Tab(text: 'Chưa đủ điều kiện')]),
+      Expanded(child: TabBarView(controller: _tabs, children: [
+        _BadgeList(items: all.where((item) => item.status == 'Earned').toList(), empty: 'Bạn chưa nhận huy hiệu nào.', onRefresh: _load),
+        _BadgeList(items: all.where((item) => item.status == 'InProgress').toList(), empty: 'Chưa có huy hiệu nào đang tiến tới.', onRefresh: _load),
+        _BadgeList(items: all.where((item) => item.status == 'Locked').toList(), empty: 'Không còn huy hiệu bị khóa.', onRefresh: _load),
+      ])),
+    ]);
+  }
+}
 
-    if (_badges == null || _badges!.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.military_tech, size: 64, color: Colors.grey.shade400),
-            const SizedBox(height: 16),
-            Text(
-              'Chưa có danh hiệu nào',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Hoàn thành bài học và bài kiểm tra để nhận danh hiệu',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      );
-    }
+class _BadgeList extends StatelessWidget {
+  final List<BadgeCollectionItemModel> items;
+  final String empty;
+  final Future<void> Function() onRefresh;
+  const _BadgeList({required this.items, required this.empty, required this.onRefresh});
 
-    return RefreshIndicator(
-      onRefresh: _fetchBadges,
-      child: GridView.builder(
-        padding: const EdgeInsets.all(16),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 0.85,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-        ),
-        itemCount: _badges!.length,
-        itemBuilder: (context, index) {
-          final badge = _badges![index];
-          return Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.military_tech, size: 48, color: Colors.amber.shade700),
-                  const SizedBox(height: 12),
-                  Text(
-                    badge.title,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    badge.description,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
+  @override
+  Widget build(BuildContext context) => RefreshIndicator(
+    onRefresh: onRefresh,
+    child: items.isEmpty
+        ? ListView(children: [SizedBox(height: 240, child: Center(child: Text(empty)))])
+        : ListView.builder(padding: const EdgeInsets.all(16), itemCount: items.length, itemBuilder: (_, index) => _BadgeCard(item: items[index])),
+  );
+}
+
+class _BadgeCard extends StatelessWidget {
+  final BadgeCollectionItemModel item;
+  const _BadgeCard({required this.item});
+
+  bool get _earned => item.status == 'Earned';
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _earned ? Colors.amber.shade700 : item.status == 'InProgress' ? Colors.deepPurple : Colors.grey;
+    final progress = (item.progressPercentage / 100).clamp(0.0, 1.0);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          CircleAvatar(radius: 28, backgroundColor: color.withAlpha(30), child: Icon(Icons.workspace_premium, color: color, size: 32)),
+          const SizedBox(width: 14),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(item.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 3),
+            Text(item.description),
+            const SizedBox(height: 10),
+            if (_earned)
+              Text(item.earnedAt == null ? 'Đã nhận huy hiệu' : 'Nhận ngày ${DateFormat('dd/MM/yyyy').format(item.earnedAt!.toLocal())}', style: TextStyle(color: color, fontWeight: FontWeight.w600))
+            else ...[
+              Text(item.requirement),
+              const SizedBox(height: 6),
+              LinearProgressIndicator(value: progress, minHeight: 7, borderRadius: BorderRadius.circular(6)),
+              const SizedBox(height: 4),
+              Align(alignment: Alignment.centerRight, child: Text('${item.progressPercentage.toStringAsFixed(0)}%')),
+            ],
+          ])),
+        ]),
       ),
     );
   }

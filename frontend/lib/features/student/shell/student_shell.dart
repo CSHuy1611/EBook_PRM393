@@ -1,7 +1,11 @@
 import 'dart:async';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:math_ibook/core/network/api_client.dart';
+import 'package:math_ibook/core/sync/offline_sync_service.dart';
+import 'package:math_ibook/features/auth/domain/auth_provider.dart';
 
 class StudentShell extends StatefulWidget {
   final StatefulNavigationShell navigationShell;
@@ -15,18 +19,30 @@ class StudentShell extends StatefulWidget {
 class _StudentShellState extends State<StudentShell> {
   int _unreadCount = 0;
   Timer? _timer;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
 
   @override
   void initState() {
     super.initState();
     _fetchUnread();
     _timer = Timer.periodic(const Duration(seconds: 30), (_) => _fetchUnread());
+    _syncPending();
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((result) {
+      if (result.any((item) => item != ConnectivityResult.none)) _syncPending();
+    });
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _connectivitySubscription?.cancel();
     super.dispose();
+  }
+
+  Future<void> _syncPending() async {
+    final userId = context.read<AuthProvider>().currentUser?.id;
+    if (userId == null || userId.isEmpty) return;
+    try { await OfflineSyncService.instance.sync(userId); } catch (_) {}
   }
 
   Future<void> _fetchUnread() async {

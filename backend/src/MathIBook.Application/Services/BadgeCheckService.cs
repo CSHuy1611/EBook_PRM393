@@ -45,7 +45,7 @@ public class BadgeCheckService : IBadgeCheckService
                 .OrderBy(rule => rule.OrderIndex)
                 .ToList();
             var conditionMet = rules.Count > 0
-                ? await CheckStructuredRulesAsync(userId, badge.RuleMatchMode, rules)
+                ? await CheckStructuredRulesAsync(userId, badge, badge.RuleMatchMode, rules)
                 : await CheckLegacyConditionAsync(userId, badge);
 
             if (!conditionMet)
@@ -115,13 +115,14 @@ public class BadgeCheckService : IBadgeCheckService
 
     private async Task<bool> CheckStructuredRulesAsync(
         Guid userId,
+        Badge badge,
         string matchMode,
         IReadOnlyCollection<BadgeRule> rules)
     {
         var results = new List<bool>();
         foreach (var rule in rules)
         {
-            results.Add(await CheckRuleAsync(userId, rule));
+            results.Add(await CheckRuleAsync(userId, badge, rule));
         }
 
         return string.Equals(matchMode, "ANY", StringComparison.OrdinalIgnoreCase)
@@ -129,14 +130,14 @@ public class BadgeCheckService : IBadgeCheckService
             : results.All(result => result);
     }
 
-    private Task<bool> CheckRuleAsync(Guid userId, BadgeRule rule)
+    private Task<bool> CheckRuleAsync(Guid userId, Badge badge, BadgeRule rule)
     {
         return rule.RuleType.ToLowerInvariant() switch
         {
             "complete_chapter" => CheckCompleteChapterAsync(userId, rule.TargetChapterId),
-            "total_coins" => CheckTotalCoinsAsync(userId, rule.ThresholdValue),
-            "passed_quizzes" => CheckPassedQuizCountAsync(userId, rule.ThresholdValue),
-            "perfect_quiz_streak" => CheckPerfectQuizStreakAsync(userId, rule.ThresholdValue),
+            "total_coins" => CheckTotalCoinsAsync(userId, ResolveThreshold(rule, badge)),
+            "passed_quizzes" => CheckPassedQuizCountAsync(userId, ResolveThreshold(rule, badge)),
+            "perfect_quiz_streak" => CheckPerfectQuizStreakAsync(userId, ResolveThreshold(rule, badge)),
             "complete_book" => CheckCompleteBookAsync(userId),
             _ => Task.FromResult(false)
         };
@@ -260,6 +261,11 @@ public class BadgeCheckService : IBadgeCheckService
 
         return null;
     }
+
+    private static int? ResolveThreshold(BadgeRule rule, Badge badge) =>
+        rule.ThresholdValue is > 0
+            ? rule.ThresholdValue.Value
+            : TryExtractInt(badge.ConditionValue);
 
     private static int? TryExtractInt(string? conditionValue)
     {
