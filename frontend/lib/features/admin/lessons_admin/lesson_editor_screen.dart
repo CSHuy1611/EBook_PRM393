@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:math_ibook/core/math/math_text.dart';
 import 'package:math_ibook/core/math/math_toolbar.dart';
+import 'package:math_ibook/core/models/admin_models.dart';
 import 'package:math_ibook/core/models/lesson_model.dart';
 import 'package:math_ibook/core/network/api_client.dart';
 
@@ -25,7 +26,10 @@ class _LessonEditorScreenState extends State<LessonEditorScreen> {
   late TextEditingController _contentCtrl;
   late TextEditingController _orderCtrl;
   String _simulationType = '';
+  String? _selectedTopicId;
+  List<CurriculumTopicDto> _topics = [];
   bool _isSaving = false;
+  bool _isLoadingTopics = true;
 
   final _simulationTypes = ['', 'linear_graph', 'quadratic_graph', 'triangle', 'geogebra', 'desmos', 'phet', 'simulation'];
 
@@ -39,6 +43,8 @@ class _LessonEditorScreenState extends State<LessonEditorScreen> {
     _contentCtrl = TextEditingController(text: lesson?.contentBody ?? '');
     _orderCtrl = TextEditingController(text: (lesson?.orderIndex ?? 0).toString());
     _simulationType = lesson?.simulationType ?? '';
+    _selectedTopicId = lesson?.curriculumTopicId;
+    _loadTopics();
   }
 
   @override
@@ -47,6 +53,23 @@ class _LessonEditorScreenState extends State<LessonEditorScreen> {
     _contentCtrl.dispose();
     _orderCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadTopics() async {
+    try {
+      final response = await ApiClient.instance.get('/admin/curriculum-topics');
+      final data = response.data;
+      final list = data is List ? data : (data is Map && data['data'] is List ? data['data'] : []);
+      setState(() {
+        _topics = (list as List)
+            .map((e) => CurriculumTopicDto.fromJson(e as Map<String, dynamic>))
+            .where((t) => t.isActive)
+            .toList();
+        _isLoadingTopics = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingTopics = false);
+    }
   }
 
   void _insertLatex(String latex) {
@@ -94,14 +117,21 @@ class _LessonEditorScreenState extends State<LessonEditorScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_selectedTopicId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng chọn taxonomy Toán 8')),
+      );
+      return;
+    }
     setState(() => _isSaving = true);
     try {
       final body = {
         'chapterId': widget.chapterId,
         'title': _titleCtrl.text.trim(),
         'contentBody': _contentCtrl.text,
-        'simulationType': _simulationType,
+        'simulationType': _simulationType.isEmpty ? null : _simulationType,
         'orderIndex': int.tryParse(_orderCtrl.text) ?? 0,
+        'curriculumTopicId': _selectedTopicId,
       };
       if (isEdit) {
         await ApiClient.instance.put('/admin/lessons/${widget.lesson!.id}', data: body);
@@ -227,6 +257,31 @@ class _LessonEditorScreenState extends State<LessonEditorScreen> {
           decoration: const InputDecoration(labelText: 'Thứ tự', border: OutlineInputBorder()),
           keyboardType: TextInputType.number,
         ),
+        const SizedBox(height: 12),
+        // Taxonomy dropdown
+        if (_isLoadingTopics)
+          const LinearProgressIndicator()
+        else if (_topics.isEmpty)
+          const Text(
+            'Không tải được taxonomy. Vui lòng thêm Curriculum Topic trước.',
+            style: TextStyle(color: Colors.orange, fontSize: 12),
+          )
+        else
+          DropdownButtonFormField<String>(
+            value: _selectedTopicId,
+            decoration: const InputDecoration(
+              labelText: 'Taxonomy Toán 8 *',
+              border: OutlineInputBorder(),
+            ),
+            items: _topics
+                .map((t) => DropdownMenuItem(
+                      value: t.id,
+                      child: Text(t.displayName, overflow: TextOverflow.ellipsis),
+                    ))
+                .toList(),
+            onChanged: (v) => setState(() => _selectedTopicId = v),
+            validator: (v) => v == null ? 'Vui lòng chọn taxonomy' : null,
+          ),
         const SizedBox(height: 12),
         DropdownButtonFormField<String>(
           value: _simulationType.isEmpty ? null : _simulationType,

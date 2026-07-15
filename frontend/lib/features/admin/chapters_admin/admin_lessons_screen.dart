@@ -7,6 +7,7 @@ import 'package:math_ibook/core/network/api_client.dart';
 import 'package:math_ibook/core/widgets/loading_widget.dart';
 import 'package:math_ibook/core/widgets/error_widget.dart';
 import 'package:math_ibook/features/admin/lessons_admin/lesson_editor_screen.dart';
+import 'package:math_ibook/features/admin/quizzes_admin/admin_lesson_quiz_screen.dart';
 
 class AdminLessonsScreen extends StatefulWidget {
   final String? chapterId;
@@ -251,6 +252,19 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                                   icon: const Icon(Icons.help_outline),
                                   tooltip: 'Câu hỏi',
                                   onPressed: () => context.go('/admin/lessons/${lesson.id}/questions'),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.quiz, color: Colors.indigo),
+                                  tooltip: 'Quản lý Quiz',
+                                  onPressed: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => AdminLessonQuizScreen(
+                                        lessonId: lesson.id,
+                                        lessonTitle: lesson.title,
+                                      ),
+                                    ),
+                                  ).then((_) => _fetchLessons()),
                                 ),
                                 IconButton(
                                   icon: const Icon(Icons.edit),

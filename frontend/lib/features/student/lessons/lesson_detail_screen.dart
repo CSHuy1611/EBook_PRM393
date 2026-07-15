@@ -96,9 +96,9 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
               lesson.contentBody,
               textStyle: textStyle,
             ),
-            if (lesson.simulationType.isNotEmpty) ...[
+            if (lesson.simulationType != null && lesson.simulationType!.isNotEmpty) ...[
               const SizedBox(height: 24),
-              SimulationWidget(simulationType: lesson.simulationType),
+              SimulationWidget(simulationType: lesson.simulationType!),
             ],
             if (lesson.questions.isNotEmpty) ...[
               const SizedBox(height: 24),
