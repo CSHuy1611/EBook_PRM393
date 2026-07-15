@@ -5,6 +5,8 @@ class ChapterModel {
   final int orderIndex;
   final double completionPercentage;
   final int lessonCount;
+  final bool isPublished;
+  final String? curriculumTopicId;
 
   ChapterModel({
     required this.id,
@@ -13,6 +15,8 @@ class ChapterModel {
     this.orderIndex = 0,
     this.completionPercentage = 0.0,
     this.lessonCount = 0,
+    this.isPublished = false,
+    this.curriculumTopicId,
   });
 
   factory ChapterModel.fromJson(Map<String, dynamic> json) => ChapterModel(
@@ -25,6 +29,8 @@ class ChapterModel {
                 0.0)
             .toDouble(),
         lessonCount: json['lessonCount'] ?? json['lesson_count'] ?? 0,
+        isPublished: json['isPublished'] ?? json['is_published'] ?? false,
+        curriculumTopicId: json['curriculumTopicId'] ?? json['curriculum_topic_id'],
       );
 
   Map<String, dynamic> toJson() => {
@@ -34,5 +40,7 @@ class ChapterModel {
         'orderIndex': orderIndex,
         'completionPercentage': completionPercentage,
         'lessonCount': lessonCount,
+        'isPublished': isPublished,
+        'curriculumTopicId': curriculumTopicId,
       };
 }
