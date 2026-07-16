@@ -52,9 +52,17 @@ class _LessonsScreenState extends State<LessonsScreen> {
   Future<void> _fetchChapterQuiz() async {
     try {
       final response = await ApiClient.instance.get('/quizzes/chapter/${widget.chapterId}');
-      _chapterQuizData = response.data as Map<String, dynamic>?;
+      if (mounted) {
+        setState(() {
+          _chapterQuizData = response.data as Map<String, dynamic>?;
+        });
+      }
     } catch (_) {
-      _chapterQuizData = null;
+      if (mounted) {
+        setState(() {
+          _chapterQuizData = null;
+        });
+      }
     }
   }
 
@@ -119,7 +127,7 @@ class _LessonsScreenState extends State<LessonsScreen> {
                           child: status == 'Passed'
                               ? const Icon(Icons.check_rounded, color: Color(0xFF10B981), size: 22)
                               : Text(
-                                  '${lesson.orderIndex + 1}',
+                                  '${lesson.orderIndex}',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     color: status == 'InProgress'
