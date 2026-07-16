@@ -130,7 +130,7 @@ class _AdminBadgesScreenState extends State<AdminBadgesScreen> {
     final formKey = GlobalKey<FormState>();
     final titleCtrl = TextEditingController(text: badge?.title ?? '');
     final descCtrl = TextEditingController(text: badge?.description ?? '');
-    final iconUrlCtrl = TextEditingController(text: badge?.iconUrl ?? '');
+    final iconUrlCtrl = TextEditingController(text: badge?.iconUrl?.isNotEmpty == true ? badge!.iconUrl : _badgeIcons.first);
     String conditionType = _conditionTypes.first;
     String initialValue = '';
     String? selectedChapterId;
@@ -170,8 +170,9 @@ class _AdminBadgesScreenState extends State<AdminBadgesScreen> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: descCtrl,
-                    decoration: const InputDecoration(labelText: 'Mô tả', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(labelText: 'Mô tả *', border: OutlineInputBorder()),
                     maxLines: 2,
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Vui lòng nhập mô tả' : null,
                   ),
                   const SizedBox(height: 12),
                   const Text('Biểu tượng:', style: TextStyle(fontWeight: FontWeight.w600)),

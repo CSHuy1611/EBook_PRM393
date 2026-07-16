@@ -166,7 +166,7 @@ class QuizAttemptHistoryDto {
   final String id;
   final String lessonTitle;
   final String chapterTitle;
-  final int score;
+  final double score;
   final int totalQuestions;
   final int durationSeconds;
   final String createdAt;
@@ -175,7 +175,7 @@ class QuizAttemptHistoryDto {
     this.id = '',
     this.lessonTitle = '',
     this.chapterTitle = '',
-    this.score = 0,
+    this.score = 0.0,
     this.totalQuestions = 0,
     this.durationSeconds = 0,
     this.createdAt = '',
@@ -186,7 +186,7 @@ class QuizAttemptHistoryDto {
         id: json['id'] ?? '',
         lessonTitle: json['lessonTitle'] ?? '',
         chapterTitle: json['chapterTitle'] ?? '',
-        score: json['score'] ?? 0,
+        score: (json['score'] as num?)?.toDouble() ?? 0.0,
         totalQuestions: json['totalQuestions'] ?? 0,
         durationSeconds: json['durationSeconds'] ?? 0,
         createdAt: json['createdAt'] ?? '',
