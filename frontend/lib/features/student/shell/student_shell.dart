@@ -56,14 +56,24 @@ class _StudentShellState extends State<StudentShell> {
   @override
   Widget build(BuildContext context) {
     final nav = widget.navigationShell;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Math IBook'),
+        title: Row(
+          children: [
+            Icon(Icons.auto_stories_rounded, color: Colors.white.withAlpha(220), size: 22),
+            const SizedBox(width: 8),
+            const Text(
+              'Math IBook',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
         actions: [
           Stack(
             children: [
               IconButton(
-                icon: const Icon(Icons.notifications),
+                icon: const Icon(Icons.notifications_outlined, color: Colors.white),
                 onPressed: () => context.push('/student/notifications'),
               ),
               if (_unreadCount > 0)
@@ -73,7 +83,7 @@ class _StudentShellState extends State<StudentShell> {
                   child: Container(
                     padding: const EdgeInsets.all(4),
                     decoration: const BoxDecoration(
-                      color: Colors.red,
+                      color: Color(0xFFEF4444),
                       shape: BoxShape.circle,
                     ),
                     constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
@@ -89,17 +99,23 @@ class _StudentShellState extends State<StudentShell> {
         ],
       ),
       body: nav,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: nav.currentIndex,
-        onDestinationSelected: (index) {
-          nav.goBranch(index, initialLocation: true);
-        },
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home), label: 'Trang chủ'),
-          NavigationDestination(icon: Icon(Icons.book), label: 'Bài học'),
-          NavigationDestination(icon: Icon(Icons.dashboard), label: 'Bảng tin'),
-          NavigationDestination(icon: Icon(Icons.person), label: 'Cá nhân'),
-        ],
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: const Color(0xFFE2E8F0).withAlpha(80))),
+        ),
+        child: NavigationBar(
+          selectedIndex: nav.currentIndex,
+          onDestinationSelected: (index) {
+            nav.goBranch(index, initialLocation: index == nav.currentIndex);
+          },
+          height: 68,
+          destinations: const [
+            NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'Trang chủ'),
+            NavigationDestination(icon: Icon(Icons.book_outlined), selectedIcon: Icon(Icons.book_rounded), label: 'Bài học'),
+            NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard_rounded), label: 'Bảng tin'),
+            NavigationDestination(icon: Icon(Icons.person_outline_rounded), selectedIcon: Icon(Icons.person_rounded), label: 'Cá nhân'),
+          ],
+        ),
       ),
     );
   }

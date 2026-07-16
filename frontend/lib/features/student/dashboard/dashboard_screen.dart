@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:math_ibook/core/models/dashboard_model.dart';
-import 'package:math_ibook/core/models/quiz_models.dart';
 import 'package:math_ibook/core/network/api_client.dart';
 import 'package:math_ibook/core/widgets/loading_widget.dart';
 import 'package:math_ibook/core/widgets/error_widget.dart';
@@ -57,303 +55,401 @@ class _DashboardScreenState extends State<DashboardScreen> {
       onRefresh: _fetchDashboard,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildOverallCard(dash),
-            const SizedBox(height: 16),
-            _buildCoinsCard(dash),
-            const SizedBox(height: 16),
-            _buildAverageScoreCard(dash),
-            const SizedBox(height: 16),
-            _buildChapterProgress(dash),
-            const SizedBox(height: 16),
+            _buildHeaderCard(context, dash),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(child: _buildCoinsCard(context, dash)),
+                const SizedBox(width: 12),
+                Expanded(child: _buildScoreCard(context, dash)),
+              ],
+            ),
+            const SizedBox(height: 20),
+            _buildChapterProgress(context, dash),
             if (dash.badges.isNotEmpty) ...[
-              _buildBadgesSection(dash),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
+              _buildBadgesSection(context, dash),
             ],
             if (dash.recentActivities.isNotEmpty) ...[
-              _buildRecentActivities(dash),
+              const SizedBox(height: 20),
+              _buildRecentActivities(context, dash),
             ],
+            const SizedBox(height: 24),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildOverallCard(DashboardDto dash) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Tổng quan', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 200,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: PieChart(
-                      PieChartData(
-                        sections: [
-                          PieChartSectionData(
-                            value: dash.overallCompletionPercentage,
-                            color: Colors.deepPurple,
-                            radius: 50,
-                            title: '${dash.overallCompletionPercentage.toStringAsFixed(0)}%',
-                            titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                          ),
-                          PieChartSectionData(
-                            value: 100 - dash.overallCompletionPercentage,
-                            color: Colors.grey.withAlpha(60),
-                            radius: 50,
-                            title: '',
-                          ),
-                        ],
-                        sectionsSpace: 2,
-                        centerSpaceRadius: 40,
+  Widget _buildHeaderCard(BuildContext context, DashboardDto dash) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Tổng quan',
+                      style: TextStyle(color: Colors.white.withAlpha(180), fontSize: 13),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Tiến độ học tập',
+                      style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(
+                width: 80,
+                height: 80,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox(
+                      width: 72,
+                      height: 72,
+                      child: CircularProgressIndicator(
+                        value: dash.overallCompletionPercentage / 100,
+                        strokeWidth: 7,
+                        backgroundColor: Colors.white.withAlpha(30),
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.amber.shade300),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _legendItem(Colors.deepPurple, 'Hoàn thành'),
-                      const SizedBox(height: 8),
-                      _legendItem(Colors.grey.withAlpha(60), 'Còn lại'),
-                    ],
-                  ),
-                ],
+                    Text(
+                      '${dash.overallCompletionPercentage.toStringAsFixed(0)}%',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                  ],
+                ),
               ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: dash.overallCompletionPercentage / 100,
+              minHeight: 6,
+              backgroundColor: Colors.white.withAlpha(30),
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.amber.shade300),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Hoàn thành', style: TextStyle(color: Colors.white.withAlpha(180), fontSize: 12)),
+              Text(
+                'Còn lại ${(100 - dash.overallCompletionPercentage).toStringAsFixed(0)}%',
+                style: TextStyle(color: Colors.white.withAlpha(180), fontSize: 12),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  Widget _legendItem(Color color, String label) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+  Widget _buildCoinsCard(BuildContext context, DashboardDto dash) {
+    final coins = context.watch<AuthProvider>().currentUser?.coins ?? dash.totalCoins;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF59E0B).withAlpha(20),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.monetization_on_rounded, color: Color(0xFFF59E0B), size: 22),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            '$coins',
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+          ),
+          const Text(
+            'Tổng xu',
+            style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScoreCard(BuildContext context, DashboardDto dash) {
+    final score = dash.averageScore;
+    final color = score >= 7 ? const Color(0xFF10B981) : (score >= 4 ? const Color(0xFFF59E0B) : const Color(0xFFEF4444));
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: color.withAlpha(20),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(Icons.score_rounded, color: color, size: 22),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            score.toStringAsFixed(1),
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color),
+          ),
+          const Text(
+            'Điểm trung bình',
+            style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChapterProgress(BuildContext context, DashboardDto dash) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF3B82F6).withAlpha(20),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.leaderboard_rounded, color: Color(0xFF3B82F6), size: 20),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'Tiến độ chương',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ...dash.chapterProgress.map((cp) => Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        cp.chapterTitle,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: cp.completionPercentage >= 100
+                            ? const Color(0xFF10B981).withAlpha(20)
+                            : const Color(0xFF3B82F6).withAlpha(20),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '${cp.completedLessons}/${cp.totalLessons}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: cp.completionPercentage >= 100
+                              ? const Color(0xFF10B981)
+                              : const Color(0xFF3B82F6),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: LinearProgressIndicator(
+                    value: cp.completionPercentage / 100,
+                    minHeight: 8,
+                    backgroundColor: const Color(0xFFE2E8F0),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      cp.completionPercentage >= 100
+                          ? const Color(0xFF10B981)
+                          : const Color(0xFF3B82F6),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBadgesSection(BuildContext context, DashboardDto dash) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(width: 12, height: 12, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3))),
-        const SizedBox(width: 8),
-        Text(label, style: const TextStyle(fontSize: 13)),
+        Padding(
+          padding: const EdgeInsets.only(left: 2, bottom: 14),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Danh hiệu',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+              ),
+              TextButton(
+                onPressed: () => context.push('/student/badges'),
+                child: const Text('Xem tất cả'),
+              ),
+            ],
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: SizedBox(
+            height: 76,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: dash.badges.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (context, index) {
+                final badge = dash.badges[index];
+                return Container(
+                  width: 76,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF7ED),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFFFEDD5)),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.military_tech_rounded, color: const Color(0xFFF59E0B), size: 28),
+                      const SizedBox(height: 4),
+                      Text(
+                        badge.title,
+                        style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Color(0xFFC2410C)),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildCoinsCard(DashboardDto dash) {
-    final coins = context.watch<AuthProvider>().currentUser?.coins ?? dash.totalCoins;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: Colors.amber.withAlpha(30),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.monetization_on, color: Colors.amber, size: 28),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Tổng xu', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey)),
-                  Text(
-                    '$coins',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-            ),
-          ],
+  Widget _buildRecentActivities(BuildContext context, DashboardDto dash) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 2, bottom: 14),
+          child: Text(
+            'Hoạt động gần đây',
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+          ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildAverageScoreCard(DashboardDto dash) {
-    final color = dash.averageScore >= 50 ? Colors.green : Colors.orange;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: color.withAlpha(30),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(Icons.score, color: color, size: 28),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Điểm trung bình', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey)),
-                  Text(
-                    '${dash.averageScore.toStringAsFixed(1)}',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold, color: color),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildChapterProgress(DashboardDto dash) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Tiến độ chương', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            ...dash.chapterProgress.map((cp) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(child: Text(cp.chapterTitle, style: const TextStyle(fontSize: 14))),
-                      Text(
-                        '${cp.completedLessons}/${cp.totalLessons}',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Column(
+            children: dash.recentActivities.map((activity) {
+              IconData icon;
+              Color color;
+              switch (activity.type) {
+                case 'quiz_attempt':
+                  icon = Icons.quiz_rounded; color = const Color(0xFF10B981); break;
+                case 'lesson':
+                  icon = Icons.menu_book_rounded; color = const Color(0xFF3B82F6); break;
+                case 'badge_earned':
+                  icon = Icons.military_tech_rounded; color = const Color(0xFFF59E0B); break;
+                case 'coin_transaction':
+                  icon = Icons.monetization_on_rounded; color = const Color(0xFFF59E0B); break;
+                default:
+                  icon = Icons.circle; color = const Color(0xFF94A3B8); break;
+              }
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: color.withAlpha(20),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: cp.completionPercentage / 100,
-                      minHeight: 8,
-                      backgroundColor: Colors.grey.withAlpha(40),
+                      child: Icon(icon, color: color, size: 20),
                     ),
-                  ),
-                ],
-              ),
-            )),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBadgesSection(DashboardDto dash) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Danh hiệu', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                TextButton(
-                  onPressed: () => context.push('/student/badges'),
-                  child: const Text('Xem tất cả'),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(activity.description, style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B))),
+                    ),
+                    Text(
+                      activity.timestamp.length >= 10 ? activity.timestamp.substring(0, 10) : activity.timestamp,
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 80,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: dash.badges.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 12),
-                itemBuilder: (context, index) {
-                  final badge = dash.badges[index];
-                  return Column(
-                    children: [
-                      Icon(Icons.military_tech, size: 40, color: Colors.amber.shade700),
-                      const SizedBox(height: 4),
-                      Text(badge.title, style: const TextStyle(fontSize: 11)),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ],
+              );
+            }).toList(),
+          ),
         ),
-      ),
+      ],
     );
-  }
-
-  Widget _buildRecentActivities(DashboardDto dash) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Hoạt động gần đây', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            ...dash.recentActivities.map((activity) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Row(
-                children: [
-                  Icon(
-                    _activityIcon(activity.type),
-                    size: 20,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(activity.description, style: const TextStyle(fontSize: 14)),
-                        Text(
-                          activity.timestamp.length >= 10 ? activity.timestamp.substring(0, 10) : activity.timestamp,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            )),
-          ],
-        ),
-      ),
-    );
-  }
-
-  IconData _activityIcon(String type) {
-    switch (type) {
-      case 'quiz_attempt':
-        return Icons.quiz;
-      case 'lesson':
-        return Icons.menu_book;
-      case 'badge_earned':
-        return Icons.military_tech;
-      case 'coin_transaction':
-        return Icons.monetization_on;
-      default:
-        return Icons.circle;
-    }
   }
 }
