@@ -23,12 +23,6 @@ public class ContentValidationService : IContentValidationService
         }
         else
         {
-            var normalized = lesson.ContentBody.ToLowerInvariant();
-            if (!normalized.Contains("ví dụ") && !normalized.Contains("example"))
-            {
-                Add(result, "LESSON_EXAMPLE_REQUIRED", "Bài học phải có ít nhất một phần ví dụ.", lesson.Id);
-            }
-
             if (!HasBalancedLatex(lesson.ContentBody))
             {
                 Add(result, "LATEX_INVALID", "Nội dung có cặp ký hiệu LaTeX không cân bằng.", lesson.Id);

@@ -12,6 +12,7 @@ class ChapterModel {
   final String? relatedBadgeId;
   final String? relatedBadgeTitle;
   final String? curriculumTopicId;
+  final bool isPublished;
 
   ChapterModel({
     required this.id,
@@ -27,6 +28,7 @@ class ChapterModel {
     this.relatedBadgeId,
     this.relatedBadgeTitle,
     this.curriculumTopicId,
+    this.isPublished = false,
   });
 
   bool get isQuizUnlocked => chapterQuizStatus == 'Unlocked' && isUnlocked;
@@ -50,6 +52,7 @@ class ChapterModel {
         relatedBadgeId: json['relatedBadgeId'] ?? json['related_badge_id'],
         relatedBadgeTitle: json['relatedBadgeTitle'] ?? json['related_badge_title'],
         curriculumTopicId: json['curriculumTopicId'] ?? json['curriculum_topic_id'],
+        isPublished: json['isPublished'] ?? json['is_published'] ?? false,
       );
 
   Map<String, dynamic> toJson() => {
@@ -66,5 +69,6 @@ class ChapterModel {
         'relatedBadgeId': relatedBadgeId,
         'relatedBadgeTitle': relatedBadgeTitle,
         'curriculumTopicId': curriculumTopicId,
+        'isPublished': isPublished,
       };
 }

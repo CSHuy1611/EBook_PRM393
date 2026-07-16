@@ -67,7 +67,7 @@ public class AdminLessonsController : ControllerBase
             UpdatedAt = DateTime.UtcNow
         };
         await _unitOfWork.Lessons.AddAsync(lesson);
-        await AuditAsync(lesson.Id, "Create", null, lesson);
+        await AuditAsync(lesson.Id, "Create", null, Snapshot(lesson));
         await _unitOfWork.SaveChangesAsync();
         return Ok(Map(lesson));
     }
@@ -107,7 +107,7 @@ public class AdminLessonsController : ControllerBase
         }
 
         _unitOfWork.Lessons.Update(lesson);
-        await AuditAsync(lesson.Id, "Update", before, lesson);
+        await AuditAsync(lesson.Id, "Update", before, Snapshot(lesson));
         await _unitOfWork.SaveChangesAsync();
         return NoContent();
     }
@@ -176,7 +176,7 @@ public class AdminLessonsController : ControllerBase
             lesson.Id,
             lesson.IsPublished ? "Publish" : "Unpublish",
             before,
-            lesson);
+            Snapshot(lesson));
         await _unitOfWork.SaveChangesAsync();
         return NoContent();
     }
@@ -236,7 +236,7 @@ public class AdminLessonsController : ControllerBase
         lesson.PublishedAt = null;
         lesson.UpdatedAt = DateTime.UtcNow;
         _unitOfWork.Lessons.Update(lesson);
-        await AuditAsync(lesson.Id, "SoftDelete", before, lesson);
+        await AuditAsync(lesson.Id, "SoftDelete", before, Snapshot(lesson));
         await _unitOfWork.SaveChangesAsync();
         return NoContent();
     }
