@@ -182,7 +182,7 @@ class ApiClient {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
-        return 'Connection timed out. Please check your internet connection.';
+        return 'Hết thời gian kết nối. Vui lòng kiểm tra lại mạng Internet.';
       case DioExceptionType.badResponse:
         final statusCode = e.response?.statusCode;
         final data = e.response?.data;
@@ -200,30 +200,30 @@ class ApiClient {
         }
         switch (statusCode) {
           case 400:
-            return 'Invalid request. Please check your input.';
+            return 'Yêu cầu không hợp lệ. Vui lòng kiểm tra lại.';
           case 401:
-            return 'Session expired. Please login again.';
+            return 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
           case 403:
-            return 'Access denied. You do not have permission.';
+            return 'Từ chối truy cập. Bạn không có quyền thực hiện hành động này.';
           case 404:
-            return 'Resource not found.';
+            return 'Không tìm thấy dữ liệu.';
           case 409:
-            return 'Conflict. The resource already exists.';
+            return 'Xung đột dữ liệu. Dữ liệu này đã tồn tại.';
           case 422:
-            return 'Validation error. Please check your input.';
+            return 'Lỗi xác thực. Vui lòng kiểm tra lại.';
           case 429:
-            return 'Too many requests. Please try again later.';
+            return 'Quá nhiều yêu cầu. Vui lòng thử lại sau.';
           case 500:
-            return 'Server error. Please try again later.';
+            return 'Lỗi máy chủ (Server). Vui lòng thử lại sau.';
           default:
-            return 'An error occurred (${statusCode ?? 'unknown'}). Please try again.';
+            return 'Đã xảy ra lỗi (${statusCode ?? 'không rõ'}). Vui lòng thử lại.';
         }
       case DioExceptionType.connectionError:
-        return 'No internet connection. Please check your network.';
+        return 'Không có kết nối mạng. Vui lòng kiểm tra lại kết nối và thử lại :((.';
       case DioExceptionType.cancel:
-        return 'Request was cancelled.';
+        return 'Yêu cầu đã bị hủy.';
       default:
-        return 'An unexpected error occurred. Please try again.';
+        return 'Đã xảy ra sự cố không xác định. Vui lòng thử lại.';
     }
   }
 }

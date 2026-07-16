@@ -7,6 +7,8 @@ import 'package:math_ibook/core/storage/local_prefs_service.dart';
 import 'package:math_ibook/core/widgets/error_widget.dart';
 import 'package:math_ibook/core/widgets/loading_widget.dart';
 import 'package:math_ibook/features/auth/domain/auth_provider.dart';
+import 'package:dio/dio.dart';
+import 'package:math_ibook/core/network/api_client.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -28,7 +30,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final profile = await StudentFeatureApi.instance.getProfile();
       if (mounted) setState(() { _profile = profile; _loading = false; });
     } catch (error) {
-      if (mounted) setState(() { _error = error.toString(); _loading = false; });
+      if (mounted) setState(() { _error = error is DioException ? ApiClient.mapDioErrorToMessage(error) : error.toString(); _loading = false; });
     }
   }
 

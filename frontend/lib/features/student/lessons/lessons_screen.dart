@@ -6,6 +6,7 @@ import 'package:math_ibook/core/network/api_client.dart';
 import 'package:math_ibook/core/progress/progress_notifier.dart';
 import 'package:math_ibook/core/widgets/loading_widget.dart';
 import 'package:math_ibook/core/widgets/error_widget.dart';
+import 'package:dio/dio.dart';
 
 class LessonsScreen extends StatefulWidget {
   final String chapterId;
@@ -43,7 +44,7 @@ class _LessonsScreenState extends State<LessonsScreen> {
       setState(() => _isLoading = false);
     } catch (e) {
       setState(() {
-        _error = e.toString();
+        _error = e is DioException ? ApiClient.mapDioErrorToMessage(e) : e.toString();
         _isLoading = false;
       });
     }

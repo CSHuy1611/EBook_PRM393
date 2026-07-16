@@ -11,6 +11,7 @@ import 'package:math_ibook/core/models/quiz_models.dart';
 import 'package:math_ibook/core/network/api_client.dart';
 import 'package:math_ibook/core/widgets/loading_widget.dart';
 import 'package:math_ibook/core/widgets/error_widget.dart';
+import 'package:math_ibook/core/storage/local_db_service.dart';
 
 class ChapterQuizScreen extends StatefulWidget {
   final String chapterId;
@@ -146,6 +147,20 @@ class _ChapterQuizScreenState extends State<ChapterQuizScreen> {
         );
       }
     } catch (e) {
+      if (_isNetworkError(e)) {
+        final userId = context.read<AuthProvider>().currentUser?.id;
+        if (userId != null && userId.isNotEmpty) {
+          await LocalDbService().queueQuizAttempt(
+            userId: userId, lessonId: '', quizId: dto.quizId, clientAttemptId: dto.clientAttemptId,
+            durationSeconds: dto.durationSeconds, answers: dto.answers.map((answer) => answer.toJson()).toList(), createdAt: DateTime.parse(dto.clientCreatedAt),
+          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã lưu bài làm chương. Server sẽ chấm điểm khi đồng bộ lại.')));
+            context.pop();
+          }
+          return;
+        }
+      }
       setState(() => _isSubmitting = false);
       if (mounted) {
         final detail = (e is DioException && e.response?.data != null)
@@ -157,6 +172,12 @@ class _ChapterQuizScreenState extends State<ChapterQuizScreen> {
       }
     }
   }
+
+  bool _isNetworkError(Object error) => error is DioException &&
+      (error.type == DioExceptionType.connectionError ||
+       error.type == DioExceptionType.connectionTimeout ||
+       error.type == DioExceptionType.receiveTimeout ||
+       error.type == DioExceptionType.sendTimeout);
 
   @override
   Widget build(BuildContext context) {
