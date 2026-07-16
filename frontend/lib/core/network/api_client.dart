@@ -187,6 +187,12 @@ class ApiClient {
         final statusCode = e.response?.statusCode;
         final data = e.response?.data;
         if (data is Map) {
+          if (data.containsKey('isValid') && data['isValid'] == false && data['errors'] is List) {
+            final errors = data['errors'] as List;
+            if (errors.isNotEmpty && errors.first is Map) {
+              return errors.first['message'] ?? 'Dữ liệu không hợp lệ.';
+            }
+          }
           final message = data['message'] ?? data['detail'] ?? data['Detail'];
           if (message is String && message.isNotEmpty) return message;
           final title = data['title'] ?? data['Title'];

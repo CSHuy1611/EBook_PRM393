@@ -7,6 +7,7 @@ import 'package:math_ibook/core/models/lesson_model.dart';
 import 'package:math_ibook/core/network/api_client.dart';
 import 'package:math_ibook/core/widgets/loading_widget.dart';
 import 'package:math_ibook/core/widgets/error_widget.dart';
+import 'package:math_ibook/features/admin/questions_admin/auto_generate_questions_dialog.dart' as math_dialog;
 
 class AdminQuestionsScreen extends StatefulWidget {
   final String? lessonId;
@@ -549,9 +550,24 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
               )
             : null,
         title: Text(title),
-        actions: _selectedLessonId != null && !_isLoading && _error == null
-            ? [IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchQuestions)]
-            : null,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.auto_awesome),
+            tooltip: 'Tạo tự động',
+            onPressed: () async {
+              // We need to import auto_generate_questions_dialog.dart
+              final result = await showDialog(
+                context: context,
+                builder: (ctx) => const math_dialog.AutoGenerateQuestionsDialog(),
+              );
+              if (result == true && _selectedLessonId != null) {
+                _fetchQuestions();
+              }
+            },
+          ),
+          if (_selectedLessonId != null && !_isLoading && _error == null)
+            IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchQuestions),
+        ],
       ),
       body: body,
       floatingActionButton: _selectedLessonId != null && !_isLoading && _error == null
