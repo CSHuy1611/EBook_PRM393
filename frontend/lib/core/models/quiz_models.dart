@@ -1,11 +1,15 @@
 class QuizSubmitDto {
-  final String lessonId;
+  final String? lessonId;
+  final String? quizId;
+  final String clientAttemptId;
   final int durationSeconds;
   final List<AnswerDto> answers;
   final String clientCreatedAt;
 
   QuizSubmitDto({
-    required this.lessonId,
+    this.lessonId,
+    this.quizId,
+    required this.clientAttemptId,
     required this.durationSeconds,
     required this.answers,
     required this.clientCreatedAt,
@@ -19,7 +23,9 @@ class QuizSubmitDto {
       }
     }
     return QuizSubmitDto(
-      lessonId: json['lessonId'] ?? '',
+      lessonId: json['lessonId'],
+      quizId: json['quizId'],
+      clientAttemptId: json['clientAttemptId'] ?? '',
       durationSeconds: json['durationSeconds'] ?? 0,
       answers: answersList,
       clientCreatedAt: json['clientCreatedAt'] ?? '',
@@ -27,7 +33,9 @@ class QuizSubmitDto {
   }
 
   Map<String, dynamic> toJson() => {
-        'lessonId': lessonId,
+        if (lessonId != null && lessonId!.isNotEmpty) 'lessonId': lessonId,
+        if (quizId != null && quizId!.isNotEmpty) 'quizId': quizId,
+        'clientAttemptId': clientAttemptId,
         'durationSeconds': durationSeconds,
         'answers': answers.map((a) => a.toJson()).toList(),
         'clientCreatedAt': clientCreatedAt,
@@ -56,17 +64,31 @@ class AnswerDto {
 
 class QuizResultDto {
   final String id;
+  final String quizId;
+  final String clientAttemptId;
   final double score;
+  final bool isPassed;
+  final double passScore;
+  final int correctCount;
   final int totalQuestions;
+  final int attemptNumber;
   final int coinsEarned;
+  final bool isDuplicate;
   final List<CorrectAnswerDto> correctAnswers;
   final List<BadgeEarnedDto> newBadges;
 
   QuizResultDto({
     this.id = '',
+    this.quizId = '',
+    this.clientAttemptId = '',
     required this.score,
+    this.isPassed = false,
+    this.passScore = 5.0,
+    this.correctCount = 0,
     required this.totalQuestions,
+    this.attemptNumber = 1,
     this.coinsEarned = 0,
+    this.isDuplicate = false,
     this.correctAnswers = const [],
     this.newBadges = const [],
   });
@@ -86,9 +108,16 @@ class QuizResultDto {
     }
     return QuizResultDto(
       id: json['id'] ?? '',
+      quizId: json['quizId'] ?? '',
+      clientAttemptId: json['clientAttemptId'] ?? '',
       score: (json['score'] ?? 0).toDouble(),
+      isPassed: json['isPassed'] ?? false,
+      passScore: (json['passScore'] ?? 5.0).toDouble(),
+      correctCount: json['correctCount'] ?? 0,
       totalQuestions: json['totalQuestions'] ?? 0,
+      attemptNumber: json['attemptNumber'] ?? 1,
       coinsEarned: json['coinsEarned'] ?? 0,
+      isDuplicate: json['isDuplicate'] ?? false,
       correctAnswers: correctAnswersList,
       newBadges: badgesList,
     );
@@ -96,9 +125,16 @@ class QuizResultDto {
 
   Map<String, dynamic> toJson() => {
         'id': id,
+        'quizId': quizId,
+        'clientAttemptId': clientAttemptId,
         'score': score,
+        'isPassed': isPassed,
+        'passScore': passScore,
+        'correctCount': correctCount,
         'totalQuestions': totalQuestions,
+        'attemptNumber': attemptNumber,
         'coinsEarned': coinsEarned,
+        'isDuplicate': isDuplicate,
         'correctAnswers': correctAnswers.map((ca) => ca.toJson()).toList(),
         'newBadges': newBadges.map((b) => b.toJson()).toList(),
       };
