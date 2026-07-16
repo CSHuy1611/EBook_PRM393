@@ -7,6 +7,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
+using MathIBook.Application.Services;
+
 namespace MathIBook.Api.Controllers.Admin;
 
 [Route("api/admin/questions")]
@@ -15,10 +17,12 @@ namespace MathIBook.Api.Controllers.Admin;
 public class AdminQuestionsController : ControllerBase
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IQuestionGeneratorService _generatorService;
 
-    public AdminQuestionsController(IUnitOfWork unitOfWork)
+    public AdminQuestionsController(IUnitOfWork unitOfWork, IQuestionGeneratorService generatorService)
     {
         _unitOfWork = unitOfWork;
+        _generatorService = generatorService;
     }
 
     [HttpGet("lesson/{lessonId}")]
@@ -92,6 +96,74 @@ public class AdminQuestionsController : ControllerBase
 
         await _unitOfWork.SaveChangesAsync();
         return Ok(Map(question));
+    }
+
+    [HttpPost("auto-generate")]
+    public async Task<IActionResult> AutoGenerate([FromBody] AutoGenerateQuestionsDto dto)
+    {
+        var lesson = await _unitOfWork.Lessons.GetByIdAsync(dto.LessonId);
+        if (lesson is null || lesson.IsDeleted)
+        {
+            return NotFound(new ProblemDetails { Title = "Không tìm thấy bài học.", Status = 404 });
+        }
+
+        var questionsToCreate = _generatorService.GenerateQuestions(dto.LessonId, lesson.Title, dto.Count);
+        if (!questionsToCreate.Any())
+        {
+            return BadRequest(new ProblemDetails { Title = "Không tạo được câu hỏi nào.", Status = 400 });
+        }
+
+        // Determine current max OrderIndex
+        var maxOrder = await _unitOfWork.Questions.Query()
+            .Where(q => q.LessonId == dto.LessonId && !q.IsDeleted)
+            .MaxAsync(q => (int?)q.OrderIndex) ?? 0;
+
+        var createdQuestions = new List<Question>();
+
+        foreach (var qDto in questionsToCreate)
+        {
+            maxOrder++;
+            var question = new Question
+            {
+                LessonId = qDto.LessonId,
+                QuestionText = qDto.QuestionText,
+                Options = JsonSerializer.Serialize(qDto.Options),
+                CorrectOption = qDto.CorrectOption,
+                Explanation = qDto.Explanation,
+                OrderIndex = maxOrder,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            await _unitOfWork.Questions.AddAsync(question);
+            createdQuestions.Add(question);
+        }
+
+        // Also add to quiz if quiz exists
+        var quiz = await _unitOfWork.Quizzes.Query().FirstOrDefaultAsync(item =>
+            item.LessonId == dto.LessonId
+            && item.QuizType == QuizType.Lesson
+            && !item.IsDeleted);
+
+        if (quiz is not null)
+        {
+            foreach (var q in createdQuestions)
+            {
+                await _unitOfWork.QuizQuestions.AddAsync(new QuizQuestion
+                {
+                    QuizId = quiz.Id,
+                    QuestionId = q.Id,
+                    OrderIndex = q.OrderIndex,
+                    Weight = 1
+                });
+            }
+            quiz.IsPublished = false;
+            quiz.PublishedAt = null;
+            quiz.UpdatedAt = DateTime.UtcNow;
+            _unitOfWork.Quizzes.Update(quiz);
+        }
+
+        await _unitOfWork.SaveChangesAsync();
+        return Ok(createdQuestions.Select(Map).ToList());
     }
 
     [HttpPut("{id}")]

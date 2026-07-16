@@ -152,26 +152,36 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Xác nhận xóa'),
-        content: Text('Bạn có chắc muốn xóa chương "${chapter.title}"?'),
+        content: Text('Bạn có chắc muốn xóa chương "${chapter.title}" không?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Xóa'),
           ),
         ],
       ),
     );
-    if (confirmed != true) return;
-    try {
-      await ApiClient.instance.delete('/admin/chapters/${chapter.id}');
-      _fetchChapters();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đã xóa chương')),
-        );
+
+    if (confirmed == true) {
+      try {
+        await ApiClient.instance.delete('/admin/chapters/${chapter.id}');
+        _fetchChapters();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Lỗi xóa chương: ${e is DioException ? ApiClient.mapDioErrorToMessage(e) : e}')),
+          );
+        }
       }
+    }
+  }
+
+  Future<void> _togglePublish(ChapterModel chapter) async {
+    try {
+      await ApiClient.instance.patch('/admin/chapters/${chapter.id}/publish');
+      _fetchChapters();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -212,6 +222,10 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          Switch(
+                            value: chapter.isPublished,
+                            onChanged: (_) => _togglePublish(chapter),
+                          ),
                           IconButton(
                             icon: const Icon(Icons.menu_book),
                             tooltip: 'Xem bài học',

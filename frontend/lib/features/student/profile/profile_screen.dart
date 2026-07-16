@@ -99,7 +99,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _Section(title: 'Thành tích', child: Wrap(spacing: 10, runSpacing: 10, children: [
           _Metric(label: 'Xu', value: '${p.coins}', icon: Icons.monetization_on, onTap: () => context.push('/student/coins')),
           _Metric(label: 'Huy hiệu', value: '${p.badgeCount}', icon: Icons.workspace_premium, onTap: () => context.push('/student/badges')),
-          _Metric(label: 'Thứ hạng', value: p.rank == null ? '--' : '#${p.rank}', icon: Icons.leaderboard, onTap: () => context.push('/student/leaderboard')),
+          _Metric(label: 'Thứ hạng', value: p.rank == null ? '--' : '#${p.rank}', icon: Icons.leaderboard, onTap: () => context.go('/student/leaderboard')),
           _Metric(label: 'Bài / Chương', value: '${p.completedLessons}/${p.completedChapters}', icon: Icons.menu_book),
           _Metric(label: 'Điểm TB', value: p.averageScore.toStringAsFixed(1), icon: Icons.analytics),
           _Metric(label: 'Điểm tốt nhất', value: p.bestScore.toStringAsFixed(1), icon: Icons.star),

@@ -98,6 +98,11 @@ flutter build apk --release              # Build APK
 |---|---|---|
 | Admin | admin@mathibook.vn | Admin@123 |
 | Student | student@mathibook.vn | Student@123 |
+| Student | student1@mathibook.vn | Student@123 |
+| Student | student2@mathibook.vn | Student@123 |
+| Student | student3@mathibook.vn | Student@123 |
+| Student | student4@mathibook.vn | Student@123 |
+| Student | student5@mathibook.vn | Student@123 |
 
 ## Kết quả kiểm thử
 

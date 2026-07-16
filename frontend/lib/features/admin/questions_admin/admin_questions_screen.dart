@@ -7,6 +7,7 @@ import 'package:math_ibook/core/models/lesson_model.dart';
 import 'package:math_ibook/core/network/api_client.dart';
 import 'package:math_ibook/core/widgets/loading_widget.dart';
 import 'package:math_ibook/core/widgets/error_widget.dart';
+import 'package:math_ibook/features/admin/questions_admin/auto_generate_questions_dialog.dart' as math_dialog;
 
 class AdminQuestionsScreen extends StatefulWidget {
   final String? lessonId;
@@ -379,6 +380,7 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
                       : Column(
                           children: [
                             DropdownButtonFormField<String>(
+                              isExpanded: true,
                               value: _selectedChapterId,
                               decoration: const InputDecoration(
                                 labelText: 'Chọn chương',
@@ -396,6 +398,7 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
                             ),
                             const SizedBox(height: 16),
                             DropdownButtonFormField<String>(
+                              isExpanded: true,
                               value: _selectedLessonId,
                               decoration: const InputDecoration(
                                 labelText: 'Chọn bài học',
@@ -502,7 +505,12 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
                                     ),
                                   ),
                                   const SizedBox(width: 12),
-                                  Expanded(child: MathText(q.options[i])),
+                                  Expanded(
+                                    child: SingleChildScrollView(
+                                      scrollDirection: Axis.horizontal,
+                                      child: MathText(q.options[i]),
+                                    ),
+                                  ),
                                   if (q.correctOption == i)
                                     const Icon(Icons.check_circle, color: Colors.green, size: 20),
                                 ],
@@ -521,7 +529,12 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
                                 children: [
                                   const Icon(Icons.lightbulb_outline, size: 16, color: Colors.blue),
                                   const SizedBox(width: 8),
-                                  Expanded(child: MathText(q.explanation, textStyle: const TextStyle(fontSize: 13))),
+                                  Expanded(
+                                    child: SingleChildScrollView(
+                                      scrollDirection: Axis.horizontal,
+                                      child: MathText(q.explanation, textStyle: const TextStyle(fontSize: 13)),
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -549,9 +562,24 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
               )
             : null,
         title: Text(title),
-        actions: _selectedLessonId != null && !_isLoading && _error == null
-            ? [IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchQuestions)]
-            : null,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.auto_awesome),
+            tooltip: 'Tạo tự động',
+            onPressed: () async {
+              // We need to import auto_generate_questions_dialog.dart
+              final result = await showDialog(
+                context: context,
+                builder: (ctx) => const math_dialog.AutoGenerateQuestionsDialog(),
+              );
+              if (result == true && _selectedLessonId != null) {
+                _fetchQuestions();
+              }
+            },
+          ),
+          if (_selectedLessonId != null && !_isLoading && _error == null)
+            IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchQuestions),
+        ],
       ),
       body: body,
       floatingActionButton: _selectedLessonId != null && !_isLoading && _error == null

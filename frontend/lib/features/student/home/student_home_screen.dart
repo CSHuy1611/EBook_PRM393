@@ -261,9 +261,9 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFFEEF2FF),
+        color: Theme.of(context).colorScheme.primaryContainer,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFC7D2FE)),
+        border: Border.all(color: Theme.of(context).colorScheme.primary.withAlpha(50)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -297,7 +297,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
           const SizedBox(height: 16),
           Text(
             current.chapterTitle,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onPrimaryContainer),
           ),
           const SizedBox(height: 12),
           Row(
@@ -329,7 +329,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
           const SizedBox(height: 4),
           Text(
             '${current.completedLessons}/${current.totalLessons} bài học',
-            style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+            style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onPrimaryContainer.withAlpha(180)),
           ),
           const SizedBox(height: 16),
           SizedBox(
@@ -381,7 +381,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
         const SizedBox(height: 12),
         Row(
           children: [
-            Expanded(child: _actionCard(context, Icons.leaderboard_rounded, 'Bảng xếp hạng', const Color(0xFFF59E0B), () => context.push('/student/leaderboard'))),
+            Expanded(child: _actionCard(context, Icons.leaderboard_rounded, 'Bảng xếp hạng', const Color(0xFFF59E0B), () => context.go('/student/leaderboard'))),
             const SizedBox(width: 12),
             Expanded(child: _actionCard(context, Icons.person_rounded, 'Cá nhân', const Color(0xFF8B5CF6), () => context.go('/student/profile'))),
           ],
@@ -417,7 +417,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
               const SizedBox(height: 10),
               Text(
                 label,
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface),
               ),
             ],
           ),
@@ -462,9 +462,9 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
                 width: 76,
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFF7ED),
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFFFEDD5)),
+                  border: Border.all(color: const Color(0xFFF59E0B).withAlpha(50)),
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -473,7 +473,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
                     const SizedBox(height: 4),
                     Text(
                       badge.title,
-                      style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Color(0xFFC2410C)),
+                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurfaceVariant),
                       textAlign: TextAlign.center,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -541,7 +541,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Text(a.description, style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B))),
+                      child: Text(a.description, style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurface)),
                     ),
                     Text(
                       a.timestamp.length >= 10 ? a.timestamp.substring(0, 10) : a.timestamp,

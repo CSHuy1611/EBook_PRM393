@@ -30,3 +30,10 @@ public class QuestionUpdateDto
     public string? Explanation { get; set; }
     public int OrderIndex { get; set; }
 }
+
+public class AutoGenerateQuestionsDto
+{
+    public Guid ChapterId { get; set; }
+    public Guid LessonId { get; set; }
+    public int Count { get; set; }
+}
