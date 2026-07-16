@@ -1,8 +1,10 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:math_ibook/core/math/math_text.dart';
 import 'package:math_ibook/core/models/quiz_models.dart';
+import 'package:math_ibook/core/progress/progress_notifier.dart';
 
 class QuizResultScreen extends StatefulWidget {
   final String attemptId;
@@ -108,8 +110,8 @@ class _QuizResultScreenState extends State<QuizResultScreen> with SingleTickerPr
     }
 
     final result = _result!;
-    final percentage = result.totalQuestions > 0 ? result.score / result.totalQuestions : 0.0;
-    final passed = percentage >= 0.5;
+    final percentage = result.totalQuestions > 0 ? result.score / 10.0 : 0.0;
+    final passed = result.isPassed;
 
     return Scaffold(
       appBar: AppBar(
@@ -129,9 +131,38 @@ class _QuizResultScreenState extends State<QuizResultScreen> with SingleTickerPr
                   percentage: percentage,
                   passed: passed,
                   score: result.score,
-                  total: result.totalQuestions,
+                  total: 10,
                 ),
               ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Điểm thang 10: ${result.score.toStringAsFixed(1)}',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              decoration: BoxDecoration(
+                color: passed ? Colors.green.withAlpha(30) : Colors.red.withAlpha(30),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: passed ? Colors.green : Colors.red,
+                ),
+              ),
+              child: Text(
+                passed ? 'ĐẠT' : 'CHƯA ĐẠT',
+                style: TextStyle(
+                  color: passed ? Colors.green.shade800 : Colors.red.shade800,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Đúng ${result.correctCount}/${result.totalQuestions} câu',
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 24),
             if (result.coinsEarned > 0) ...[
@@ -151,7 +182,7 @@ class _QuizResultScreenState extends State<QuizResultScreen> with SingleTickerPr
                         const Icon(Icons.monetization_on, color: Colors.amber, size: 28),
                         const SizedBox(width: 8),
                         Text(
-                          '+$_displayCoins',
+                          '+$_displayCoins xu',
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
@@ -233,16 +264,35 @@ class _QuizResultScreenState extends State<QuizResultScreen> with SingleTickerPr
               );
             }),
             const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: () => context.pop(),
-                icon: const Icon(Icons.arrow_back),
-                label: const Text('Tiếp tục'),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      context.pop();
+                    },
+                    icon: const Icon(Icons.menu_book),
+                    label: const Text('Học lại'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      context.read<ProgressNotifier>().notifyProgressChanged();
+                      context.pop();
+                    },
+                    icon: const Icon(Icons.replay),
+                    label: const Text('Làm lại'),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 32),
           ],

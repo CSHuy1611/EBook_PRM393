@@ -4,6 +4,8 @@ using MathIBook.Application.Interfaces;
 using MathIBook.Application.Services;
 using MathIBook.Domain.Interfaces;
 using MathIBook.Infrastructure.Data;
+using MathIBook.Infrastructure.Services;
+using MathIBook.Application.Common;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -36,12 +38,17 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 // Application services
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IQuizScoringService, QuizScoringService>();
 builder.Services.AddScoped<IProgressSyncService, ProgressSyncService>();
 builder.Services.AddScoped<IBadgeCheckService, BadgeCheckService>();
 builder.Services.AddScoped<ICoinCalculationService, CoinCalculationService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.AddScoped<IQuizRewardService, QuizRewardService>();
+builder.Services.AddScoped<IProfileService, ProfileService>();
+builder.Services.AddScoped<IContentValidationService, ContentValidationService>();
 
 // JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key is not configured");
@@ -62,6 +69,27 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = builder.Configuration["Jwt:Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
         ClockSkew = TimeSpan.Zero
+    };
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var authorization = context.Request.Headers["Authorization"].ToString();
+            if (!string.IsNullOrEmpty(authorization) && authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+            {
+                var encryptedToken = authorization.Substring("Bearer ".Length).Trim();
+                try
+                {
+                    var decryptedToken = EncryptionHelper.Decrypt(encryptedToken);
+                    context.Token = decryptedToken;
+                }
+                catch
+                {
+                    // Let validation fail if decryption fails
+                }
+            }
+            return Task.CompletedTask;
+        }
     };
 });
 
@@ -95,12 +123,17 @@ using (var scope = app.Services.CreateScope())
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "MathIBook API V1");
+        c.RoutePrefix = string.Empty;
+    });
 }
 
 app.UseCors("AllowFlutterDev");
 
 app.UseAuthentication();
+app.UseMiddleware<ActiveUserMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();

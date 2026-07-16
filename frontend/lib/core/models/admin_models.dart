@@ -9,6 +9,11 @@ class AdminUserDto {
   final String createdAt;
   final int totalQuizAttempts;
   final double averageScore;
+  final int badgeCount;
+  final int? rank;
+  final int completedLessons;
+  final int completedChapters;
+  final bool isActive;
 
   AdminUserDto({
     required this.id,
@@ -19,6 +24,11 @@ class AdminUserDto {
     this.createdAt = '',
     this.totalQuizAttempts = 0,
     this.averageScore = 0.0,
+    this.badgeCount = 0,
+    this.rank,
+    this.completedLessons = 0,
+    this.completedChapters = 0,
+    this.isActive = true,
   });
 
   factory AdminUserDto.fromJson(Map<String, dynamic> json) => AdminUserDto(
@@ -30,6 +40,11 @@ class AdminUserDto {
         createdAt: json['createdAt'] ?? '',
         totalQuizAttempts: json['totalQuizAttempts'] ?? 0,
         averageScore: (json['averageScore'] ?? 0.0).toDouble(),
+        badgeCount: json['badgeCount'] ?? 0,
+        rank: json['rank'],
+        completedLessons: json['completedLessons'] ?? 0,
+        completedChapters: json['completedChapters'] ?? 0,
+        isActive: json['isActive'] ?? true,
       );
 
   Map<String, dynamic> toJson() => {
@@ -41,6 +56,11 @@ class AdminUserDto {
         'createdAt': createdAt,
         'totalQuizAttempts': totalQuizAttempts,
         'averageScore': averageScore,
+        'badgeCount': badgeCount,
+        'rank': rank,
+        'completedLessons': completedLessons,
+        'completedChapters': completedChapters,
+        'isActive': isActive,
       };
 }
 
@@ -48,11 +68,15 @@ class UserHistoryDto {
   final List<QuizAttemptHistoryDto> quizAttempts;
   final List<BadgeEarnedDto> badges;
   final List<CoinTransactionDto> coinTransactions;
+  final List<ProgressHistoryDto> lessonProgress;
+  final List<ProgressHistoryDto> chapterProgress;
 
   UserHistoryDto({
     this.quizAttempts = const [],
     this.badges = const [],
     this.coinTransactions = const [],
+    this.lessonProgress = const [],
+    this.chapterProgress = const [],
   });
 
   factory UserHistoryDto.fromJson(Map<String, dynamic> json) {
@@ -74,10 +98,24 @@ class UserHistoryDto {
         coinTransactionsList.add(CoinTransactionDto.fromJson(ct));
       }
     }
+    final lessonProgressList = <ProgressHistoryDto>[];
+    if (json['lessonProgress'] != null && json['lessonProgress'] is List) {
+      for (final lp in json['lessonProgress']) {
+        lessonProgressList.add(ProgressHistoryDto.fromJson(lp));
+      }
+    }
+    final chapterProgressList = <ProgressHistoryDto>[];
+    if (json['chapterProgress'] != null && json['chapterProgress'] is List) {
+      for (final cp in json['chapterProgress']) {
+        chapterProgressList.add(ProgressHistoryDto.fromJson(cp));
+      }
+    }
     return UserHistoryDto(
       quizAttempts: quizAttemptsList,
       badges: badgesList,
       coinTransactions: coinTransactionsList,
+      lessonProgress: lessonProgressList,
+      chapterProgress: chapterProgressList,
     );
   }
 
@@ -86,6 +124,41 @@ class UserHistoryDto {
         'badges': badges.map((b) => b.toJson()).toList(),
         'coinTransactions':
             coinTransactions.map((ct) => ct.toJson()).toList(),
+        'lessonProgress': lessonProgress.map((lp) => lp.toJson()).toList(),
+        'chapterProgress': chapterProgress.map((cp) => cp.toJson()).toList(),
+      };
+}
+
+class ProgressHistoryDto {
+  final String targetId;
+  final String title;
+  final String status;
+  final double bestScore;
+  final String updatedAt;
+
+  ProgressHistoryDto({
+    this.targetId = '',
+    this.title = '',
+    this.status = '',
+    this.bestScore = 0.0,
+    this.updatedAt = '',
+  });
+
+  factory ProgressHistoryDto.fromJson(Map<String, dynamic> json) =>
+      ProgressHistoryDto(
+        targetId: json['targetId'] ?? '',
+        title: json['title'] ?? '',
+        status: json['status'] ?? '',
+        bestScore: (json['bestScore'] ?? 0.0).toDouble(),
+        updatedAt: json['updatedAt'] ?? '',
+      );
+
+  Map<String, dynamic> toJson() => {
+        'targetId': targetId,
+        'title': title,
+        'status': status,
+        'bestScore': bestScore,
+        'updatedAt': updatedAt,
       };
 }
 
@@ -167,6 +240,8 @@ class ReportOverviewDto {
   final int totalBadgesAwarded;
   final List<ChapterReportDto> chapterReports;
   final List<DailyActivityDto> dailyActivities;
+  final List<TopStudentDto> topStudents;
+  final List<FailedQuestionDto> mostFailedQuestions;
 
   ReportOverviewDto({
     this.totalUsers = 0,
@@ -176,6 +251,8 @@ class ReportOverviewDto {
     this.totalBadgesAwarded = 0,
     this.chapterReports = const [],
     this.dailyActivities = const [],
+    this.topStudents = const [],
+    this.mostFailedQuestions = const [],
   });
 
   factory ReportOverviewDto.fromJson(Map<String, dynamic> json) {
@@ -191,6 +268,18 @@ class ReportOverviewDto {
         dailyActivitiesList.add(DailyActivityDto.fromJson(da));
       }
     }
+    final topStudentsList = <TopStudentDto>[];
+    if (json['topStudents'] != null && json['topStudents'] is List) {
+      for (final ts in json['topStudents']) {
+        topStudentsList.add(TopStudentDto.fromJson(ts));
+      }
+    }
+    final mostFailedQuestionsList = <FailedQuestionDto>[];
+    if (json['mostFailedQuestions'] != null && json['mostFailedQuestions'] is List) {
+      for (final mq in json['mostFailedQuestions']) {
+        mostFailedQuestionsList.add(FailedQuestionDto.fromJson(mq));
+      }
+    }
     return ReportOverviewDto(
       totalUsers: json['totalUsers'] ?? 0,
       totalQuizAttempts: json['totalQuizAttempts'] ?? 0,
@@ -199,6 +288,8 @@ class ReportOverviewDto {
       totalBadgesAwarded: json['totalBadgesAwarded'] ?? 0,
       chapterReports: chapterReportsList,
       dailyActivities: dailyActivitiesList,
+      topStudents: topStudentsList,
+      mostFailedQuestions: mostFailedQuestionsList,
     );
   }
 
@@ -212,6 +303,68 @@ class ReportOverviewDto {
             chapterReports.map((cr) => cr.toJson()).toList(),
         'dailyActivities':
             dailyActivities.map((da) => da.toJson()).toList(),
+        'topStudents': topStudents.map((ts) => ts.toJson()).toList(),
+        'mostFailedQuestions': mostFailedQuestions.map((mq) => mq.toJson()).toList(),
+      };
+}
+
+class TopStudentDto {
+  final String userId;
+  final String name;
+  final int coins;
+  final int badgeCount;
+
+  TopStudentDto({
+    this.userId = '',
+    this.name = '',
+    this.coins = 0,
+    this.badgeCount = 0,
+  });
+
+  factory TopStudentDto.fromJson(Map<String, dynamic> json) => TopStudentDto(
+        userId: json['userId'] ?? '',
+        name: json['name'] ?? '',
+        coins: json['coins'] ?? 0,
+        badgeCount: json['badgeCount'] ?? 0,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'userId': userId,
+        'name': name,
+        'coins': coins,
+        'badgeCount': badgeCount,
+      };
+}
+
+class FailedQuestionDto {
+  final String questionId;
+  final String content;
+  final int totalAttempts;
+  final int failedAttempts;
+  final double failureRate;
+
+  FailedQuestionDto({
+    this.questionId = '',
+    this.content = '',
+    this.totalAttempts = 0,
+    this.failedAttempts = 0,
+    this.failureRate = 0.0,
+  });
+
+  factory FailedQuestionDto.fromJson(Map<String, dynamic> json) => FailedQuestionDto(
+        questionId: json['questionId'] ?? '',
+        content: json['content'] ?? '',
+        totalAttempts: json['totalAttempts'] ?? 0,
+        failedAttempts: json['failedAttempts'] ?? 0,
+        failureRate: (json['failureRate'] ?? 0.0).toDouble(),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'questionId': questionId,
+        'content': content,
+        'totalAttempts': totalAttempts,
+        'failedAttempts': failedAttempts,
+        'failureRate': failureRate,
       };
 }
 

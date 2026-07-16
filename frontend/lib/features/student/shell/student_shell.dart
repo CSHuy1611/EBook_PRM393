@@ -1,7 +1,11 @@
 import 'dart:async';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:math_ibook/core/network/api_client.dart';
+import 'package:math_ibook/core/sync/offline_sync_service.dart';
+import 'package:math_ibook/features/auth/domain/auth_provider.dart';
 
 class StudentShell extends StatefulWidget {
   final StatefulNavigationShell navigationShell;
@@ -15,18 +19,30 @@ class StudentShell extends StatefulWidget {
 class _StudentShellState extends State<StudentShell> {
   int _unreadCount = 0;
   Timer? _timer;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
 
   @override
   void initState() {
     super.initState();
     _fetchUnread();
     _timer = Timer.periodic(const Duration(seconds: 30), (_) => _fetchUnread());
+    _syncPending();
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((result) {
+      if (result.any((item) => item != ConnectivityResult.none)) _syncPending();
+    });
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _connectivitySubscription?.cancel();
     super.dispose();
+  }
+
+  Future<void> _syncPending() async {
+    final userId = context.read<AuthProvider>().currentUser?.id;
+    if (userId == null || userId.isEmpty) return;
+    try { await OfflineSyncService.instance.sync(userId); } catch (_) {}
   }
 
   Future<void> _fetchUnread() async {
@@ -40,14 +56,24 @@ class _StudentShellState extends State<StudentShell> {
   @override
   Widget build(BuildContext context) {
     final nav = widget.navigationShell;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Math IBook'),
+        title: Row(
+          children: [
+            Icon(Icons.auto_stories_rounded, color: Colors.white.withAlpha(220), size: 22),
+            const SizedBox(width: 8),
+            const Text(
+              'Math IBook',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
         actions: [
           Stack(
             children: [
               IconButton(
-                icon: const Icon(Icons.notifications),
+                icon: const Icon(Icons.notifications_outlined, color: Colors.white),
                 onPressed: () => context.push('/student/notifications'),
               ),
               if (_unreadCount > 0)
@@ -57,7 +83,7 @@ class _StudentShellState extends State<StudentShell> {
                   child: Container(
                     padding: const EdgeInsets.all(4),
                     decoration: const BoxDecoration(
-                      color: Colors.red,
+                      color: Color(0xFFEF4444),
                       shape: BoxShape.circle,
                     ),
                     constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
@@ -73,17 +99,23 @@ class _StudentShellState extends State<StudentShell> {
         ],
       ),
       body: nav,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: nav.currentIndex,
-        onDestinationSelected: (index) {
-          nav.goBranch(index, initialLocation: true);
-        },
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home), label: 'Trang chủ'),
-          NavigationDestination(icon: Icon(Icons.book), label: 'Bài học'),
-          NavigationDestination(icon: Icon(Icons.dashboard), label: 'Bảng tin'),
-          NavigationDestination(icon: Icon(Icons.person), label: 'Cá nhân'),
-        ],
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: const Color(0xFFE2E8F0).withAlpha(80))),
+        ),
+        child: NavigationBar(
+          selectedIndex: nav.currentIndex,
+          onDestinationSelected: (index) {
+            nav.goBranch(index, initialLocation: index == nav.currentIndex);
+          },
+          height: 68,
+          destinations: const [
+            NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'Trang chủ'),
+            NavigationDestination(icon: Icon(Icons.book_outlined), selectedIcon: Icon(Icons.book_rounded), label: 'Bài học'),
+            NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard_rounded), label: 'Bảng tin'),
+            NavigationDestination(icon: Icon(Icons.person_outline_rounded), selectedIcon: Icon(Icons.person_rounded), label: 'Cá nhân'),
+          ],
+        ),
       ),
     );
   }

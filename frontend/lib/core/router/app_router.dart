@@ -5,15 +5,20 @@ import 'package:math_ibook/features/auth/domain/auth_provider.dart';
 import 'package:math_ibook/features/auth/presentation/splash_screen.dart';
 import 'package:math_ibook/features/auth/presentation/login_screen.dart';
 import 'package:math_ibook/features/auth/presentation/register_screen.dart';
+import 'package:math_ibook/features/auth/presentation/forgot_password_screen.dart';
 import 'package:math_ibook/features/student/shell/student_shell.dart';
 import 'package:math_ibook/features/student/chapters/chapters_screen.dart';
 import 'package:math_ibook/features/student/chapters/lessons_screen.dart';
 import 'package:math_ibook/features/student/lessons/lesson_detail_screen.dart';
 import 'package:math_ibook/features/student/quiz/quiz_screen.dart';
 import 'package:math_ibook/features/student/quiz/quiz_result_screen.dart';
+import 'package:math_ibook/features/student/quiz/chapter_quiz_screen.dart';
 import 'package:math_ibook/features/student/dashboard/dashboard_screen.dart';
 import 'package:math_ibook/features/student/badges/badges_screen.dart';
 import 'package:math_ibook/features/student/profile/profile_screen.dart';
+import 'package:math_ibook/features/student/coins/coins_screen.dart';
+import 'package:math_ibook/features/student/leaderboard/leaderboard_screen.dart';
+import 'package:math_ibook/features/student/offline_sync/offline_sync_screen.dart';
 import 'package:math_ibook/features/student/home/student_home_screen.dart';
 import 'package:math_ibook/features/student/notifications/notifications_screen.dart';
 import 'package:math_ibook/features/admin/shell/admin_shell.dart';
@@ -25,6 +30,9 @@ import 'package:math_ibook/features/admin/badges_admin/admin_badges_screen.dart'
 import 'package:math_ibook/features/admin/users_admin/admin_users_screen.dart';
 import 'package:math_ibook/features/admin/users_admin/user_history_screen.dart';
 import 'package:math_ibook/features/admin/reports/admin_reports_screen.dart';
+import 'package:math_ibook/features/admin/reward_policies_admin/admin_reward_policies_screen.dart';
+import 'package:math_ibook/features/admin/notifications_admin/admin_notifications_screen.dart';
+import 'package:math_ibook/features/admin/settings_admin/admin_settings_screen.dart';
 
 final GlobalKey<NavigatorState> _rootNavigator = GlobalKey<NavigatorState>();
 
@@ -39,18 +47,18 @@ GoRouter createAppRouter(AuthProvider authProvider) {
       final location = state.uri.toString();
 
       if (!isLoggedIn) {
-        if (location == '/splash' || location == '/login' || location == '/register') return null;
+        if (location == '/splash' || location == '/login' || location == '/register' || location == '/forgot-password') return null;
         return '/login';
       }
       if (role == 'Admin') {
         if (location.startsWith('/student')) return '/admin/dashboard';
-        if (location == '/splash' || location == '/login' || location == '/register') return '/admin/dashboard';
+        if (location == '/splash' || location == '/login' || location == '/register' || location == '/forgot-password') return '/admin/dashboard';
         if (location == '/') return '/admin/dashboard';
         return null;
       }
       if (role == 'Student') {
         if (location.startsWith('/admin')) return '/student/home';
-        if (location == '/splash' || location == '/login' || location == '/register') return '/student/home';
+        if (location == '/splash' || location == '/login' || location == '/register' || location == '/forgot-password') return '/student/home';
         if (location == '/') return '/student/home';
         return null;
       }
@@ -61,9 +69,14 @@ GoRouter createAppRouter(AuthProvider authProvider) {
       GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
+      GoRoute(path: '/forgot-password', builder: (_, __) => const ForgotPasswordScreen()),
       GoRoute(path: '/student/notifications', builder: (_, __) => const NotificationsScreen(),
         parentNavigatorKey: _rootNavigator,
       ),
+      GoRoute(path: '/student/coins', builder: (_, __) => const CoinsScreen(), parentNavigatorKey: _rootNavigator),
+      GoRoute(path: '/student/leaderboard', builder: (_, __) => const LeaderboardScreen(), parentNavigatorKey: _rootNavigator),
+      GoRoute(path: '/student/offline-sync', builder: (_, __) => const OfflineSyncScreen(), parentNavigatorKey: _rootNavigator),
+      GoRoute(path: '/student/chapter-quiz/:chapterId', builder: (_, state) => ChapterQuizScreen(chapterId: state.pathParameters['chapterId']!), parentNavigatorKey: _rootNavigator),
       StatefulShellRoute.indexedStack(
         builder: (_, __, navigationShell) => StudentShell(navigationShell: navigationShell),
         branches: [
@@ -116,6 +129,15 @@ GoRouter createAppRouter(AuthProvider authProvider) {
           ]),
           StatefulShellBranch(routes: [
             GoRoute(path: '/admin/reports', builder: (_, __) => const AdminReportsScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/admin/reward-policies', builder: (_, __) => const AdminRewardPoliciesScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/admin/notifications', builder: (_, __) => const AdminNotificationsScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/admin/settings', builder: (_, __) => const AdminSettingsScreen()),
           ]),
         ],
       ),

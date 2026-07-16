@@ -1,4 +1,5 @@
 using MathIBook.Application.DTOs;
+using MathIBook.Domain.Enums;
 using MathIBook.Domain.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -19,117 +20,186 @@ public class AdminReportsController : ControllerBase
     }
 
     [HttpGet("overview")]
-    public async Task<IActionResult> GetOverview([FromQuery] Guid? userId)
+    public async Task<ActionResult<ReportOverviewDto>> GetOverview(
+        [FromQuery] Guid? userId,
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to,
+        [FromQuery] Guid? chapterId,
+        [FromQuery] Guid? lessonId)
     {
-        try
+        var studentQuery = _unitOfWork.Users.Query()
+            .Where(user => user.Role == "Student");
+        if (userId.HasValue)
         {
-            var totalUsers = await _unitOfWork.Users.Query().CountAsync();
+            studentQuery = studentQuery.Where(user => user.Id == userId);
+        }
 
-            var quizAttemptsQuery = _unitOfWork.QuizAttempts.Query();
-            if (userId.HasValue)
-                quizAttemptsQuery = quizAttemptsQuery.Where(qa => qa.UserId == userId.Value);
+        var studentIds = await studentQuery.Select(user => user.Id).ToListAsync();
+        
+        var attemptsQuery = _unitOfWork.QuizAttempts.Query()
+            .Where(attempt => studentIds.Contains(attempt.UserId))
+            .Include(attempt => attempt.Quiz)
+            .ThenInclude(quiz => quiz!.Lesson)
+            .AsQueryable();
 
-            var totalQuizAttempts = await quizAttemptsQuery.CountAsync();
+        var transactionsQuery = _unitOfWork.CoinTransactions.Query()
+            .Where(transaction => studentIds.Contains(transaction.UserId))
+            .AsQueryable();
 
-            var coinTransactionsQuery = _unitOfWork.CoinTransactions.Query()
-                .Where(ct => ct.Amount > 0);
-            if (userId.HasValue)
-                coinTransactionsQuery = coinTransactionsQuery.Where(ct => ct.UserId == userId.Value);
-            var totalCoinsAwarded = await coinTransactionsQuery
-                .SumAsync(ct => (int?)ct.Amount) ?? 0;
+        var userBadgesQuery = _unitOfWork.UserBadges.Query()
+            .Where(item => studentIds.Contains(item.UserId))
+            .AsQueryable();
 
-            var userBadgesQuery = _unitOfWork.UserBadges.Query();
-            if (userId.HasValue)
-                userBadgesQuery = userBadgesQuery.Where(ub => ub.UserId == userId.Value);
-            var totalBadgesAwarded = await userBadgesQuery.CountAsync();
+        var progressQuery = _unitOfWork.Progresses.Query()
+            .Where(item =>
+                studentIds.Contains(item.UserId)
+                && item.Status == LearningStatus.Passed)
+            .AsQueryable();
 
-            var averageScoreData = await quizAttemptsQuery
-                .Where(qa => qa.TotalQuestions > 0)
-                .Select(qa => (double)qa.Score / qa.TotalQuestions * 100)
-                .ToListAsync();
+        var newUsersQuery = _unitOfWork.Users.Query()
+            .Where(user => user.Role == "Student")
+            .AsQueryable();
 
-            var overallAverageScore = averageScoreData.Any()
-                ? Math.Round(averageScoreData.Average(), 2)
-                : 0;
+        if (from.HasValue)
+        {
+            var fromDate = from.Value.ToUniversalTime();
+            attemptsQuery = attemptsQuery.Where(item => item.CreatedAt >= fromDate);
+            transactionsQuery = transactionsQuery.Where(item => item.CreatedAt >= fromDate);
+            userBadgesQuery = userBadgesQuery.Where(item => item.EarnedAt >= fromDate);
+            progressQuery = progressQuery.Where(item => item.UpdatedAt >= fromDate);
+            newUsersQuery = newUsersQuery.Where(item => item.CreatedAt >= fromDate);
+        }
 
-            var chapters = await _unitOfWork.Chapters.Query()
-                .Include(c => c.Lessons)
-                .ThenInclude(l => l.QuizAttempts)
-                .ToListAsync();
+        if (to.HasValue)
+        {
+            var toDate = to.Value.ToUniversalTime();
+            attemptsQuery = attemptsQuery.Where(item => item.CreatedAt <= toDate);
+            transactionsQuery = transactionsQuery.Where(item => item.CreatedAt <= toDate);
+            userBadgesQuery = userBadgesQuery.Where(item => item.EarnedAt <= toDate);
+            progressQuery = progressQuery.Where(item => item.UpdatedAt <= toDate);
+            newUsersQuery = newUsersQuery.Where(item => item.CreatedAt <= toDate);
+        }
 
-            var chapterReports = chapters.Select(c =>
+        if (chapterId.HasValue)
+        {
+            attemptsQuery = attemptsQuery.Where(item => item.Quiz!.ChapterId == chapterId || item.Quiz.Lesson!.ChapterId == chapterId);
+            progressQuery = progressQuery.Where(item => item.Lesson!.ChapterId == chapterId);
+        }
+        
+        if (lessonId.HasValue)
+        {
+            attemptsQuery = attemptsQuery.Where(item => item.LessonId == lessonId);
+            progressQuery = progressQuery.Where(item => item.LessonId == lessonId);
+        }
+
+        var attemptIds = await attemptsQuery.Select(a => a.Id).ToListAsync();
+        var answersQuery = _unitOfWork.QuizAttemptAnswers.Query()
+            .Where(ans => attemptIds.Contains(ans.AttemptId))
+            .Include(ans => ans.Question)
+            .AsQueryable();
+
+        var attempts = await attemptsQuery.ToListAsync();
+        var transactions = await transactionsQuery.ToListAsync();
+        var badgeCount = await userBadgesQuery.CountAsync();
+        var progress = await progressQuery.ToListAsync();
+
+        var chapters = await _unitOfWork.Chapters.Query()
+            .Where(chapter => !chapter.IsDeleted)
+            .Include(chapter => chapter.Lessons.Where(lesson => !lesson.IsDeleted))
+            .OrderBy(chapter => chapter.OrderIndex)
+            .ToListAsync();
+
+        var chapterReports = chapters.Select(chapter =>
+        {
+            var chapterAttempts = attempts.Where(attempt =>
+                attempt.Quiz?.ChapterId == chapter.Id
+                || attempt.Quiz?.Lesson?.ChapterId == chapter.Id
+                || chapter.Lessons.Any(lesson => lesson.Id == attempt.LessonId))
+                .ToList();
+            var possibleCompletions = studentIds.Count * chapter.Lessons.Count;
+            var completed = progress.Count(item =>
+                chapter.Lessons.Any(lesson => lesson.Id == item.LessonId));
+
+            return new ChapterReportDto
             {
-                var chapterAttempts = userId.HasValue
-                    ? c.Lessons.SelectMany(l => l.QuizAttempts.Where(qa => qa.UserId == userId.Value)).ToList()
-                    : c.Lessons.SelectMany(l => l.QuizAttempts).ToList();
-
-                var totalAttempts = chapterAttempts.Count;
-                var avgScore = chapterAttempts.Where(qa => qa.TotalQuestions > 0)
-                    .Select(qa => (double)qa.Score / qa.TotalQuestions * 100)
-                    .DefaultIfEmpty()
-                    .Average();
-
-                var completedLessons = userId.HasValue
-                    ? c.Lessons.Count(l => l.QuizAttempts.Any(qa => qa.UserId == userId.Value))
-                    : c.Lessons.Count(l => l.QuizAttempts.Any());
-
-                return new ChapterReportDto
-                {
-                    ChapterId = c.Id,
-                    ChapterTitle = c.Title,
-                    TotalAttempts = totalAttempts,
-                    AverageScore = Math.Round(avgScore, 2),
-                    CompletionRate = c.Lessons.Any()
-                        ? Math.Round((double)completedLessons / c.Lessons.Count * 100, 2)
-                        : 0
-                };
-            }).ToList();
-
-            var dailyActivities = await quizAttemptsQuery
-                .GroupBy(qa => qa.CreatedAt.Date)
-                .Select(g => new DailyActivityDto
-                {
-                    Date = g.Key,
-                    QuizCount = g.Count()
-                })
-                .OrderByDescending(d => d.Date)
-                .Take(30)
-                .ToListAsync();
-
-            var newUsersByDay = await _unitOfWork.Users.Query()
-                .GroupBy(u => u.CreatedAt.Date)
-                .Select(g => new { Date = g.Key, Count = g.Count() })
-                .ToListAsync();
-
-            foreach (var daily in dailyActivities)
-            {
-                var newUserCount = newUsersByDay
-                    .Where(n => n.Date == daily.Date)
-                    .Sum(n => n.Count);
-                daily.NewUsers = newUserCount;
-            }
-
-            var result = new ReportOverviewDto
-            {
-                TotalUsers = totalUsers,
-                TotalQuizAttempts = totalQuizAttempts,
-                OverallAverageScore = overallAverageScore,
-                TotalCoinsAwarded = totalCoinsAwarded,
-                TotalBadgesAwarded = totalBadgesAwarded,
-                ChapterReports = chapterReports,
-                DailyActivities = dailyActivities
+                ChapterId = chapter.Id,
+                ChapterTitle = chapter.Title,
+                TotalAttempts = chapterAttempts.Count,
+                AverageScore = chapterAttempts.Count == 0
+                    ? 0
+                    : Math.Round(chapterAttempts.Average(item => (double)item.Score10), 2),
+                CompletionRate = possibleCompletions == 0
+                    ? 0
+                    : Math.Round((double)completed / possibleCompletions * 100, 2)
             };
+        }).ToList();
 
-            return Ok(result);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new ProblemDetails
+        var newUsers = await newUsersQuery
+            .GroupBy(user => user.CreatedAt.Date)
+            .Select(group => new { Date = group.Key, Count = group.Count() })
+            .ToListAsync();
+        var daily = attempts
+            .GroupBy(attempt => attempt.CreatedAt.Date)
+            .Select(group => new DailyActivityDto
             {
-                Title = "Error fetching reports",
-                Detail = ex.Message,
-                Status = 500
-            });
-        }
+                Date = group.Key,
+                QuizCount = group.Count(),
+                NewUsers = newUsers.FirstOrDefault(item => item.Date == group.Key)?.Count ?? 0
+            })
+            .OrderByDescending(item => item.Date)
+            .Take(30)
+            .ToList();
+
+        var topStudents = await studentQuery
+            .Include(u => u.UserBadges)
+            .OrderByDescending(u => u.Coins)
+            .ThenByDescending(u => u.UserBadges.Count)
+            .Take(10)
+            .Select(u => new TopStudentDto
+            {
+                UserId = u.Id,
+                Name = u.Name,
+                Coins = u.Coins,
+                BadgeCount = u.UserBadges.Count
+            })
+            .ToListAsync();
+
+        var mostFailedQuestions = await answersQuery
+            .GroupBy(ans => new { ans.QuestionId, ans.Question.QuestionText })
+            .Select(g => new
+            {
+                g.Key.QuestionId,
+                Content = g.Key.QuestionText,
+                TotalAttempts = g.Count(),
+                FailedAttempts = g.Count(ans => !ans.IsCorrect)
+            })
+            .Where(x => x.TotalAttempts > 0 && x.FailedAttempts > 0)
+            .OrderByDescending(x => (double)x.FailedAttempts / x.TotalAttempts)
+            .ThenByDescending(x => x.TotalAttempts)
+            .Take(10)
+            .Select(x => new FailedQuestionDto
+            {
+                QuestionId = x.QuestionId,
+                Content = x.Content,
+                TotalAttempts = x.TotalAttempts,
+                FailedAttempts = x.FailedAttempts,
+                FailureRate = Math.Round((double)x.FailedAttempts / x.TotalAttempts * 100, 2)
+            })
+            .ToListAsync();
+
+        return Ok(new ReportOverviewDto
+        {
+            TotalUsers = studentIds.Count,
+            TotalQuizAttempts = attempts.Count,
+            OverallAverageScore = attempts.Count == 0
+                ? 0
+                : Math.Round(attempts.Average(attempt => (double)attempt.Score10), 2),
+            TotalCoinsAwarded = transactions.Sum(transaction => transaction.Amount),
+            TotalBadgesAwarded = badgeCount,
+            ChapterReports = chapterReports,
+            DailyActivities = daily,
+            TopStudents = topStudents,
+            MostFailedQuestions = mostFailedQuestions
+        });
     }
 }

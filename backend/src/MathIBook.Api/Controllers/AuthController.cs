@@ -2,7 +2,6 @@ using MathIBook.Application.DTOs;
 using MathIBook.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace MathIBook.Api.Controllers;
 
@@ -19,39 +18,67 @@ public class AuthController : ControllerBase
 
     [AllowAnonymous]
     [HttpPost("login")]
-    public async Task<IActionResult> Login([FromBody] LoginRequest request)
+    public async Task<ActionResult<AuthResponse>> Login([FromBody] LoginRequest request)
     {
         try
         {
-            var result = await _authService.LoginAsync(request);
-            return Ok(result);
+            return Ok(await _authService.LoginAsync(request));
         }
-        catch (InvalidOperationException ex)
+        catch (UnauthorizedAccessException exception)
+        {
+            return Unauthorized(new ProblemDetails
+            {
+                Title = "Đăng nhập thất bại.",
+                Detail = exception.Message,
+                Status = 401
+            });
+        }
+    }
+
+    [AllowAnonymous]
+    [HttpPost("send-otp")]
+    public async Task<IActionResult> SendOtp([FromBody] OtpRequest request)
+    {
+        try
+        {
+            await _authService.SendOtpAsync(request);
+            return Ok(new { Message = "Mã OTP đã được gửi đến email của bạn." });
+        }
+        catch (ArgumentException exception)
         {
             return BadRequest(new ProblemDetails
             {
-                Title = "Login failed",
-                Detail = ex.Message,
+                Title = "Yêu cầu gửi OTP thất bại.",
+                Detail = exception.Message,
                 Status = 400
+            });
+        }
+        catch (Exception exception)
+        {
+            return StatusCode(500, new ProblemDetails
+            {
+                Title = "Lỗi hệ thống.",
+                Detail = exception.Message,
+                Status = 500
             });
         }
     }
 
     [AllowAnonymous]
     [HttpPost("register")]
-    public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+    public async Task<ActionResult<AuthResponse>> Register([FromBody] RegisterRequest request)
     {
         try
         {
-            var result = await _authService.RegisterAsync(request);
-            return Ok(result);
+            return Ok(await _authService.RegisterAsync(request));
         }
-        catch (InvalidOperationException ex)
+        catch (Exception exception) when (
+            exception is ArgumentException or InvalidOperationException)
         {
             return BadRequest(new ProblemDetails
             {
-                Title = "Registration failed",
-                Detail = ex.Message,
+                Title = "Đăng ký thất bại.",
+                Detail = exception.Message,
                 Status = 400
             });
         }
@@ -59,20 +86,77 @@ public class AuthController : ControllerBase
 
     [AllowAnonymous]
     [HttpPost("refresh")]
-    public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequest request)
+    public async Task<ActionResult<AuthResponse>> Refresh([FromBody] RefreshTokenRequest request)
     {
         try
         {
-            var result = await _authService.RefreshTokenAsync(request.RefreshToken);
-            return Ok(result);
+            return Ok(await _authService.RefreshTokenAsync(request.RefreshToken));
         }
-        catch (InvalidOperationException ex)
+        catch (UnauthorizedAccessException exception)
         {
             return Unauthorized(new ProblemDetails
             {
-                Title = "Token refresh failed",
-                Detail = ex.Message,
+                Title = "Làm mới phiên đăng nhập thất bại.",
+                Detail = exception.Message,
                 Status = 401
+            });
+        }
+    }
+
+    [AllowAnonymous]
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+    {
+        try
+        {
+            await _authService.SendResetPasswordOtpAsync(request);
+            return Ok(new { Message = "Mã OTP đặt lại mật khẩu đã được gửi đến email của bạn." });
+        }
+        catch (ArgumentException exception)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Yêu cầu đặt lại mật khẩu thất bại.",
+                Detail = exception.Message,
+                Status = 400
+            });
+        }
+        catch (Exception exception)
+        {
+            return StatusCode(500, new ProblemDetails
+            {
+                Title = "Lỗi hệ thống.",
+                Detail = exception.Message,
+                Status = 500
+            });
+        }
+    }
+
+    [AllowAnonymous]
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+    {
+        try
+        {
+            await _authService.ResetPasswordAsync(request);
+            return Ok(new { Message = "Đặt lại mật khẩu thành công." });
+        }
+        catch (ArgumentException exception)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Đặt lại mật khẩu thất bại.",
+                Detail = exception.Message,
+                Status = 400
+            });
+        }
+        catch (Exception exception)
+        {
+            return StatusCode(500, new ProblemDetails
+            {
+                Title = "Lỗi hệ thống.",
+                Detail = exception.Message,
+                Status = 500
             });
         }
     }
@@ -81,19 +165,7 @@ public class AuthController : ControllerBase
     [HttpPost("logout")]
     public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request)
     {
-        try
-        {
-            await _authService.LogoutAsync(request.RefreshToken);
-            return Ok();
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new ProblemDetails
-            {
-                Title = "Logout failed",
-                Detail = ex.Message,
-                Status = 400
-            });
-        }
+        await _authService.LogoutAsync(request.RefreshToken);
+        return NoContent();
     }
 }

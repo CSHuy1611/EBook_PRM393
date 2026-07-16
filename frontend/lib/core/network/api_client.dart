@@ -126,12 +126,38 @@ class ApiClient {
     return response.data ?? {};
   }
 
-  Future<Map<String, dynamic>> register(String name, String email, String password, String confirmPassword) async {
+  Future<Map<String, dynamic>> register(String name, String email, String password, String confirmPassword, String otp) async {
     final response = await post<Map<String, dynamic>>(
       '/auth/register',
-      data: {'name': name, 'email': email, 'password': password, 'confirmPassword': confirmPassword},
+      data: {'name': name, 'email': email, 'password': password, 'confirmPassword': confirmPassword, 'otp': otp},
     );
     return response.data ?? {};
+  }
+
+  Future<void> sendOtp(String email) async {
+    await post(
+      '/auth/send-otp',
+      data: {'email': email},
+    );
+  }
+
+  Future<void> forgotPassword(String email) async {
+    await post(
+      '/auth/forgot-password',
+      data: {'email': email},
+    );
+  }
+
+  Future<void> resetPassword(String email, String otp, String newPassword, String confirmNewPassword) async {
+    await post(
+      '/auth/reset-password',
+      data: {
+        'email': email,
+        'otp': otp,
+        'newPassword': newPassword,
+        'confirmNewPassword': confirmNewPassword,
+      },
+    );
   }
 
   Future<void> logout() async {

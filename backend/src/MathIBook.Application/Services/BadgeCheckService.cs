@@ -2,6 +2,7 @@ using System.Text.Json;
 using MathIBook.Application.DTOs;
 using MathIBook.Application.Interfaces;
 using MathIBook.Domain.Entities;
+using MathIBook.Domain.Enums;
 using MathIBook.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
 
@@ -18,173 +19,212 @@ public class BadgeCheckService : IBadgeCheckService
         _logger = logger;
     }
 
-    public async Task<List<BadgeEarnedDto>> CheckAndAwardBadgesAsync(Guid userId, Guid? lessonId = null)
+    public async Task<List<BadgeEarnedDto>> CheckAndAwardBadgesAsync(
+        Guid userId,
+        Guid? contextChapterId = null)
     {
+        var user = await _unitOfWork.Users.GetByIdAsync(userId)
+            ?? throw new InvalidOperationException("User not found.");
         var earnedBadges = new List<BadgeEarnedDto>();
-        var allBadges = (await _unitOfWork.Badges.GetAllAsync()).ToList();
-
-        var userBadges = (await _unitOfWork.UserBadges.FindAsync(ub => ub.UserId == userId))
-            .Select(ub => ub.BadgeId)
+        var badges = (await _unitOfWork.Badges.GetAllAsync())
+            .Where(badge => badge.IsActive && !badge.IsDeleted)
+            .ToList();
+        var alreadyEarned = (await _unitOfWork.UserBadges.FindAsync(
+                userBadge => userBadge.UserId == userId))
+            .Select(userBadge => userBadge.BadgeId)
             .ToHashSet();
 
-        foreach (var badge in allBadges)
+        foreach (var badge in badges)
         {
-            if (userBadges.Contains(badge.Id))
+            if (alreadyEarned.Contains(badge.Id))
             {
                 continue;
             }
 
-            var conditionMet = badge.ConditionType switch
-            {
-                "complete_chapter" => await CheckCompleteChapterAsync(userId, badge.ConditionValue),
-                "complete_book" => await CheckCompleteBookAsync(userId),
-                "perfect_quiz_streak" => await CheckPerfectQuizStreakAsync(userId, badge.ConditionValue),
-                "total_coins" => await CheckTotalCoinsAsync(userId, badge.ConditionValue),
-                _ => false
-            };
+            var rules = (await _unitOfWork.BadgeRules.FindAsync(rule => rule.BadgeId == badge.Id))
+                .OrderBy(rule => rule.OrderIndex)
+                .ToList();
+            var conditionMet = rules.Count > 0
+                ? await CheckStructuredRulesAsync(userId, badge, badge.RuleMatchMode, rules)
+                : await CheckLegacyConditionAsync(userId, badge);
 
-            if (conditionMet)
+            if (!conditionMet)
             {
-                var userBadge = new UserBadge
+                continue;
+            }
+
+            var occurredAt = DateTime.UtcNow;
+            await _unitOfWork.UserBadges.AddAsync(new UserBadge
+            {
+                UserId = userId,
+                BadgeId = badge.Id,
+                BadgeRuleId = rules.Count == 1 ? rules[0].Id : null,
+                SourceId = contextChapterId ?? badge.Id,
+                EarnedAt = occurredAt
+            });
+
+            if (badge.RewardCoins > 0)
+            {
+                user.Coins += badge.RewardCoins;
+                user.CoinsUpdatedAt = occurredAt;
+                user.UpdatedAt = occurredAt;
+                _unitOfWork.Users.Update(user);
+
+                await _unitOfWork.CoinTransactions.AddAsync(new CoinTransaction
                 {
                     UserId = userId,
-                    BadgeId = badge.Id,
-                    EarnedAt = DateTime.UtcNow
-                };
-
-                await _unitOfWork.UserBadges.AddAsync(userBadge);
-
-                var coinTransaction = new CoinTransaction
-                {
-                    UserId = userId,
-                    Amount = 50,
+                    Amount = badge.RewardCoins,
                     SourceType = "badge_unlock",
                     SourceId = badge.Id,
-                    Description = $"Unlocked badge: {badge.Title}",
-                    CreatedAt = DateTime.UtcNow
-                };
-
-                await _unitOfWork.CoinTransactions.AddAsync(coinTransaction);
-
-                var user = await _unitOfWork.Users.GetByIdAsync(userId);
-                if (user is not null)
-                {
-                    user.Coins += 50;
-                    _unitOfWork.Users.Update(user);
-                }
-
-                await _unitOfWork.SaveChangesAsync();
-
-                earnedBadges.Add(new BadgeEarnedDto
-                {
-                    BadgeId = badge.Id,
-                    Title = badge.Title,
-                    Description = badge.Description,
-                    IconUrl = badge.IconUrl
+                    IdempotencyKey = $"badge_unlock:{userId:N}:{badge.Id:N}",
+                    BalanceAfter = user.Coins,
+                    Description = $"Nhận huy hiệu: {badge.Title}",
+                    CreatedAt = occurredAt
                 });
-
-                _logger.LogInformation("Badge '{BadgeTitle}' awarded to user {UserId}", badge.Title, userId);
             }
+
+            await _unitOfWork.Notifications.AddAsync(new Notification
+            {
+                UserId = userId,
+                Title = "Bạn vừa nhận huy hiệu mới",
+                Body = $"Chúc mừng! Bạn đã nhận huy hiệu “{badge.Title}”.",
+                Link = "/badges",
+                Type = "badge_awarded",
+                RelatedEntityId = badge.Id,
+                CreatedAt = occurredAt
+            });
+            await _unitOfWork.SaveChangesAsync();
+
+            alreadyEarned.Add(badge.Id);
+            earnedBadges.Add(new BadgeEarnedDto
+            {
+                BadgeId = badge.Id,
+                Title = badge.Title,
+                Description = badge.Description,
+                IconUrl = badge.IconUrl
+            });
+
+            _logger.LogInformation(
+                "Badge {BadgeId} awarded to user {UserId}",
+                badge.Id,
+                userId);
         }
 
         return earnedBadges;
     }
 
-    private async Task<bool> CheckCompleteChapterAsync(Guid userId, string? conditionValue)
+    private async Task<bool> CheckStructuredRulesAsync(
+        Guid userId,
+        Badge badge,
+        string matchMode,
+        IReadOnlyCollection<BadgeRule> rules)
     {
-        var chapterId = TryExtractGuid(conditionValue);
-        if (chapterId is null)
+        var results = new List<bool>();
+        foreach (var rule in rules)
+        {
+            results.Add(await CheckRuleAsync(userId, badge, rule));
+        }
+
+        return string.Equals(matchMode, "ANY", StringComparison.OrdinalIgnoreCase)
+            ? results.Any(result => result)
+            : results.All(result => result);
+    }
+
+    private Task<bool> CheckRuleAsync(Guid userId, Badge badge, BadgeRule rule)
+    {
+        return rule.RuleType.ToLowerInvariant() switch
+        {
+            "complete_chapter" => CheckCompleteChapterAsync(userId, rule.TargetChapterId),
+            "total_coins" => CheckTotalCoinsAsync(userId, ResolveThreshold(rule, badge)),
+            "passed_quizzes" => CheckPassedQuizCountAsync(userId, ResolveThreshold(rule, badge)),
+            "perfect_quiz_streak" => CheckPerfectQuizStreakAsync(userId, ResolveThreshold(rule, badge)),
+            "complete_book" => CheckCompleteBookAsync(userId),
+            _ => Task.FromResult(false)
+        };
+    }
+
+    private Task<bool> CheckLegacyConditionAsync(Guid userId, Badge badge)
+    {
+        return badge.ConditionType.ToLowerInvariant() switch
+        {
+            "complete_chapter" => CheckCompleteChapterAsync(userId, TryExtractGuid(badge.ConditionValue)),
+            "complete_book" => CheckCompleteBookAsync(userId),
+            "perfect_quiz_streak" => CheckPerfectQuizStreakAsync(
+                userId,
+                TryExtractInt(badge.ConditionValue)),
+            "total_coins" => CheckTotalCoinsAsync(userId, TryExtractInt(badge.ConditionValue)),
+            "passed_quizzes" => CheckPassedQuizCountAsync(userId, TryExtractInt(badge.ConditionValue)),
+            _ => Task.FromResult(false)
+        };
+    }
+
+    private async Task<bool> CheckCompleteChapterAsync(Guid userId, Guid? chapterId)
+    {
+        if (!chapterId.HasValue)
         {
             return false;
         }
 
-        var chapter = await _unitOfWork.Chapters.GetByIdAsync(chapterId.Value);
-        if (chapter is null)
-        {
-            return false;
-        }
-
-        var publishedLessons = (await _unitOfWork.Lessons.FindAsync(l => l.ChapterId == chapterId.Value && l.IsPublished)).ToList();
-        if (publishedLessons.Count == 0)
-        {
-            return false;
-        }
-
-        var completedCount = 0;
-        foreach (var lesson in publishedLessons)
-        {
-            var progress = await _unitOfWork.Progresses.FirstOrDefaultAsync(
-                p => p.UserId == userId && p.LessonId == lesson.Id);
-            if (progress is not null && progress.IsCompleted)
-            {
-                completedCount++;
-            }
-        }
-
-        return completedCount >= publishedLessons.Count;
+        var progress = await _unitOfWork.ChapterProgresses.FirstOrDefaultAsync(
+            item => item.UserId == userId && item.ChapterId == chapterId.Value);
+        return progress?.Status == LearningStatus.Passed;
     }
 
     private async Task<bool> CheckCompleteBookAsync(Guid userId)
     {
-        var chapters = (await _unitOfWork.Chapters.GetAllAsync()).ToList();
+        var chapters = (await _unitOfWork.Chapters.FindAsync(
+                chapter => chapter.IsPublished && !chapter.IsDeleted))
+            .Select(chapter => chapter.Id)
+            .ToList();
         if (chapters.Count == 0)
         {
             return false;
         }
 
-        foreach (var chapter in chapters)
-        {
-            var publishedLessons = (await _unitOfWork.Lessons.FindAsync(l => l.ChapterId == chapter.Id && l.IsPublished)).ToList();
-            if (publishedLessons.Count == 0)
-            {
-                continue;
-            }
-
-            var completedCount = 0;
-            foreach (var lesson in publishedLessons)
-            {
-                var progress = await _unitOfWork.Progresses.FirstOrDefaultAsync(
-                    p => p.UserId == userId && p.LessonId == lesson.Id);
-                if (progress is not null && progress.IsCompleted)
-                {
-                    completedCount++;
-                }
-            }
-
-            if (completedCount < publishedLessons.Count)
-            {
-                return false;
-            }
-        }
-
-        return true;
+        var completed = (await _unitOfWork.ChapterProgresses.FindAsync(
+                item => item.UserId == userId && item.Status == LearningStatus.Passed))
+            .Select(item => item.ChapterId)
+            .ToHashSet();
+        return chapters.All(completed.Contains);
     }
 
-    private async Task<bool> CheckPerfectQuizStreakAsync(Guid userId, string? conditionValue)
+    private async Task<bool> CheckPerfectQuizStreakAsync(Guid userId, int? requiredStreak)
     {
-        var requiredStreak = TryExtractInt(conditionValue);
-        if (requiredStreak is null || requiredStreak.Value <= 0)
+        if (!requiredStreak.HasValue || requiredStreak.Value <= 0)
         {
             return false;
         }
 
-        var attempts = (await _unitOfWork.QuizAttempts.FindAsync(qa => qa.UserId == userId))
-            .OrderByDescending(qa => qa.CreatedAt)
+        var attempts = (await _unitOfWork.QuizAttempts.FindAsync(
+                attempt => attempt.UserId == userId))
+            .OrderByDescending(attempt => attempt.CreatedAt)
             .Take(requiredStreak.Value)
             .ToList();
+        return attempts.Count == requiredStreak.Value
+            && attempts.All(attempt =>
+                attempt.TotalQuestions > 0
+                && attempt.Score == attempt.TotalQuestions);
+    }
 
-        if (attempts.Count < requiredStreak.Value)
+    private async Task<bool> CheckPassedQuizCountAsync(Guid userId, int? requiredCount)
+    {
+        if (!requiredCount.HasValue || requiredCount.Value <= 0)
         {
             return false;
         }
 
-        return attempts.All(a => a.Score == a.TotalQuestions);
+        var attempts = await _unitOfWork.QuizAttempts.FindAsync(
+            attempt => attempt.UserId == userId && attempt.IsPassed);
+        return attempts
+            .Select(attempt => attempt.QuizId)
+            .Where(quizId => quizId.HasValue)
+            .Distinct()
+            .Count() >= requiredCount.Value;
     }
 
-    private async Task<bool> CheckTotalCoinsAsync(Guid userId, string? conditionValue)
+    private async Task<bool> CheckTotalCoinsAsync(Guid userId, int? requiredCoins)
     {
-        var requiredCoins = TryExtractInt(conditionValue);
-        if (requiredCoins is null || requiredCoins.Value <= 0)
+        if (!requiredCoins.HasValue || requiredCoins.Value < 0)
         {
             return false;
         }
@@ -193,42 +233,70 @@ public class BadgeCheckService : IBadgeCheckService
         return user is not null && user.Coins >= requiredCoins.Value;
     }
 
-    private static Guid? TryExtractGuid(string? value)
+    private static Guid? TryExtractGuid(string? conditionValue)
     {
-        if (Guid.TryParse(value, out var guid))
-            return guid;
-
-        if (value is not null)
+        if (string.IsNullOrWhiteSpace(conditionValue))
         {
-            try
+            return null;
+        }
+
+        if (Guid.TryParse(conditionValue.Trim('"'), out var direct))
+        {
+            return direct;
+        }
+
+        try
+        {
+            var values = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(conditionValue);
+            if (values is not null
+                && values.TryGetValue("chapterId", out var chapterId)
+                && Guid.TryParse(chapterId.ToString(), out var parsed))
             {
-                var json = JsonSerializer.Deserialize<Dictionary<string, string>>(value);
-                if (json is not null && json.TryGetValue("chapterId", out var id) && Guid.TryParse(id, out var parsed))
-                    return parsed;
+                return parsed;
             }
-            catch { }
+        }
+        catch (JsonException)
+        {
         }
 
         return null;
     }
 
-    private static int? TryExtractInt(string? value)
-    {
-        if (int.TryParse(value, out var result))
-            return result;
+    private static int? ResolveThreshold(BadgeRule rule, Badge badge) =>
+        rule.ThresholdValue is > 0
+            ? rule.ThresholdValue.Value
+            : TryExtractInt(badge.ConditionValue);
 
-        if (value is not null)
+    private static int? TryExtractInt(string? conditionValue)
+    {
+        if (string.IsNullOrWhiteSpace(conditionValue))
         {
-            try
+            return null;
+        }
+
+        if (int.TryParse(conditionValue.Trim('"'), out var direct))
+        {
+            return direct;
+        }
+
+        try
+        {
+            var values = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(conditionValue);
+            if (values is null)
             {
-                var json = JsonSerializer.Deserialize<Dictionary<string, int>>(value);
-                if (json is not null)
+                return null;
+            }
+
+            foreach (var key in new[] { "value", "streak", "coins", "count" })
+            {
+                if (values.TryGetValue(key, out var value) && value.TryGetInt32(out var parsed))
                 {
-                    if (json.TryGetValue("streak", out var streak)) return streak;
-                    if (json.TryGetValue("coins", out var coins)) return coins;
+                    return parsed;
                 }
             }
-            catch { }
+        }
+        catch (JsonException)
+        {
         }
 
         return null;

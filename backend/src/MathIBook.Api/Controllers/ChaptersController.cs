@@ -1,4 +1,6 @@
 using MathIBook.Application.DTOs;
+using MathIBook.Domain.Entities;
+using MathIBook.Domain.Enums;
 using MathIBook.Domain.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -20,115 +22,164 @@ public class ChaptersController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll()
+    public async Task<ActionResult<List<ChapterDto>>> GetAll()
     {
-        try
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var chapters = await _unitOfWork.Chapters.Query()
+            .Where(chapter => chapter.IsPublished && !chapter.IsDeleted)
+            .OrderBy(chapter => chapter.OrderIndex)
+            .Include(chapter => chapter.Lessons.Where(lesson => lesson.IsPublished && !lesson.IsDeleted))
+            .Include(chapter => chapter.Quizzes.Where(quiz =>
+                quiz.QuizType == QuizType.Chapter && quiz.IsPublished && !quiz.IsDeleted))
+            .ToListAsync();
+        var progresses = await _unitOfWork.Progresses.Query()
+            .Where(progress => progress.UserId == userId)
+            .ToListAsync();
+        var chapterProgresses = await _unitOfWork.ChapterProgresses.Query()
+            .Where(progress => progress.UserId == userId)
+            .ToListAsync();
+        var relatedBadges = await _unitOfWork.BadgeRules.Query()
+            .Where(rule =>
+                rule.RuleType == "complete_chapter"
+                && rule.TargetChapterId.HasValue
+                && rule.Badge.IsActive
+                && !rule.Badge.IsDeleted)
+            .Include(rule => rule.Badge)
+            .ToListAsync();
+
+        var chapterList = chapters.ToList();
+        var chapterProgressMap = chapterProgresses
+            .ToDictionary(progress => progress.ChapterId);
+
+        return Ok(chapterList.Select((chapter, index) =>
         {
-            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            var chapters = await _unitOfWork.Chapters.Query()
-                .OrderBy(c => c.OrderIndex)
-                .Include(c => c.Lessons)
-                .ToListAsync();
+            var passed = chapter.Lessons.Count(lesson => progresses.Any(progress =>
+                progress.LessonId == lesson.Id && progress.Status == LearningStatus.Passed));
+            var chapterQuiz = chapter.Quizzes.FirstOrDefault();
+            var chapterProgress = chapterProgresses.FirstOrDefault(progress =>
+                progress.ChapterId == chapter.Id);
+            var quizStatus = chapterQuiz is null
+                ? "Unavailable"
+                : chapterProgress?.Status == LearningStatus.Passed
+                    ? "Passed"
+                    : passed == chapter.Lessons.Count && chapter.Lessons.Count > 0
+                        ? "Unlocked"
+                        : "Locked";
 
-            var progressList = await _unitOfWork.Progresses.Query()
-                .Where(p => p.UserId == userId)
-                .ToListAsync();
-
-            var result = chapters.Select(c =>
+            var isUnlocked = index == 0;
+            if (!isUnlocked)
             {
-                var totalLessons = c.Lessons.Count(l => l.IsPublished);
-                var completedLessons = c.Lessons
-                    .Count(l => l.IsPublished && progressList.Any(p => p.LessonId == l.Id && p.IsCompleted));
-
-                return new ChapterDto
+                var prevChapter = chapterList[index - 1];
+                var prevQuiz = prevChapter.Quizzes.FirstOrDefault();
+                if (prevQuiz is null)
                 {
-                    Id = c.Id,
-                    Title = c.Title,
-                    Description = c.Description,
-                    OrderIndex = c.OrderIndex,
-                    LessonCount = totalLessons,
-                    CompletionPercentage = totalLessons > 0
-                        ? Math.Round((double)completedLessons / totalLessons * 100, 2)
-                        : 0
-                };
-            }).ToList();
+                    isUnlocked = true;
+                }
+                else
+                {
+                    var prevProgress = chapterProgresses.FirstOrDefault(p =>
+                        p.ChapterId == prevChapter.Id);
+                    isUnlocked = prevProgress?.Status == LearningStatus.Passed;
+                }
+            }
 
-            return Ok(result);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new ProblemDetails
+            var badgeRule = relatedBadges.FirstOrDefault(rule =>
+                rule.TargetChapterId == chapter.Id);
+
+            return new ChapterDto
             {
-                Title = "Error fetching chapters",
-                Detail = ex.Message,
-                Status = 500
-            });
-        }
+                Id = chapter.Id,
+                Title = chapter.Title,
+                Description = chapter.Description,
+                OrderIndex = chapter.OrderIndex,
+                CurriculumTopicId = chapter.CurriculumTopicId,
+                IsPublished = chapter.IsPublished,
+                IsUnlocked = isUnlocked,
+                LessonCount = chapter.Lessons.Count,
+                PassedLessonCount = passed,
+                CompletionPercentage = chapter.Lessons.Count > 0
+                    ? Math.Round((double)passed / chapter.Lessons.Count * 100, 2)
+                    : 0,
+                ChapterQuizId = chapterQuiz?.Id,
+                ChapterQuizStatus = isUnlocked ? quizStatus : "Locked",
+                RelatedBadgeId = badgeRule?.BadgeId,
+                RelatedBadgeTitle = badgeRule?.Badge.Title
+            };
+        }).ToList());
     }
 
     [HttpGet("{id}/lessons")]
-    public async Task<IActionResult> GetLessons(Guid id)
+    public async Task<ActionResult<List<LessonDto>>> GetLessons(Guid id)
     {
-        try
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var chapter = await _unitOfWork.Chapters.Query()
+            .Include(ch => ch.Quizzes.Where(q => q.QuizType == QuizType.Chapter && q.IsPublished && !q.IsDeleted))
+            .FirstOrDefaultAsync(ch => ch.Id == id && ch.IsPublished && !ch.IsDeleted);
+        if (chapter is null)
         {
-            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            var chapter = await _unitOfWork.Chapters.GetByIdAsync(id);
-
-            if (chapter == null)
-                return NotFound(new ProblemDetails { Title = "Chapter not found", Status = 404 });
-
-            var lessons = await _unitOfWork.Lessons.Query()
-                .Where(l => l.ChapterId == id && l.IsPublished)
-                .OrderBy(l => l.OrderIndex)
-                .Include(l => l.Questions)
-                .ToListAsync();
-
-            var progressList = await _unitOfWork.Progresses.Query()
-                .Where(p => p.UserId == userId && lessons.Select(l => l.Id).Contains(p.LessonId))
-                .ToListAsync();
-
-            var result = lessons.Select(l =>
-            {
-                var progress = progressList.FirstOrDefault(p => p.LessonId == l.Id);
-                var totalQ = l.Questions.Count;
-                var rawBest = progress?.BestScore;
-
-                return new LessonDto
-                {
-                    Id = l.Id,
-                    ChapterId = l.ChapterId,
-                    Title = l.Title,
-                    ContentBody = l.ContentBody,
-                    SimulationType = l.SimulationType,
-                    OrderIndex = l.OrderIndex,
-                    IsPublished = l.IsPublished,
-                    IsCompleted = progress?.IsCompleted ?? false,
-                    BestScore = rawBest.HasValue && totalQ > 0
-                        ? Math.Round(rawBest.Value * 10.0 / totalQ, 1)
-                        : null,
-                    Questions = l.Questions.OrderBy(q => q.OrderIndex).Select(q => new QuestionDto
-                    {
-                        Id = q.Id,
-                        LessonId = q.LessonId,
-                        QuestionText = q.QuestionText,
-                        Options = System.Text.Json.JsonSerializer.Deserialize<List<string>>(q.Options) ?? new(),
-                        CorrectOption = null,
-                        Explanation = q.Explanation,
-                        OrderIndex = q.OrderIndex
-                    }).ToList()
-                };
-            }).ToList();
-
-            return Ok(result);
+            return NotFound(new ProblemDetails { Title = "Không tìm thấy chương.", Status = 404 });
         }
-        catch (Exception ex)
+
+        if (!await IsChapterUnlocked(userId, chapter))
         {
-            return StatusCode(500, new ProblemDetails
+            return Unauthorized(new ProblemDetails
             {
-                Title = "Error fetching lessons",
-                Detail = ex.Message,
-                Status = 500
+                Title = "Chương chưa được mở khóa.",
+                Detail = "Bạn cần hoàn thành bài kiểm tra chương trước đó.",
+                Status = 401
             });
         }
+
+        var lessons = await _unitOfWork.Lessons.Query()
+            .Where(lesson => lesson.ChapterId == id && lesson.IsPublished && !lesson.IsDeleted)
+            .OrderBy(lesson => lesson.OrderIndex)
+            .Include(lesson => lesson.Quizzes.Where(quiz =>
+                quiz.QuizType == QuizType.Lesson && quiz.IsPublished && !quiz.IsDeleted))
+            .ToListAsync();
+        var lessonIds = lessons.Select(lesson => lesson.Id).ToList();
+        var progresses = await _unitOfWork.Progresses.Query()
+            .Where(progress => progress.UserId == userId && lessonIds.Contains(progress.LessonId))
+            .ToListAsync();
+
+        return Ok(lessons.Select(lesson =>
+        {
+            var progress = progresses.FirstOrDefault(item => item.LessonId == lesson.Id);
+            return new LessonDto
+            {
+                Id = lesson.Id,
+                ChapterId = lesson.ChapterId,
+                CurriculumTopicId = lesson.CurriculumTopicId,
+                Title = lesson.Title,
+                OrderIndex = lesson.OrderIndex,
+                ContentVersion = lesson.ContentVersion,
+                IsPublished = true,
+                IsCompleted = progress?.Status == LearningStatus.Passed,
+                Status = (progress?.Status ?? LearningStatus.NotStarted).ToString(),
+                ContentViewed = progress?.ContentViewed ?? false,
+                BestScore = progress is null ? null : (double)progress.BestScore10,
+                QuizId = lesson.Quizzes.FirstOrDefault()?.Id
+            };
+        }).ToList());
+    }
+
+    private async Task<bool> IsChapterUnlocked(Guid userId, Chapter chapter)
+    {
+        var allChapters = await _unitOfWork.Chapters.Query()
+            .Where(ch => ch.IsPublished && !ch.IsDeleted)
+            .OrderBy(ch => ch.OrderIndex)
+            .Include(ch => ch.Quizzes.Where(q =>
+                q.QuizType == QuizType.Chapter && q.IsPublished && !q.IsDeleted))
+            .ToListAsync();
+
+        var chapterIndex = allChapters.FindIndex(ch => ch.Id == chapter.Id);
+        if (chapterIndex <= 0) return true;
+
+        var prevChapter = allChapters[chapterIndex - 1];
+        var prevQuiz = prevChapter.Quizzes.FirstOrDefault();
+        if (prevQuiz is null) return true;
+
+        var prevProgress = await _unitOfWork.ChapterProgresses.Query()
+            .FirstOrDefaultAsync(p => p.UserId == userId && p.ChapterId == prevChapter.Id);
+        return prevProgress?.Status == LearningStatus.Passed;
     }
 }
