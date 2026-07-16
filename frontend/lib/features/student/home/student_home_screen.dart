@@ -5,6 +5,7 @@ import 'package:math_ibook/core/models/dashboard_model.dart';
 import 'package:math_ibook/core/network/api_client.dart';
 import 'package:math_ibook/features/auth/domain/auth_provider.dart';
 import 'package:math_ibook/core/progress/progress_notifier.dart';
+import 'package:math_ibook/core/models/lesson_model.dart';
 
 class StudentHomeScreen extends StatefulWidget {
   const StudentHomeScreen({super.key});
@@ -309,7 +310,33 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () => context.push('/student/chapters/${current.chapterId}'),
+              onPressed: () async {
+                try {
+                  final response = await ApiClient.instance.get('/chapters/${current.chapterId}/lessons');
+                  final List<dynamic> data = response.data as List<dynamic>;
+                  final lessons = data.map((e) => LessonModel.fromJson(e as Map<String, dynamic>)).toList();
+                  if (lessons.isNotEmpty) {
+                    var targetLesson = lessons.firstWhere(
+                      (l) => l.status == 'InProgress',
+                      orElse: () => lessons.firstWhere(
+                        (l) => l.status == 'NotStarted',
+                        orElse: () => lessons.first,
+                      ),
+                    );
+                    if (context.mounted) {
+                      context.push('/student/lessons/${targetLesson.id}');
+                    }
+                  } else {
+                    if (context.mounted) {
+                      context.push('/student/chapters/${current.chapterId}');
+                    }
+                  }
+                } catch (_) {
+                  if (context.mounted) {
+                    context.push('/student/chapters/${current.chapterId}');
+                  }
+                }
+              },
               icon: const Icon(Icons.arrow_forward_rounded, size: 18),
               label: const Text('Học tiếp'),
               style: ElevatedButton.styleFrom(
