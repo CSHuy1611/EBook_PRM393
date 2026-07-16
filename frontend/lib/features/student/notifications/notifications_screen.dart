@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:math_ibook/core/models/notification_model.dart';
 import 'package:math_ibook/core/network/api_client.dart';
+import 'package:math_ibook/core/progress/progress_notifier.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -35,6 +37,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Future<void> _markRead(String id) async {
     try {
       await ApiClient.instance.put('/notifications/$id/read');
+      if (!mounted) return;
       setState(() {
         final idx = _notifications.indexWhere((n) => n.id == id);
         if (idx >= 0) _notifications[idx] = NotificationDto(
@@ -48,6 +51,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           createdAt: _notifications[idx].createdAt,
         );
       });
+      context.read<ProgressNotifier>().notifyProgressChanged();
     } catch (_) {}
   }
 

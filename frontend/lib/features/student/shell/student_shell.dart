@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:math_ibook/core/network/api_client.dart';
+import 'package:math_ibook/core/progress/progress_notifier.dart';
 import 'package:math_ibook/core/sync/offline_sync_service.dart';
 import 'package:math_ibook/features/auth/domain/auth_provider.dart';
 
@@ -18,6 +19,7 @@ class StudentShell extends StatefulWidget {
 
 class _StudentShellState extends State<StudentShell> {
   int _unreadCount = 0;
+  int _lastVersion = -1;
   Timer? _timer;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
 
@@ -55,6 +57,11 @@ class _StudentShellState extends State<StudentShell> {
 
   @override
   Widget build(BuildContext context) {
+    final version = context.watch<ProgressNotifier>().version;
+    if (version != _lastVersion) {
+      _lastVersion = version;
+      _fetchUnread();
+    }
     final nav = widget.navigationShell;
 
     return Scaffold(
