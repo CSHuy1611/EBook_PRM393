@@ -23,7 +23,7 @@ class _UserHistoryScreenState extends State<UserHistoryScreen>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 3, vsync: this);
+    _tabCtrl = TabController(length: 4, vsync: this);
     _fetchHistory();
   }
 
@@ -67,10 +67,15 @@ class _UserHistoryScreenState extends State<UserHistoryScreen>
             ? null
             : TabBar(
                 controller: _tabCtrl,
+                isScrollable: false,
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.white70,
+                indicatorColor: Colors.white,
                 tabs: [
                   Tab(text: 'Bài quiz (${_history?.quizAttempts.length ?? 0})'),
                   Tab(text: 'Huy hiệu (${_history?.badges.length ?? 0})'),
                   Tab(text: 'Giao dịch (${_history?.coinTransactions.length ?? 0})'),
+                  Tab(text: 'Tiến độ'),
                 ],
               ),
       ),
@@ -84,15 +89,32 @@ class _UserHistoryScreenState extends State<UserHistoryScreen>
                     _buildQuizAttempts(),
                     _buildBadges(),
                     _buildCoinTransactions(),
+                    _buildProgress(),
                   ],
                 ),
+    );
+  }
+
+  Widget _buildEmptyState(String message, IconData icon) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 80, color: Colors.grey.shade300),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            style: TextStyle(fontSize: 16, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildQuizAttempts() {
     final attempts = _history?.quizAttempts ?? [];
     if (attempts.isEmpty) {
-      return const Center(child: Text('Chưa có bài quiz nào'));
+      return _buildEmptyState('Chưa có bài quiz nào', Icons.quiz_outlined);
     }
     return RefreshIndicator(
       onRefresh: _fetchHistory,
@@ -154,7 +176,7 @@ class _UserHistoryScreenState extends State<UserHistoryScreen>
   Widget _buildBadges() {
     final badges = _history?.badges ?? [];
     if (badges.isEmpty) {
-      return const Center(child: Text('Chưa có huy hiệu nào'));
+      return _buildEmptyState('Chưa đạt huy hiệu nào', Icons.workspace_premium_outlined);
     }
     return RefreshIndicator(
       onRefresh: _fetchHistory,
@@ -189,7 +211,7 @@ class _UserHistoryScreenState extends State<UserHistoryScreen>
   Widget _buildCoinTransactions() {
     final transactions = _history?.coinTransactions ?? [];
     if (transactions.isEmpty) {
-      return const Center(child: Text('Chưa có giao dịch coin nào'));
+      return _buildEmptyState('Chưa có giao dịch xu nào', Icons.monetization_on_outlined);
     }
     return RefreshIndicator(
       onRefresh: _fetchHistory,
@@ -229,6 +251,49 @@ class _UserHistoryScreenState extends State<UserHistoryScreen>
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildProgress() {
+    final chapterP = _history?.chapterProgress ?? [];
+    final lessonP = _history?.lessonProgress ?? [];
+    if (chapterP.isEmpty && lessonP.isEmpty) {
+      return _buildEmptyState('Chưa có tiến độ học tập', Icons.school_outlined);
+    }
+    return RefreshIndicator(
+      onRefresh: _fetchHistory,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          if (chapterP.isNotEmpty) ...[
+            const Text('Tiến độ Chương', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 8),
+            ...chapterP.map((p) => _buildProgressCard(p, true)),
+            const SizedBox(height: 16),
+          ],
+          if (lessonP.isNotEmpty) ...[
+            const Text('Tiến độ Bài học', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 8),
+            ...lessonP.map((p) => _buildProgressCard(p, false)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProgressCard(ProgressHistoryDto p, bool isChapter) {
+    final bool isPassed = p.status == 'Passed';
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: Icon(
+          isChapter ? Icons.book : Icons.menu_book,
+          color: isPassed ? Colors.green : Colors.orange,
+        ),
+        title: Text(p.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text('Trạng thái: ${p.status} - Điểm cao nhất: ${p.bestScore.toStringAsFixed(1)}'),
+        trailing: isPassed ? const Icon(Icons.check_circle, color: Colors.green) : null,
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:math_ibook/core/models/badge_model.dart';
 import 'package:math_ibook/core/network/api_client.dart';
 import 'package:math_ibook/core/widgets/loading_widget.dart';
+import 'dart:convert';
 import 'package:math_ibook/core/widgets/error_widget.dart';
 
 class AdminBadgesScreen extends StatefulWidget {
@@ -14,6 +15,7 @@ class AdminBadgesScreen extends StatefulWidget {
 
 class _AdminBadgesScreenState extends State<AdminBadgesScreen> {
   List<BadgeDto> _badges = [];
+  List<dynamic> _chapters = [];
   bool _isLoading = true;
   String? _error;
 
@@ -100,10 +102,14 @@ class _AdminBadgesScreenState extends State<AdminBadgesScreen> {
       _error = null;
     });
     try {
-      final response = await ApiClient.instance.get('/admin/badges');
-      final data = response.data;
-      final list = _extractList(data);
-      _badges = list.map((e) => BadgeDto.fromJson(e as Map<String, dynamic>)).toList();
+      final responses = await Future.wait([
+        ApiClient.instance.get('/admin/badges'),
+        ApiClient.instance.get('/admin/chapters'),
+      ]);
+      final badgesData = _extractList(responses[0].data);
+      final chaptersData = _extractList(responses[1].data);
+      _badges = badgesData.map((e) => BadgeDto.fromJson(e as Map<String, dynamic>)).toList();
+      _chapters = chaptersData;
     } catch (e) {
       _error = e is DioException ? ApiClient.mapDioErrorToMessage(e) : e.toString();
     } finally {
@@ -125,8 +131,25 @@ class _AdminBadgesScreenState extends State<AdminBadgesScreen> {
     final titleCtrl = TextEditingController(text: badge?.title ?? '');
     final descCtrl = TextEditingController(text: badge?.description ?? '');
     final iconUrlCtrl = TextEditingController(text: badge?.iconUrl ?? '');
-    String conditionType = badge?.conditionType ?? _conditionTypes.first;
-    final conditionValueCtrl = TextEditingController(text: (badge?.conditionValue ?? 1).toString());
+    String conditionType = _conditionTypes.first;
+    String initialValue = '';
+    String? selectedChapterId;
+    
+    if (badge != null && badge.rules.isNotEmpty) {
+      final rule = badge.rules.first;
+      conditionType = rule.ruleType.isNotEmpty ? rule.ruleType : _conditionTypes.first;
+      if (conditionType == 'complete_chapter') {
+        selectedChapterId = rule.targetChapterId;
+      } else {
+        initialValue = rule.thresholdValue?.toString() ?? '';
+      }
+    }
+    
+    if (conditionType == 'complete_chapter' && selectedChapterId == null && _chapters.isNotEmpty) {
+       selectedChapterId = _chapters.first['id']?.toString();
+    }
+    
+    final conditionValueCtrl = TextEditingController(text: initialValue);
 
     final result = await showDialog<bool>(
       context: context,
@@ -171,7 +194,7 @@ class _AdminBadgesScreenState extends State<AdminBadgesScreen> {
                               width: 56,
                               height: 56,
                               decoration: BoxDecoration(
-                                color: selected ? Theme.of(ctx).colorScheme.primaryContainer : Colors.grey.withAlpha(20),
+                                color: selected ? Colors.transparent : Colors.grey.withAlpha(20),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
                                   color: selected ? Theme.of(ctx).colorScheme.primary : Colors.grey.withAlpha(76),
@@ -207,7 +230,6 @@ class _AdminBadgesScreenState extends State<AdminBadgesScreen> {
                       child: _badgeIcon(iconUrlCtrl.text, 36),
                     ),
                   ),
-                  const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     value: conditionType,
                     decoration: const InputDecoration(labelText: 'Loại điều kiện *', border: OutlineInputBorder()),
@@ -215,24 +237,45 @@ class _AdminBadgesScreenState extends State<AdminBadgesScreen> {
                         .map((t) => DropdownMenuItem(value: t, child: Text(_conditionLabels[t] ?? t)))
                         .toList(),
                     onChanged: (v) {
-                      if (v != null) setDialogState(() => conditionType = v);
+                      if (v != null) {
+                         setDialogState(() {
+                           conditionType = v;
+                           if (conditionType == 'complete_chapter' && _chapters.isNotEmpty) {
+                             selectedChapterId = _chapters.first['id']?.toString();
+                           }
+                         });
+                      }
                     },
                     validator: (v) => (v == null || v.isEmpty) ? 'Vui lòng chọn loại điều kiện' : null,
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
-                    controller: conditionValueCtrl,
-                    decoration: InputDecoration(
-                      labelText: _getConditionValueLabel(conditionType),
-                      border: const OutlineInputBorder(),
+                  if (conditionType == 'complete_chapter')
+                    DropdownButtonFormField<String>(
+                      isExpanded: true,
+                      value: selectedChapterId,
+                      decoration: const InputDecoration(labelText: 'Chương *', border: OutlineInputBorder()),
+                      items: _chapters.map((c) => DropdownMenuItem<String>(
+                        value: c['id']?.toString(),
+                        child: Text(c['title']?.toString() ?? '', overflow: TextOverflow.ellipsis),
+                      )).toList(),
+                      onChanged: (v) {
+                        if (v != null) setDialogState(() => selectedChapterId = v);
+                      },
+                    )
+                  else
+                    TextFormField(
+                      controller: conditionValueCtrl,
+                      decoration: InputDecoration(
+                        labelText: _getConditionValueLabel(conditionType),
+                        border: const OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return 'Vui lòng nhập giá trị';
+                        if (int.tryParse(v) == null) return 'Vui lòng nhập số';
+                        return null;
+                      },
                     ),
-                    keyboardType: TextInputType.number,
-                    validator: (v) {
-                      if (v == null || v.trim().isEmpty) return 'Vui lòng nhập giá trị';
-                      if (int.tryParse(v) == null) return 'Vui lòng nhập số';
-                      return null;
-                    },
-                  ),
                 ],
               ),
             ),
@@ -243,12 +286,30 @@ class _AdminBadgesScreenState extends State<AdminBadgesScreen> {
               onPressed: () async {
                 if (!formKey.currentState!.validate()) return;
                 try {
+                  int? threshold;
+                  String? targetChapter;
+                  if (conditionType == 'complete_chapter') {
+                    targetChapter = selectedChapterId;
+                    threshold = 1;
+                  } else {
+                    threshold = int.tryParse(conditionValueCtrl.text.trim()) ?? 0;
+                  }
+                  
                   final body = {
                     'title': titleCtrl.text.trim(),
                     'description': descCtrl.text.trim(),
                     'iconUrl': iconUrlCtrl.text.trim(),
-                    'conditionType': conditionType,
-                    'conditionValue': conditionValueCtrl.text.trim(),
+                    'ruleMatchMode': 'ALL',
+                    'rewardCoins': 0, // default if not handled
+                    'isActive': badge?.isActive ?? true,
+                    'rules': [
+                      {
+                        'ruleType': conditionType,
+                        'targetChapterId': targetChapter,
+                        'thresholdValue': threshold,
+                        'orderIndex': 0,
+                      }
+                    ],
                   };
                   if (isEdit) {
                     await ApiClient.instance.put('/admin/badges/${badge!.id}', data: body);
@@ -352,7 +413,7 @@ class _AdminBadgesScreenState extends State<AdminBadgesScreen> {
                           if (badge.description.isNotEmpty)
                             Text(badge.description, maxLines: 1, overflow: TextOverflow.ellipsis),
                           Text(
-                            'Điều kiện: ${_conditionLabels[badge.conditionType] ?? badge.conditionType} = ${badge.conditionValue}',
+                            'Điều kiện: ${badge.rules.isNotEmpty ? _conditionLabels[badge.rules.first.ruleType] ?? badge.rules.first.ruleType : 'Không có'}',
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
                           ),
                         ],

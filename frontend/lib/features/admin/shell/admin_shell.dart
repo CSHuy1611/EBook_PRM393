@@ -75,31 +75,43 @@ class AdminShell extends StatelessWidget {
             destinations: const [
               NavigationRailDestination(
                 icon: Icon(Icons.dashboard),
-                label: Text('Dashboard'),
+                label: Text('Bảng điều khiển'),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.book),
-                label: Text('Chapters'),
+                label: Text('Chương học'),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.menu_book),
-                label: Text('Lessons'),
+                label: Text('Bài học'),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.help),
-                label: Text('Questions'),
+                label: Text('Câu hỏi'),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.emoji_events),
-                label: Text('Badges'),
+                label: Text('Huy hiệu'),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.people),
-                label: Text('Users'),
+                label: Text('Học sinh'),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.assessment),
-                label: Text('Reports'),
+                label: Text('Báo cáo'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.policy),
+                label: Text('Chính sách thưởng'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.notifications),
+                label: Text('Thông báo'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.settings),
+                label: Text('Cài đặt'),
               ),
             ],
           ),
@@ -154,13 +166,16 @@ class AdminShell extends StatelessWidget {
                 ],
               ),
             ),
-            _drawerItem(Icons.dashboard, 'Dashboard', 0),
-            _drawerItem(Icons.book, 'Chapters', 1),
-            _drawerItem(Icons.menu_book, 'Lessons', 2),
-            _drawerItem(Icons.help, 'Questions', 3),
-            _drawerItem(Icons.emoji_events, 'Badges', 4),
-            _drawerItem(Icons.people, 'Users', 5),
-            _drawerItem(Icons.assessment, 'Reports', 6),
+            _drawerItem(context, Icons.dashboard, 'Bảng điều khiển', 0),
+            _drawerItem(context, Icons.book, 'Chương học', 1),
+            _drawerItem(context, Icons.menu_book, 'Bài học', 2),
+            _drawerItem(context, Icons.help, 'Câu hỏi', 3),
+            _drawerItem(context, Icons.emoji_events, 'Huy hiệu', 4),
+            _drawerItem(context, Icons.people, 'Học sinh', 5),
+            _drawerItem(context, Icons.assessment, 'Báo cáo', 6),
+            _drawerItem(context, Icons.policy, 'Chính sách thưởng', 7),
+            _drawerItem(context, Icons.notifications, 'Thông báo', 8),
+            _drawerItem(context, Icons.settings, 'Cài đặt', 9),
           ],
         ),
       ),
@@ -168,12 +183,13 @@ class AdminShell extends StatelessWidget {
     );
   }
 
-  Widget _drawerItem(IconData icon, String label, int index) {
+  Widget _drawerItem(BuildContext context, IconData icon, String label, int index) {
     return ListTile(
       leading: Icon(icon),
       title: Text(label),
       selected: navigationShell.currentIndex == index,
       onTap: () {
+        Navigator.pop(context); // Close the drawer
         navigationShell.goBranch(index, initialLocation: true);
       },
     );

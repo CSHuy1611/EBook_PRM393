@@ -11,7 +11,7 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  List<NotificationModel> _notifications = [];
+  List<NotificationDto> _notifications = [];
   bool _isLoading = true;
   String? _error;
 
@@ -25,7 +25,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     setState(() { _isLoading = true; _error = null; });
     try {
       final res = await ApiClient.instance.get('/notifications');
-      final list = (res.data as List).map((e) => NotificationModel.fromJson(e)).toList();
+      final list = (res.data as List).map((e) => NotificationDto.fromJson(e)).toList();
       setState(() { _notifications = list; _isLoading = false; });
     } catch (e) {
       setState(() { _error = e.toString(); _isLoading = false; });
@@ -37,11 +37,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       await ApiClient.instance.put('/notifications/$id/read');
       setState(() {
         final idx = _notifications.indexWhere((n) => n.id == id);
-        if (idx >= 0) _notifications[idx] = NotificationModel(
+        if (idx >= 0) _notifications[idx] = NotificationDto(
           id: _notifications[idx].id,
           title: _notifications[idx].title,
           body: _notifications[idx].body,
           link: _notifications[idx].link,
+          type: _notifications[idx].type,
+          relatedEntityId: _notifications[idx].relatedEntityId,
           isRead: true,
           createdAt: _notifications[idx].createdAt,
         );
@@ -49,11 +51,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     } catch (_) {}
   }
 
-  String _timeAgo(String iso) {
-    if (iso.isEmpty) return '';
-    final dt = DateTime.tryParse(iso);
-    if (dt == null) return '';
-    final diff = DateTime.now().toUtc().difference(dt);
+  String _timeAgo(DateTime dt) {
+    final diff = DateTime.now().toUtc().difference(dt.toUtc());
     if (diff.inMinutes < 1) return 'Vừa xong';
     if (diff.inMinutes < 60) return '${diff.inMinutes} phút trước';
     if (diff.inHours < 24) return '${diff.inHours} giờ trước';
@@ -103,3 +102,4 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 }
+
