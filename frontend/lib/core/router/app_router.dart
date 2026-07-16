@@ -13,7 +13,6 @@ import 'package:math_ibook/features/student/lessons/lesson_detail_screen.dart';
 import 'package:math_ibook/features/student/quiz/quiz_screen.dart';
 import 'package:math_ibook/features/student/quiz/quiz_result_screen.dart';
 import 'package:math_ibook/features/student/quiz/chapter_quiz_screen.dart';
-import 'package:math_ibook/features/student/dashboard/dashboard_screen.dart';
 import 'package:math_ibook/features/student/badges/badges_screen.dart';
 import 'package:math_ibook/features/student/profile/profile_screen.dart';
 import 'package:math_ibook/features/student/coins/coins_screen.dart';
@@ -74,7 +73,6 @@ GoRouter createAppRouter(AuthProvider authProvider) {
         parentNavigatorKey: _rootNavigator,
       ),
       GoRoute(path: '/student/coins', builder: (_, __) => const CoinsScreen(), parentNavigatorKey: _rootNavigator),
-      GoRoute(path: '/student/leaderboard', builder: (_, __) => const LeaderboardScreen(), parentNavigatorKey: _rootNavigator),
       GoRoute(path: '/student/offline-sync', builder: (_, __) => const OfflineSyncScreen(), parentNavigatorKey: _rootNavigator),
       GoRoute(path: '/student/chapter-quiz/:chapterId', builder: (_, state) => ChapterQuizScreen(chapterId: state.pathParameters['chapterId']!), parentNavigatorKey: _rootNavigator),
       StatefulShellRoute.indexedStack(
@@ -92,7 +90,8 @@ GoRouter createAppRouter(AuthProvider authProvider) {
             GoRoute(path: '/student/quiz/result/:attemptId', builder: (_, state) => QuizResultScreen(attemptId: state.pathParameters['attemptId']!)),
           ]),
           StatefulShellBranch(routes: [
-            GoRoute(path: '/student/dashboard', builder: (_, __) => const DashboardScreen()),
+            GoRoute(path: '/student/leaderboard', builder: (_, __) => const LeaderboardScreen()),
+            GoRoute(path: '/student/dashboard', redirect: (_, __) => '/student/leaderboard'),
             GoRoute(path: '/student/badges', builder: (_, __) => const BadgesScreen()),
           ]),
           StatefulShellBranch(routes: [
