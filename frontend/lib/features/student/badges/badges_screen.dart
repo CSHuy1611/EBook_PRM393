@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:math_ibook/core/models/student_feature_models.dart';
 import 'package:math_ibook/core/network/student_feature_api.dart';
+import 'package:dio/dio.dart';
+import 'package:math_ibook/core/network/api_client.dart';
 import 'package:math_ibook/core/widgets/error_widget.dart';
 import 'package:math_ibook/core/widgets/loading_widget.dart';
 
@@ -29,7 +31,7 @@ class _BadgesScreenState extends State<BadgesScreen> with SingleTickerProviderSt
       final collection = await StudentFeatureApi.instance.getBadges();
       if (mounted) setState(() { _collection = collection; _loading = false; });
     } catch (error) {
-      if (mounted) setState(() { _error = error.toString(); _loading = false; });
+      if (mounted) setState(() { _error = error is DioException ? ApiClient.mapDioErrorToMessage(error) : error.toString(); _loading = false; });
     }
   }
 
