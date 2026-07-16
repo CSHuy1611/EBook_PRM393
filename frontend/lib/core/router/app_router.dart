@@ -19,6 +19,7 @@ import 'package:math_ibook/features/student/coins/coins_screen.dart';
 import 'package:math_ibook/features/student/leaderboard/leaderboard_screen.dart';
 import 'package:math_ibook/features/student/offline_sync/offline_sync_screen.dart';
 import 'package:math_ibook/features/student/home/student_home_screen.dart';
+import 'package:math_ibook/features/student/dashboard/dashboard_screen.dart';
 import 'package:math_ibook/features/student/notifications/notifications_screen.dart';
 import 'package:math_ibook/features/admin/shell/admin_shell.dart';
 import 'package:math_ibook/features/admin/dashboard/admin_dashboard_screen.dart';
