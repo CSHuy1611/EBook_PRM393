@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text.Json;
 using MathIBook.Application.DTOs;
+using MathIBook.Application.Interfaces;
 using MathIBook.Domain.Entities;
 using MathIBook.Domain.Enums;
 using MathIBook.Domain.Interfaces;
@@ -16,10 +17,21 @@ namespace MathIBook.Api.Controllers;
 public class BadgesController : ControllerBase
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IBadgeCheckService _badgeCheckService;
 
-    public BadgesController(IUnitOfWork unitOfWork)
+    public BadgesController(
+        IUnitOfWork unitOfWork,
+        IBadgeCheckService badgeCheckService)
     {
         _unitOfWork = unitOfWork;
+        _badgeCheckService = badgeCheckService;
+    }
+
+    [HttpPost("reconcile")]
+    public async Task<ActionResult<List<BadgeEarnedDto>>> Reconcile()
+    {
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        return Ok(await _badgeCheckService.CheckAndAwardBadgesAsync(userId));
     }
 
     [HttpGet]
@@ -54,6 +66,7 @@ public class BadgesController : ControllerBase
         {
             var evaluations = badge.Rules.Count > 0
                 ? badge.Rules.Select(rule => EvaluateRule(
+                    badge,
                     rule,
                     user,
                     attempts,
@@ -93,7 +106,14 @@ public class BadgesController : ControllerBase
                     isAny ? " hoặc " : " và ",
                     evaluations.Select(item => item.Requirement)),
                 CurrentValue = evaluations.Count == 1 ? evaluations[0].Current : 0,
-                TargetValue = evaluations.Count == 1 ? evaluations[0].Target : 0
+                TargetValue = evaluations.Count == 1 ? evaluations[0].Target : 0,
+                Rules = evaluations.Select(item => new BadgeRuleProgressDto
+                {
+                    Requirement = item.Requirement,
+                    CurrentValue = item.Current,
+                    TargetValue = item.Target,
+                    Percentage = item.Percentage
+                }).ToList()
             };
         }).ToList();
 
@@ -106,6 +126,7 @@ public class BadgesController : ControllerBase
     }
 
     private static RuleProgress EvaluateRule(
+        Badge badge,
         BadgeRule rule,
         User user,
         IReadOnlyCollection<QuizAttempt> attempts,
@@ -119,18 +140,18 @@ public class BadgesController : ControllerBase
                     item.ChapterId == rule.TargetChapterId
                     && item.Status == LearningStatus.Passed),
                 "Hoàn thành quiz của chương"),
-            "total_coins" => Threshold(user.Coins, rule.ThresholdValue ?? 0, "Tích lũy xu"),
+            "total_coins" => Threshold(user.Coins, ResolveThreshold(rule, badge), "Tích lũy xu"),
             "passed_quizzes" => Threshold(
                 attempts.Where(item => item.IsPassed)
                     .Select(item => item.QuizId)
                     .Where(item => item.HasValue)
                     .Distinct()
                     .Count(),
-                rule.ThresholdValue ?? 0,
+                ResolveThreshold(rule, badge),
                 "Vượt qua quiz"),
             "perfect_quiz_streak" => Threshold(
                 CurrentPerfectStreak(attempts),
-                rule.ThresholdValue ?? 0,
+                ResolveThreshold(rule, badge),
                 "Đạt điểm 10 liên tiếp"),
             "complete_book" => Threshold(
                 chapterProgress.Count(item => item.Status == LearningStatus.Passed),
@@ -226,6 +247,11 @@ public class BadgesController : ControllerBase
 
         return 1;
     }
+
+    private static int ResolveThreshold(BadgeRule rule, Badge badge) =>
+        rule.ThresholdValue is > 0
+            ? rule.ThresholdValue.Value
+            : ExtractInt(badge.ConditionValue);
 
     private static Guid? ExtractGuid(string? value)
     {

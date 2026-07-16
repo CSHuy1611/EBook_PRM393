@@ -21,6 +21,13 @@ public class AdminBadgesController : ControllerBase
         "perfect_quiz_streak"
     ];
 
+    private static readonly HashSet<string> ThresholdRuleTypes =
+    [
+        "total_coins",
+        "passed_quizzes",
+        "perfect_quiz_streak"
+    ];
+
     private readonly IUnitOfWork _unitOfWork;
 
     public AdminBadgesController(IUnitOfWork unitOfWork)
@@ -197,7 +204,9 @@ public class AdminBadgesController : ControllerBase
         {
             var type = rule.RuleType.ToLowerInvariant();
             if (!SupportedRuleTypes.Contains(type)
-                || rule.ThresholdValue < 0)
+                || rule.ThresholdValue < 0
+                || (ThresholdRuleTypes.Contains(type)
+                    && (!rule.ThresholdValue.HasValue || rule.ThresholdValue.Value <= 0)))
             {
                 return new ProblemDetails
                 {

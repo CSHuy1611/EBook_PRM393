@@ -1,17 +1,16 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dio/dio.dart';
 import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
 import 'package:math_ibook/core/math/math_text.dart';
 import 'package:math_ibook/core/progress/progress_notifier.dart';
 import 'package:math_ibook/features/auth/domain/auth_provider.dart';
 import 'package:math_ibook/core/models/lesson_model.dart';
 import 'package:math_ibook/core/models/quiz_models.dart';
 import 'package:math_ibook/core/network/api_client.dart';
+import 'package:math_ibook/core/storage/local_db_service.dart';
 import 'package:math_ibook/core/widgets/loading_widget.dart';
 import 'package:math_ibook/core/widgets/error_widget.dart';
 
@@ -56,17 +55,32 @@ class _QuizScreenState extends State<QuizScreen> {
       final response = await ApiClient.instance.get('/lessons/${widget.lessonId}');
       final data = response.data as Map<String, dynamic>;
       final lesson = LessonModel.fromJson(data);
+      await _cacheLesson(lesson);
       setState(() {
         _lesson = lesson;
         _isLoading = false;
       });
       _startTimer();
     } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
+      final cached = await LocalDbService().getCachedLessonDto(widget.lessonId);
+      if (cached != null) {
+        setState(() { _lesson = LessonModel.fromJson(cached); _isLoading = false; });
+        _startTimer();
+      } else {
+        setState(() { _error = e.toString(); _isLoading = false; });
+      }
     }
+  }
+
+  Future<void> _cacheLesson(LessonModel lesson) async {
+    final db = LocalDbService();
+    await db.cacheLesson(lesson.toJson());
+    await db.cacheQuestions(lesson.id, lesson.questions.map((question) {
+      final value = question.toJson();
+      value.remove('correctOption');
+      value.remove('explanation');
+      return value;
+    }).toList());
   }
 
   void _startTimer() {
@@ -108,15 +122,15 @@ class _QuizScreenState extends State<QuizScreen> {
 
     setState(() => _isSubmitting = true);
     _timer?.cancel();
+    final dto = QuizSubmitDto(
+      lessonId: widget.lessonId,
+      clientAttemptId: const Uuid().v4(),
+      durationSeconds: _durationSeconds,
+      answers: _answers.entries.map((entry) => AnswerDto(questionId: entry.key, selectedOption: entry.value)).toList(),
+      clientCreatedAt: DateTime.now().toUtc().toIso8601String(),
+    );
 
     try {
-      final dto = QuizSubmitDto(
-        lessonId: widget.lessonId,
-        durationSeconds: _durationSeconds,
-        answers: _answers.entries.map((e) => AnswerDto(questionId: e.key, selectedOption: e.value)).toList(),
-        clientCreatedAt: DateTime.now().toUtc().toIso8601String(),
-      );
-
       print('[Quiz] Submitting body: ${dto.toJson()}');
 
       final response = await ApiClient.instance.post(
@@ -139,6 +153,20 @@ class _QuizScreenState extends State<QuizScreen> {
         );
       }
     } catch (e) {
+      if (_isNetworkError(e)) {
+        final userId = context.read<AuthProvider>().currentUser?.id;
+        if (userId != null && userId.isNotEmpty) {
+          await LocalDbService().queueQuizAttempt(
+            userId: userId, lessonId: dto.lessonId, quizId: dto.quizId, clientAttemptId: dto.clientAttemptId,
+            durationSeconds: dto.durationSeconds, answers: dto.answers.map((answer) => answer.toJson()).toList(), createdAt: DateTime.parse(dto.clientCreatedAt),
+          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã lưu bài làm. Server sẽ chấm điểm khi đồng bộ lại.')));
+            context.pop();
+          }
+          return;
+        }
+      }
       setState(() => _isSubmitting = false);
       if (mounted) {
         final detail = (e is DioException && e.response?.data != null)
@@ -150,6 +178,12 @@ class _QuizScreenState extends State<QuizScreen> {
       }
     }
   }
+
+  bool _isNetworkError(Object error) => error is DioException &&
+      (error.type == DioExceptionType.connectionError ||
+       error.type == DioExceptionType.connectionTimeout ||
+       error.type == DioExceptionType.receiveTimeout ||
+       error.type == DioExceptionType.sendTimeout);
 
   @override
   Widget build(BuildContext context) {
