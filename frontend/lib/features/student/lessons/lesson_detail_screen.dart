@@ -65,7 +65,15 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
       value.remove('explanation');
       return value;
     }).toList());
+    await _markContentViewed();
     await _queueProgress();
+  }
+
+  Future<void> _markContentViewed() async {
+    try {
+      await ApiClient.instance.post('/lessons/${widget.lessonId}/viewed');
+    } catch (_) {
+    }
   }
 
   Future<void> _queueProgress() async {

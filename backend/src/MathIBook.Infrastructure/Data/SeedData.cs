@@ -382,9 +382,10 @@ public static class SeedData
             Name = "Thưởng quiz bài học mặc định",
             QuizType = QuizType.Lesson,
             CoinsPerCorrectAnswer = 10,
-            FirstPassBonusCoins = 10,
-            PerfectScoreBonusCoins = 5,
+            FirstPassBonusCoins = 15,
+            PerfectScoreBonusCoins = 10,
             RetryRewardPercent = 50,
+            DailyCoinLimit = 300,
             EffectiveFrom = DateTime.UtcNow.AddDays(-1)
         };
         var chapterPolicy = new RewardPolicy
@@ -393,10 +394,11 @@ public static class SeedData
             Name = "Thưởng quiz chương mặc định",
             QuizType = QuizType.Chapter,
             CoinsPerCorrectAnswer = 10,
-            FirstPassBonusCoins = 25,
-            PerfectScoreBonusCoins = 10,
+            FirstPassBonusCoins = 30,
+            PerfectScoreBonusCoins = 15,
             ChapterCompletionBonusCoins = 50,
             RetryRewardPercent = 25,
+            DailyCoinLimit = 300,
             EffectiveFrom = DateTime.UtcNow.AddDays(-1)
         };
         context.RewardPolicies.AddRange(lessonPolicy, chapterPolicy);

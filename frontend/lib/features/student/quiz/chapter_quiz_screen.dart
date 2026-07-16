@@ -7,27 +7,27 @@ import 'package:uuid/uuid.dart';
 import 'package:math_ibook/core/math/math_text.dart';
 import 'package:math_ibook/core/progress/progress_notifier.dart';
 import 'package:math_ibook/features/auth/domain/auth_provider.dart';
-import 'package:math_ibook/core/models/lesson_model.dart';
 import 'package:math_ibook/core/models/quiz_models.dart';
 import 'package:math_ibook/core/network/api_client.dart';
-import 'package:math_ibook/core/storage/local_db_service.dart';
 import 'package:math_ibook/core/widgets/loading_widget.dart';
 import 'package:math_ibook/core/widgets/error_widget.dart';
 
-class QuizScreen extends StatefulWidget {
-  final String lessonId;
+class ChapterQuizScreen extends StatefulWidget {
+  final String chapterId;
 
-  const QuizScreen({super.key, required this.lessonId});
+  const ChapterQuizScreen({super.key, required this.chapterId});
 
   @override
-  State<QuizScreen> createState() => _QuizScreenState();
+  State<ChapterQuizScreen> createState() => _ChapterQuizScreenState();
 }
 
-class _QuizScreenState extends State<QuizScreen> {
-  LessonModel? _lesson;
+class _ChapterQuizScreenState extends State<ChapterQuizScreen> {
+  List<StudentQuestion> _questions = [];
   bool _isLoading = true;
   bool _isSubmitting = false;
   String? _error;
+  String? _quizId;
+  String? _title;
 
   int _currentQuestion = 0;
   final Map<String, int> _answers = {};
@@ -37,7 +37,7 @@ class _QuizScreenState extends State<QuizScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchLesson();
+    _fetchQuiz();
   }
 
   @override
@@ -46,41 +46,36 @@ class _QuizScreenState extends State<QuizScreen> {
     super.dispose();
   }
 
-  Future<void> _fetchLesson() async {
+  Future<void> _fetchQuiz() async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
     try {
-      final response = await ApiClient.instance.get('/lessons/${widget.lessonId}');
+      final response = await ApiClient.instance.get('/quizzes/chapter/${widget.chapterId}');
       final data = response.data as Map<String, dynamic>;
-      final lesson = LessonModel.fromJson(data);
-      await _cacheLesson(lesson);
-      setState(() {
-        _lesson = lesson;
-        _isLoading = false;
-      });
+      _quizId = data['id'] ?? '';
+      _title = data['title'] ?? 'Bài kiểm tra chương';
+
+      final questionsRaw = data['questions'] as List? ?? [];
+      _questions = questionsRaw.map((q) => StudentQuestion.fromJson(q as Map<String, dynamic>)).toList();
+
+      if (_questions.isEmpty) {
+        setState(() {
+          _error = 'Bài kiểm tra chưa có câu hỏi';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      setState(() => _isLoading = false);
       _startTimer();
     } catch (e) {
-      final cached = await LocalDbService().getCachedLessonDto(widget.lessonId);
-      if (cached != null) {
-        setState(() { _lesson = LessonModel.fromJson(cached); _isLoading = false; });
-        _startTimer();
-      } else {
-        setState(() { _error = e.toString(); _isLoading = false; });
-      }
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
     }
-  }
-
-  Future<void> _cacheLesson(LessonModel lesson) async {
-    final db = LocalDbService();
-    await db.cacheLesson(lesson.toJson());
-    await db.cacheQuestions(lesson.id, lesson.questions.map((question) {
-      final value = question.toJson();
-      value.remove('correctOption');
-      value.remove('explanation');
-      return value;
-    }).toList());
   }
 
   void _startTimer() {
@@ -95,7 +90,7 @@ class _QuizScreenState extends State<QuizScreen> {
     return '${min.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}';
   }
 
-  bool get _allAnswered => _lesson != null && _answers.length == _lesson!.questions.length;
+  bool get _allAnswered => _answers.length == _questions.length;
 
   void _submitQuiz() async {
     if (!_allAnswered) {
@@ -123,7 +118,7 @@ class _QuizScreenState extends State<QuizScreen> {
     setState(() => _isSubmitting = true);
     _timer?.cancel();
     final dto = QuizSubmitDto(
-      lessonId: widget.lessonId,
+      quizId: _quizId,
       clientAttemptId: const Uuid().v4(),
       durationSeconds: _durationSeconds,
       answers: _answers.entries.map((entry) => AnswerDto(questionId: entry.key, selectedOption: entry.value)).toList(),
@@ -131,8 +126,6 @@ class _QuizScreenState extends State<QuizScreen> {
     );
 
     try {
-      print('[Quiz] Submitting body: ${dto.toJson()}');
-
       final response = await ApiClient.instance.post(
         '/quiz-attempts',
         data: dto.toJson(),
@@ -153,20 +146,6 @@ class _QuizScreenState extends State<QuizScreen> {
         );
       }
     } catch (e) {
-      if (_isNetworkError(e)) {
-        final userId = context.read<AuthProvider>().currentUser?.id;
-        if (userId != null && userId.isNotEmpty) {
-          await LocalDbService().queueQuizAttempt(
-            userId: userId, lessonId: dto.lessonId!, quizId: dto.quizId, clientAttemptId: dto.clientAttemptId,
-            durationSeconds: dto.durationSeconds, answers: dto.answers.map((answer) => answer.toJson()).toList(), createdAt: DateTime.parse(dto.clientCreatedAt),
-          );
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã lưu bài làm. Server sẽ chấm điểm khi đồng bộ lại.')));
-            context.pop();
-          }
-          return;
-        }
-      }
       setState(() => _isSubmitting = false);
       if (mounted) {
         final detail = (e is DioException && e.response?.data != null)
@@ -179,31 +158,24 @@ class _QuizScreenState extends State<QuizScreen> {
     }
   }
 
-  bool _isNetworkError(Object error) => error is DioException &&
-      (error.type == DioExceptionType.connectionError ||
-       error.type == DioExceptionType.connectionTimeout ||
-       error.type == DioExceptionType.receiveTimeout ||
-       error.type == DioExceptionType.sendTimeout);
-
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) return const Scaffold(body: AppLoadingWidget(message: 'Đang tải bài kiểm tra...'));
+    if (_isLoading) return const Scaffold(body: AppLoadingWidget(message: 'Đang tải bài kiểm tra chương...'));
     if (_error != null) {
-      return Scaffold(body: AppErrorWidget(message: _error!, onRetry: _fetchLesson));
+      return Scaffold(body: AppErrorWidget(message: _error!, onRetry: _fetchQuiz));
     }
-    if (_lesson == null || _lesson!.questions.isEmpty) {
+    if (_questions.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Bài kiểm tra')),
-        body: const Center(child: Text('Bài học này chưa có câu hỏi nào')),
+        appBar: AppBar(title: const Text('Bài kiểm tra chương')),
+        body: const Center(child: Text('Bài kiểm tra chưa có câu hỏi')),
       );
     }
 
-    final questions = _lesson!.questions;
-    final currentQ = questions[_currentQuestion];
+    final currentQ = _questions[_currentQuestion];
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Bài kiểm tra - ${_lesson!.title}'),
+        title: Text(_title ?? 'Bài kiểm tra chương'),
         actions: [
           Center(
             child: Padding(
@@ -225,19 +197,19 @@ class _QuizScreenState extends State<QuizScreen> {
                   child: Row(
                     children: [
                       Text(
-                        'Câu ${_currentQuestion + 1} / ${questions.length}',
+                        'Câu ${_currentQuestion + 1} / ${_questions.length}',
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       const Spacer(),
                       Text(
-                        'Đã trả lời: ${_answers.length}/${questions.length}',
+                        'Đã trả lời: ${_answers.length}/${_questions.length}',
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ],
                   ),
                 ),
                 LinearProgressIndicator(
-                  value: (_currentQuestion + 1) / questions.length,
+                  value: (_currentQuestion + 1) / _questions.length,
                   minHeight: 4,
                 ),
                 Expanded(
@@ -341,7 +313,7 @@ class _QuizScreenState extends State<QuizScreen> {
                       else
                         const SizedBox(),
                       const Spacer(),
-                      if (_currentQuestion < questions.length - 1)
+                      if (_currentQuestion < _questions.length - 1)
                         FilledButton(
                           onPressed: () => setState(() => _currentQuestion++),
                           child: const Text('Câu tiếp'),
@@ -358,4 +330,42 @@ class _QuizScreenState extends State<QuizScreen> {
             ),
     );
   }
+}
+
+class StudentQuestion {
+  final String id;
+  final String questionText;
+  final List<String> options;
+  final int orderIndex;
+
+  StudentQuestion({
+    required this.id,
+    required this.questionText,
+    this.options = const [],
+    this.orderIndex = 0,
+  });
+
+  factory StudentQuestion.fromJson(Map<String, dynamic> json) {
+    List<String> optionsList = [];
+    if (json['options'] != null) {
+      if (json['options'] is List) {
+        optionsList = (json['options'] as List).map((e) => e.toString()).toList();
+      } else if (json['options'] is String) {
+        optionsList = (json['options'] as String).split(',').map((e) => e.trim()).toList();
+      }
+    }
+    return StudentQuestion(
+      id: json['id'] ?? '',
+      questionText: json['questionText'] ?? json['question_text'] ?? '',
+      options: optionsList,
+      orderIndex: json['orderIndex'] ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'questionText': questionText,
+        'options': options,
+        'orderIndex': orderIndex,
+      };
 }

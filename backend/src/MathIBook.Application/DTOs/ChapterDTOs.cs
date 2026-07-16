@@ -8,6 +8,7 @@ public class ChapterDto
     public int OrderIndex { get; set; }
     public Guid? CurriculumTopicId { get; set; }
     public bool IsPublished { get; set; }
+    public bool IsUnlocked { get; set; } = true;
     public double CompletionPercentage { get; set; }
     public int LessonCount { get; set; }
     public int PassedLessonCount { get; set; }
