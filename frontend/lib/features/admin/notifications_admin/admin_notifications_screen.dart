@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:math_ibook/core/models/notification_model.dart';
+import 'package:math_ibook/core/models/admin_models.dart';
 import 'package:math_ibook/core/network/api_client.dart';
 import 'package:math_ibook/core/widgets/loading_widget.dart';
 import 'package:math_ibook/core/widgets/error_widget.dart';
@@ -53,8 +54,29 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
     final titleCtrl = TextEditingController();
     final bodyCtrl = TextEditingController();
     final linkCtrl = TextEditingController();
-    final userIdCtrl = TextEditingController(); // Empty for all students
+    final userIdCtrl = TextEditingController(); // Stores selected ID
+    final searchCtrl = TextEditingController(); // Search query
     String type = 'admin_message';
+    AdminUserDto? selectedUser;
+    
+    List<AdminUserDto> users = [];
+    bool isLoadingUsers = true;
+
+    // Fetch users async
+    ApiClient.instance.get('/admin/users').then((response) {
+      if (!mounted) return;
+      final data = response.data;
+      var list = <dynamic>[];
+      if (data is List) {
+        list = data;
+      } else if (data is Map<String, dynamic> && data['data'] is List) {
+        list = data['data'] as List<dynamic>;
+      }
+      users = list.map((e) => AdminUserDto.fromJson(e)).toList();
+      isLoadingUsers = false;
+    }).catchError((_) {
+      isLoadingUsers = false;
+    });
 
     final result = await showDialog<bool>(
       context: context,
@@ -103,12 +125,44 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
                       },
                     ),
                     const SizedBox(height: 12),
-                    TextFormField(
-                      controller: userIdCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'ID học sinh (Bỏ trống để gửi toàn bộ)',
-                        border: OutlineInputBorder(),
-                      ),
+                    Autocomplete<AdminUserDto>(
+                      optionsBuilder: (TextEditingValue v) {
+                        if (v.text.isEmpty) return const Iterable<AdminUserDto>.empty();
+                        return users.where((u) =>
+                            u.name.toLowerCase().contains(v.text.toLowerCase()) ||
+                            u.email.toLowerCase().contains(v.text.toLowerCase()));
+                      },
+                      displayStringForOption: (u) => '${u.name} (${u.email})',
+                      onSelected: (u) {
+                        selectedUser = u;
+                        userIdCtrl.text = u.id;
+                      },
+                      fieldViewBuilder: (ctx, ctrl, focus, submit) {
+                        return TextFormField(
+                          controller: ctrl,
+                          focusNode: focus,
+                          decoration: InputDecoration(
+                            labelText: 'Gửi cho cá nhân (Nhập tên/email để tìm, bỏ trống = TẤT CẢ)',
+                            border: const OutlineInputBorder(),
+                            suffixIcon: ctrl.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear),
+                                    onPressed: () {
+                                      ctrl.clear();
+                                      selectedUser = null;
+                                      userIdCtrl.clear();
+                                    },
+                                  )
+                                : null,
+                          ),
+                          onChanged: (v) {
+                            if (v.isEmpty) {
+                              selectedUser = null;
+                              userIdCtrl.clear();
+                            }
+                          },
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -188,6 +242,26 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
     }
   }
 
+  IconData _getIconForType(String type) {
+    switch (type.toLowerCase()) {
+      case 'system': return Icons.info;
+      case 'reward': return Icons.monetization_on;
+      case 'badge': return Icons.workspace_premium;
+      case 'quiz': return Icons.quiz;
+      default: return Icons.notifications;
+    }
+  }
+
+  Color _getColorForType(String type) {
+     switch (type.toLowerCase()) {
+      case 'system': return Colors.blue;
+      case 'reward': return Colors.orange;
+      case 'badge': return Colors.purple;
+      case 'quiz': return Colors.green;
+      default: return Colors.grey;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) return const AppLoadingWidget(message: 'Đang tải thông báo...');
@@ -212,8 +286,8 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
                     margin: const EdgeInsets.only(bottom: 8),
                     child: ListTile(
                       leading: CircleAvatar(
-                        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                        child: Icon(Icons.notifications, color: Theme.of(context).colorScheme.primary),
+                        backgroundColor: _getColorForType(notif.type).withAlpha(50),
+                        child: Icon(_getIconForType(notif.type), color: _getColorForType(notif.type)),
                       ),
                       title: Text(notif.title, style: const TextStyle(fontWeight: FontWeight.bold)),
                       subtitle: Column(

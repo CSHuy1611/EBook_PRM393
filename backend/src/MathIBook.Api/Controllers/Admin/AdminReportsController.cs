@@ -23,7 +23,9 @@ public class AdminReportsController : ControllerBase
     public async Task<ActionResult<ReportOverviewDto>> GetOverview(
         [FromQuery] Guid? userId,
         [FromQuery] DateTime? from,
-        [FromQuery] DateTime? to)
+        [FromQuery] DateTime? to,
+        [FromQuery] Guid? chapterId,
+        [FromQuery] Guid? lessonId)
     {
         var studentQuery = _unitOfWork.Users.Query()
             .Where(user => user.Role == "Student");
@@ -78,6 +80,24 @@ public class AdminReportsController : ControllerBase
             newUsersQuery = newUsersQuery.Where(item => item.CreatedAt <= toDate);
         }
 
+        if (chapterId.HasValue)
+        {
+            attemptsQuery = attemptsQuery.Where(item => item.Quiz!.ChapterId == chapterId || item.Quiz.Lesson!.ChapterId == chapterId);
+            progressQuery = progressQuery.Where(item => item.Lesson!.ChapterId == chapterId);
+        }
+        
+        if (lessonId.HasValue)
+        {
+            attemptsQuery = attemptsQuery.Where(item => item.LessonId == lessonId);
+            progressQuery = progressQuery.Where(item => item.LessonId == lessonId);
+        }
+
+        var attemptIds = await attemptsQuery.Select(a => a.Id).ToListAsync();
+        var answersQuery = _unitOfWork.QuizAttemptAnswers.Query()
+            .Where(ans => attemptIds.Contains(ans.AttemptId))
+            .Include(ans => ans.Question)
+            .AsQueryable();
+
         var attempts = await attemptsQuery.ToListAsync();
         var transactions = await transactionsQuery.ToListAsync();
         var badgeCount = await userBadgesQuery.CountAsync();
@@ -130,6 +150,43 @@ public class AdminReportsController : ControllerBase
             .Take(30)
             .ToList();
 
+        var topStudents = await studentQuery
+            .Include(u => u.UserBadges)
+            .OrderByDescending(u => u.Coins)
+            .ThenByDescending(u => u.UserBadges.Count)
+            .Take(10)
+            .Select(u => new TopStudentDto
+            {
+                UserId = u.Id,
+                Name = u.Name,
+                Coins = u.Coins,
+                BadgeCount = u.UserBadges.Count
+            })
+            .ToListAsync();
+
+        var mostFailedQuestions = await answersQuery
+            .GroupBy(ans => new { ans.QuestionId, ans.Question.QuestionText })
+            .Select(g => new
+            {
+                g.Key.QuestionId,
+                Content = g.Key.QuestionText,
+                TotalAttempts = g.Count(),
+                FailedAttempts = g.Count(ans => !ans.IsCorrect)
+            })
+            .Where(x => x.TotalAttempts > 0 && x.FailedAttempts > 0)
+            .OrderByDescending(x => (double)x.FailedAttempts / x.TotalAttempts)
+            .ThenByDescending(x => x.TotalAttempts)
+            .Take(10)
+            .Select(x => new FailedQuestionDto
+            {
+                QuestionId = x.QuestionId,
+                Content = x.Content,
+                TotalAttempts = x.TotalAttempts,
+                FailedAttempts = x.FailedAttempts,
+                FailureRate = Math.Round((double)x.FailedAttempts / x.TotalAttempts * 100, 2)
+            })
+            .ToListAsync();
+
         return Ok(new ReportOverviewDto
         {
             TotalUsers = studentIds.Count,
@@ -140,7 +197,9 @@ public class AdminReportsController : ControllerBase
             TotalCoinsAwarded = transactions.Sum(transaction => transaction.Amount),
             TotalBadgesAwarded = badgeCount,
             ChapterReports = chapterReports,
-            DailyActivities = daily
+            DailyActivities = daily,
+            TopStudents = topStudents,
+            MostFailedQuestions = mostFailedQuestions
         });
     }
 }

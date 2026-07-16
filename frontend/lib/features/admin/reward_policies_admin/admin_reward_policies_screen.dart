@@ -52,13 +52,14 @@ class _AdminRewardPoliciesScreenState extends State<AdminRewardPoliciesScreen> {
     final isEdit = policy != null;
     final formKey = GlobalKey<FormState>();
     final nameCtrl = TextEditingController(text: policy?.name ?? '');
-    int quizType = policy?.quizType ?? 0;
+    int quizType = policy?.quizType ?? 1;
     final coinsPerCorrectCtrl = TextEditingController(text: (policy?.coinsPerCorrectAnswer ?? 10).toString());
     final firstPassBonusCtrl = TextEditingController(text: (policy?.firstPassBonusCoins ?? 50).toString());
     final perfectScoreBonusCtrl = TextEditingController(text: (policy?.perfectScoreBonusCoins ?? 20).toString());
     final chapterCompletionBonusCtrl = TextEditingController(text: (policy?.chapterCompletionBonusCoins ?? 100).toString());
     final retryRewardPercentCtrl = TextEditingController(text: (policy?.retryRewardPercent ?? 50).toString());
     final dailyCoinLimitCtrl = TextEditingController(text: policy?.dailyCoinLimit?.toString() ?? '');
+    DateTime effectiveFrom = policy?.effectiveFrom ?? DateTime.now();
     bool isActive = policy?.isActive ?? true;
 
     final result = await showDialog<bool>(
@@ -84,74 +85,122 @@ class _AdminRewardPoliciesScreenState extends State<AdminRewardPoliciesScreen> {
                       value: quizType,
                       decoration: const InputDecoration(labelText: 'Áp dụng cho *', border: OutlineInputBorder()),
                       items: const [
-                        DropdownMenuItem(value: 0, child: Text('Bài học (Lesson)')),
-                        DropdownMenuItem(value: 1, child: Text('Chương (Chapter)')),
+                        DropdownMenuItem(value: 1, child: Text('Bài học (Lesson)')),
+                        DropdownMenuItem(value: 2, child: Text('Chương (Chapter)')),
                       ],
                       onChanged: (v) {
                         if (v != null) setDialogState(() => quizType = v);
                       },
                     ),
                     const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: coinsPerCorrectCtrl,
-                            decoration: const InputDecoration(labelText: 'Xu/câu đúng *', border: OutlineInputBorder()),
-                            keyboardType: TextInputType.number,
-                            validator: (v) => (v == null || int.tryParse(v) == null) ? 'Hợp lệ?' : null,
-                          ),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Thưởng cơ bản', style: TextStyle(fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: coinsPerCorrectCtrl,
+                                    decoration: const InputDecoration(labelText: 'Xu / câu trả lời đúng *', border: OutlineInputBorder()),
+                                    keyboardType: TextInputType.number,
+                                    validator: (v) => (v == null || int.tryParse(v) == null) ? 'Hợp lệ?' : null,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: perfectScoreBonusCtrl,
+                                    decoration: const InputDecoration(labelText: 'Thưởng đạt điểm tối đa *', border: OutlineInputBorder()),
+                                    keyboardType: TextInputType.number,
+                                    validator: (v) => (v == null || int.tryParse(v) == null) ? 'Hợp lệ?' : null,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextFormField(
-                            controller: perfectScoreBonusCtrl,
-                            decoration: const InputDecoration(labelText: 'Thưởng 10đ *', border: OutlineInputBorder()),
-                            keyboardType: TextInputType.number,
-                            validator: (v) => (v == null || int.tryParse(v) == null) ? 'Hợp lệ?' : null,
-                          ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Thưởng nâng cao & Khác', style: TextStyle(fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: firstPassBonusCtrl,
+                                    decoration: const InputDecoration(labelText: 'Thưởng vượt qua lần đầu *', border: OutlineInputBorder()),
+                                    keyboardType: TextInputType.number,
+                                    validator: (v) => (v == null || int.tryParse(v) == null) ? 'Hợp lệ?' : null,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: chapterCompletionBonusCtrl,
+                                    decoration: const InputDecoration(labelText: 'Thưởng hoàn thành chương *', border: OutlineInputBorder()),
+                                    keyboardType: TextInputType.number,
+                                    validator: (v) => (v == null || int.tryParse(v) == null) ? 'Hợp lệ?' : null,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: retryRewardPercentCtrl,
+                                    decoration: const InputDecoration(labelText: 'Tỷ lệ thưởng làm lại (%) *', border: OutlineInputBorder()),
+                                    keyboardType: TextInputType.number,
+                                    validator: (v) => (v == null || int.tryParse(v) == null) ? 'Hợp lệ?' : null,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: dailyCoinLimitCtrl,
+                                    decoration: const InputDecoration(labelText: 'Giới hạn xu/ngày (trống = Không)', border: OutlineInputBorder()),
+                                    keyboardType: TextInputType.number,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                     const SizedBox(height: 12),
                     Row(
                       children: [
                         Expanded(
-                          child: TextFormField(
-                            controller: firstPassBonusCtrl,
-                            decoration: const InputDecoration(labelText: 'Thưởng Pass lần đầu *', border: OutlineInputBorder()),
-                            keyboardType: TextInputType.number,
-                            validator: (v) => (v == null || int.tryParse(v) == null) ? 'Hợp lệ?' : null,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextFormField(
-                            controller: chapterCompletionBonusCtrl,
-                            decoration: const InputDecoration(labelText: 'Thưởng full chương *', border: OutlineInputBorder()),
-                            keyboardType: TextInputType.number,
-                            validator: (v) => (v == null || int.tryParse(v) == null) ? 'Hợp lệ?' : null,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: retryRewardPercentCtrl,
-                            decoration: const InputDecoration(labelText: '% Thưởng làm lại *', border: OutlineInputBorder()),
-                            keyboardType: TextInputType.number,
-                            validator: (v) => (v == null || int.tryParse(v) == null) ? 'Hợp lệ?' : null,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextFormField(
-                            controller: dailyCoinLimitCtrl,
-                            decoration: const InputDecoration(labelText: 'Giới hạn xu/ngày (tùy chọn)', border: OutlineInputBorder()),
-                            keyboardType: TextInputType.number,
+                          child: InkWell(
+                            onTap: () async {
+                              final date = await showDatePicker(
+                                context: ctx,
+                                initialDate: effectiveFrom,
+                                firstDate: DateTime(2020),
+                                lastDate: DateTime(2030),
+                              );
+                              if (date != null) {
+                                setDialogState(() => effectiveFrom = date);
+                              }
+                            },
+                            child: InputDecorator(
+                              decoration: const InputDecoration(labelText: 'Ngày hiệu lực *', border: OutlineInputBorder()),
+                              child: Text('${effectiveFrom.day}/${effectiveFrom.month}/${effectiveFrom.year}'),
+                            ),
                           ),
                         ),
                       ],
@@ -182,6 +231,7 @@ class _AdminRewardPoliciesScreenState extends State<AdminRewardPoliciesScreen> {
                     'chapterCompletionBonusCoins': int.parse(chapterCompletionBonusCtrl.text),
                     'retryRewardPercent': int.parse(retryRewardPercentCtrl.text),
                     'dailyCoinLimit': dailyCoinLimitCtrl.text.trim().isEmpty ? null : int.parse(dailyCoinLimitCtrl.text),
+                    'effectiveFrom': effectiveFrom.toIso8601String(),
                     'isActive': isActive,
                   };
                   if (isEdit) {
@@ -225,7 +275,7 @@ class _AdminRewardPoliciesScreenState extends State<AdminRewardPoliciesScreen> {
     );
     if (confirmed != true) return;
     try {
-      await ApiClient.instance.delete('/admin/reward-policies/${policy.id}');
+      await ApiClient.instance.put('/admin/reward-policies/${policy.id}/deactivate');
       _fetchPolicies();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -271,10 +321,17 @@ class _AdminRewardPoliciesScreenState extends State<AdminRewardPoliciesScreen> {
                             color: policy.isActive ? Colors.green : Colors.red,
                           ),
                           const SizedBox(width: 8),
-                          Text(policy.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Expanded(
+                            child: Text(
+                              policy.name, 
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                           const SizedBox(width: 8),
                           Chip(
-                            label: Text(policy.quizType == 0 ? 'Bài học' : 'Chương', style: const TextStyle(fontSize: 12)),
+                            label: Text(policy.quizType == 1 ? 'Bài học' : 'Chương', style: const TextStyle(fontSize: 12)),
                             padding: EdgeInsets.zero,
                           ),
                         ],
@@ -289,24 +346,24 @@ class _AdminRewardPoliciesScreenState extends State<AdminRewardPoliciesScreen> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text('Xu/câu đúng: ${policy.coinsPerCorrectAnswer}'),
-                                  Text('Thưởng 10đ: ${policy.perfectScoreBonusCoins}'),
+                                  Text('Xu / câu đúng: ${policy.coinsPerCorrectAnswer}'),
+                                  Text('Thưởng đạt 10đ: ${policy.perfectScoreBonusCoins}'),
                                 ],
                               ),
                               const SizedBox(height: 8),
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text('Thưởng pass lần đầu: ${policy.firstPassBonusCoins}'),
-                                  Text('Thưởng hoàn thành chương: ${policy.chapterCompletionBonusCoins}'),
+                                  Text('Vượt qua lần đầu: ${policy.firstPassBonusCoins}'),
+                                  Text('Hoàn thành chương: ${policy.chapterCompletionBonusCoins}'),
                                 ],
                               ),
                               const SizedBox(height: 8),
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text('Tỷ lệ làm lại: ${policy.retryRewardPercent}%'),
-                                  Text('Giới hạn xu/ngày: ${policy.dailyCoinLimit ?? "Không"}'),
+                                  Text('Thưởng khi làm lại: ${policy.retryRewardPercent}%'),
+                                  Text('Giới hạn xu/ngày: ${policy.dailyCoinLimit ?? "Không có"}'),
                                 ],
                               ),
                               const SizedBox(height: 16),

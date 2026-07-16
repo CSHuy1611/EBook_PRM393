@@ -91,7 +91,7 @@ public class AdminRewardPoliciesController : ControllerBase
         return NoContent();
     }
 
-    [HttpDelete("{id}")]
+    [HttpPut("{id}/deactivate")]
     public async Task<IActionResult> Deactivate(Guid id)
     {
         var policy = await _unitOfWork.RewardPolicies.GetByIdAsync(id);
