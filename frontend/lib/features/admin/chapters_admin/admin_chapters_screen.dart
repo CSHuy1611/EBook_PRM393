@@ -15,13 +15,27 @@ class AdminChaptersScreen extends StatefulWidget {
 
 class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
   List<ChapterModel> _chapters = [];
+  List<dynamic> _topics = [];
   bool _isLoading = true;
   String? _error;
 
   @override
   void initState() {
     super.initState();
+    _fetchTopics();
     _fetchChapters();
+  }
+
+  Future<void> _fetchTopics() async {
+    try {
+      final response = await ApiClient.instance.get('/admin/curriculum-topics');
+      final data = response.data;
+      if (data is List) {
+        if (mounted) setState(() => _topics = data);
+      } else if (data is Map && data['data'] is List) {
+        if (mounted) setState(() => _topics = data['data']);
+      }
+    } catch (_) {}
   }
 
   Future<void> _fetchChapters() async {
@@ -53,6 +67,7 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
     final titleCtrl = TextEditingController(text: chapter?.title ?? '');
     final descCtrl = TextEditingController(text: chapter?.description ?? '');
     final orderCtrl = TextEditingController(text: (chapter?.orderIndex ?? 0).toString());
+    String? selectedTopicId = chapter?.curriculumTopicId;
     final isEdit = chapter != null;
     final formKey = GlobalKey<FormState>();
 
@@ -83,6 +98,17 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                   decoration: const InputDecoration(labelText: 'Thứ tự', border: OutlineInputBorder()),
                   keyboardType: TextInputType.number,
                 ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  decoration: const InputDecoration(labelText: 'Chủ đề Toán học (Taxonomy)', border: OutlineInputBorder()),
+                  value: selectedTopicId,
+                  items: _topics.map((t) => DropdownMenuItem<String>(
+                    value: t['id'],
+                    child: Text(t['name'] ?? 'Unknown', overflow: TextOverflow.ellipsis),
+                  )).toList(),
+                  onChanged: (v) => setState(() => selectedTopicId = v),
+                  validator: (v) => v == null ? 'Vui lòng chọn chủ đề' : null,
+                ),
               ],
             ),
           ),
@@ -97,6 +123,7 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                   'title': titleCtrl.text.trim(),
                   'description': descCtrl.text.trim(),
                   'orderIndex': int.tryParse(orderCtrl.text) ?? 0,
+                  'curriculumTopicId': selectedTopicId,
                 };
                 if (isEdit) {
                   await ApiClient.instance.put('/admin/chapters/${chapter!.id}', data: body);
@@ -125,26 +152,36 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Xác nhận xóa'),
-        content: Text('Bạn có chắc muốn xóa chương "${chapter.title}"?'),
+        content: Text('Bạn có chắc muốn xóa chương "${chapter.title}" không?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Xóa'),
           ),
         ],
       ),
     );
-    if (confirmed != true) return;
-    try {
-      await ApiClient.instance.delete('/admin/chapters/${chapter.id}');
-      _fetchChapters();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đã xóa chương')),
-        );
+
+    if (confirmed == true) {
+      try {
+        await ApiClient.instance.delete('/admin/chapters/${chapter.id}');
+        _fetchChapters();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Lỗi xóa chương: ${e is DioException ? ApiClient.mapDioErrorToMessage(e) : e}')),
+          );
+        }
       }
+    }
+  }
+
+  Future<void> _togglePublish(ChapterModel chapter) async {
+    try {
+      await ApiClient.instance.patch('/admin/chapters/${chapter.id}/publish');
+      _fetchChapters();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -185,6 +222,10 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          Switch(
+                            value: chapter.isPublished,
+                            onChanged: (_) => _togglePublish(chapter),
+                          ),
                           IconButton(
                             icon: const Icon(Icons.menu_book),
                             tooltip: 'Xem bài học',

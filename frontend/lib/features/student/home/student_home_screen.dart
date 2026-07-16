@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:math_ibook/core/models/dashboard_model.dart';
 import 'package:math_ibook/core/network/api_client.dart';
 import 'package:math_ibook/features/auth/domain/auth_provider.dart';
+import 'package:math_ibook/core/progress/progress_notifier.dart';
+import 'package:math_ibook/core/models/lesson_model.dart';
 
 class StudentHomeScreen extends StatefulWidget {
   const StudentHomeScreen({super.key});
@@ -15,6 +17,7 @@ class StudentHomeScreen extends StatefulWidget {
 class _StudentHomeScreenState extends State<StudentHomeScreen> {
   DashboardDto? _dash;
   bool _isLoading = true;
+  int _lastVersion = -1;
 
   @override
   void initState() {
@@ -36,6 +39,11 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final version = context.watch<ProgressNotifier>().version;
+    if (version != _lastVersion) {
+      _lastVersion = version;
+      if (_dash != null && !_isLoading) _fetchStats();
+    }
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -216,6 +224,9 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
     final chapters = _dash!.chapterProgress;
     if (chapters.isEmpty) return const SizedBox.shrink();
 
+    final hasStarted = chapters.any((c) => c.completedLessons > 0);
+    if (!hasStarted) return const SizedBox.shrink();
+
     final current = chapters.firstWhere(
       (c) => c.completionPercentage < 100,
       orElse: () => chapters.last,
@@ -299,7 +310,33 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () => context.go('/student/chapters'),
+              onPressed: () async {
+                try {
+                  final response = await ApiClient.instance.get('/chapters/${current.chapterId}/lessons');
+                  final List<dynamic> data = response.data as List<dynamic>;
+                  final lessons = data.map((e) => LessonModel.fromJson(e as Map<String, dynamic>)).toList();
+                  if (lessons.isNotEmpty) {
+                    var targetLesson = lessons.firstWhere(
+                      (l) => l.status == 'InProgress',
+                      orElse: () => lessons.firstWhere(
+                        (l) => l.status == 'NotStarted',
+                        orElse: () => lessons.first,
+                      ),
+                    );
+                    if (context.mounted) {
+                      context.push('/student/lessons/${targetLesson.id}');
+                    }
+                  } else {
+                    if (context.mounted) {
+                      context.push('/student/chapters/${current.chapterId}');
+                    }
+                  }
+                } catch (_) {
+                  if (context.mounted) {
+                    context.push('/student/chapters/${current.chapterId}');
+                  }
+                }
+              },
               icon: const Icon(Icons.arrow_forward_rounded, size: 18),
               label: const Text('Học tiếp'),
               style: ElevatedButton.styleFrom(

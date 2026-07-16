@@ -21,6 +21,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
   String _dateFilter = '30';
   
   List<dynamic> _chapters = [];
+  List<dynamic> _lessons = [];
   String? _selectedChapterId;
   String? _selectedLessonId;
 
@@ -32,10 +33,21 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
   
   Future<void> _fetchInitialData() async {
     try {
-      final res = await ApiClient.instance.get('/chapters');
-      _chapters = res.data as List<dynamic>;
+      final res = await ApiClient.instance.get('/admin/chapters');
+      final data = res.data;
+      _chapters = data is List ? data : (data is Map && data['data'] is List ? data['data'] : []);
     } catch (_) {}
     _fetchData();
+  }
+
+  Future<void> _fetchLessonsForChapter(String chapterId) async {
+    try {
+      final res = await ApiClient.instance.get('/admin/lessons/chapter/$chapterId');
+      final data = res.data;
+      setState(() {
+        _lessons = data is List ? data : (data is Map && data['data'] is List ? data['data'] : []);
+      });
+    } catch (_) {}
   }
 
   Future<void> _fetchData() async {
@@ -131,8 +143,6 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
   }
 
   Widget _buildDateFilter() {
-    final selectedChapter = _chapters.cast<Map<String,dynamic>>().where((c) => c['id'] == _selectedChapterId).firstOrNull;
-    final lessons = selectedChapter != null ? (selectedChapter['lessons'] as List<dynamic>?)?.cast<Map<String,dynamic>>() ?? [] : [];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -169,7 +179,11 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                   setState(() {
                     _selectedChapterId = v;
                     _selectedLessonId = null;
+                    _lessons = [];
                   });
+                  if (v != null) {
+                    _fetchLessonsForChapter(v);
+                  }
                   _fetchData();
                 },
               ),
@@ -182,7 +196,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                 value: _selectedLessonId,
                 items: [
                   const DropdownMenuItem(value: null, child: Text('Tất cả bài học')),
-                  ...lessons.map((l) => DropdownMenuItem<String>(value: l['id'], child: Text(l['title'] ?? '', overflow: TextOverflow.ellipsis))),
+                  ..._lessons.map((l) => DropdownMenuItem<String>(value: l['id'], child: Text(l['title'] ?? '', overflow: TextOverflow.ellipsis))),
                 ],
                 onChanged: _selectedChapterId == null
                     ? null

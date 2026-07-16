@@ -199,9 +199,34 @@ class _ChaptersScreenState extends State<ChaptersScreen> {
                       Row(
                         children: [
                           Text(
-                            '${chapter.lessonCount} bài học',
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                            'Đã đạt: ${chapter.passedLessonCount}/${chapter.lessonCount} bài',
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
                           ),
+                          if (chapter.relatedBadgeTitle != null && chapter.relatedBadgeTitle!.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF7ED),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0xFFFFEDD5)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.military_tech_rounded, color: Color(0xFFF59E0B), size: 14),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    chapter.relatedBadgeTitle!,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFFC2410C),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                           const Spacer(),
                           Text(
                             statusText,

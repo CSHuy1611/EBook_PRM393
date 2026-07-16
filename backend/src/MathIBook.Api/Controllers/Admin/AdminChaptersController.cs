@@ -193,10 +193,19 @@ public class AdminChaptersController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(Guid id)
     {
-        var chapter = await _unitOfWork.Chapters.GetByIdAsync(id);
+        var chapter = await _unitOfWork.Chapters.Query().Include(c => c.Lessons).FirstOrDefaultAsync(c => c.Id == id);
         if (chapter is null || chapter.IsDeleted)
         {
             return NotFound();
+        }
+
+        if (chapter.Lessons.Any(l => !l.IsDeleted))
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Không thể xóa chương đang chứa bài học.",
+                Status = 400
+            });
         }
 
         var before = Snapshot(chapter);

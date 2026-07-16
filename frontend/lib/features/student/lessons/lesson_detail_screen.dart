@@ -10,6 +10,7 @@ import 'package:math_ibook/features/auth/domain/auth_provider.dart';
 import 'package:math_ibook/core/widgets/loading_widget.dart';
 import 'package:math_ibook/core/widgets/error_widget.dart';
 import 'package:math_ibook/features/student/simulation/simulation_widget.dart';
+import 'package:math_ibook/core/progress/progress_notifier.dart';
 
 class LessonDetailScreen extends StatefulWidget {
   final String lessonId;
@@ -66,6 +67,9 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
       return value;
     }).toList());
     await _markContentViewed();
+    if (mounted) {
+      Provider.of<ProgressNotifier>(context, listen: false).notifyProgressChanged();
+    }
     await _queueProgress();
   }
 

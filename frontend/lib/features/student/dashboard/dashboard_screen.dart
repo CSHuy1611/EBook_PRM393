@@ -6,6 +6,7 @@ import 'package:math_ibook/core/network/api_client.dart';
 import 'package:math_ibook/core/widgets/loading_widget.dart';
 import 'package:math_ibook/core/widgets/error_widget.dart';
 import 'package:math_ibook/features/auth/domain/auth_provider.dart';
+import 'package:math_ibook/core/progress/progress_notifier.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -18,6 +19,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   DashboardDto? _dashboard;
   bool _isLoading = true;
   String? _error;
+  int _lastVersion = -1;
 
   @override
   void initState() {
@@ -45,6 +47,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final version = context.watch<ProgressNotifier>().version;
+    if (version != _lastVersion) {
+      _lastVersion = version;
+      if (_dashboard != null && !_isLoading) _fetchDashboard();
+    }
     if (_isLoading) return const AppLoadingWidget(message: 'Đang tải thông tin...');
     if (_error != null) return AppErrorWidget(message: _error!, onRetry: _fetchDashboard);
     if (_dashboard == null) return const Center(child: Text('Không có dữ liệu'));

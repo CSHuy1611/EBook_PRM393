@@ -1,24 +1,28 @@
 class LessonModel {
   final String id;
   final String chapterId;
+  final String? curriculumTopicId;
   final String title;
   final String contentBody;
   final String simulationType;
   final int orderIndex;
   final bool isPublished;
   final bool isCompleted;
+  final String status;
   final double bestScore;
   final List<QuestionModel> questions;
 
   LessonModel({
     required this.id,
     required this.chapterId,
+    this.curriculumTopicId,
     required this.title,
     this.contentBody = '',
     this.simulationType = '',
     this.orderIndex = 0,
     this.isPublished = true,
     this.isCompleted = false,
+    this.status = 'NotStarted',
     this.bestScore = 0.0,
     this.questions = const [],
   });
@@ -33,6 +37,7 @@ class LessonModel {
     return LessonModel(
       id: json['id'] ?? '',
       chapterId: json['chapterId'] ?? json['chapter_id'] ?? '',
+      curriculumTopicId: json['curriculumTopicId'] ?? json['curriculum_topic_id'],
       title: json['title'] ?? '',
       contentBody: json['contentBody'] ?? json['content_body'] ?? '',
       simulationType:
@@ -40,6 +45,7 @@ class LessonModel {
       orderIndex: json['orderIndex'] ?? json['order_index'] ?? 0,
       isPublished: json['isPublished'] ?? json['is_published'] ?? true,
       isCompleted: json['isCompleted'] ?? json['is_completed'] ?? false,
+      status: json['status'] ?? 'NotStarted',
       bestScore:
           (json['bestScore'] ?? json['best_score'] ?? 0.0).toDouble(),
       questions: questionsList,
@@ -49,12 +55,14 @@ class LessonModel {
   Map<String, dynamic> toJson() => {
         'id': id,
         'chapterId': chapterId,
+        'curriculumTopicId': curriculumTopicId,
         'title': title,
         'contentBody': contentBody,
         'simulationType': simulationType,
         'orderIndex': orderIndex,
         'isPublished': isPublished,
         'isCompleted': isCompleted,
+        'status': status,
         'bestScore': bestScore,
         'questions': questions.map((q) => q.toJson()).toList(),
       };
