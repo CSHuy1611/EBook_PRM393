@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:math_ibook/core/math/math_text.dart';
 import 'package:math_ibook/core/math/math_toolbar.dart';
+import 'package:math_ibook/core/models/chapter_model.dart';
 import 'package:math_ibook/core/models/lesson_model.dart';
 import 'package:math_ibook/core/network/api_client.dart';
 import 'package:math_ibook/core/widgets/loading_widget.dart';
@@ -21,8 +22,10 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
   String _lessonTitle = '';
   bool _isLoading = false;
   String? _error;
-  List<LessonModel> _allLessons = [];
-  bool _isLoadingLessons = false;
+  List<ChapterModel> _chapters = [];
+  String? _selectedChapterId;
+  List<LessonModel> _chapterLessons = [];
+  bool _isLoadingChapters = false;
 
   bool _inMathMode(String text, int pos) {
     int count = 0;
@@ -40,27 +43,34 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
       _fetchQuestions();
     } else {
       _isLoading = false;
-      _fetchLessons();
+      _fetchChapters();
     }
   }
 
-  Future<void> _fetchLessons() async {
-    setState(() => _isLoadingLessons = true);
+  Future<void> _fetchChapters() async {
+    setState(() => _isLoadingChapters = true);
     try {
       final resp = await ApiClient.instance.get('/admin/chapters');
       final data = resp.data;
       final list = data is List ? data : (data is Map && data['data'] is List ? data['data'] : []);
-      final chapters = (list as List).cast<Map<String, dynamic>>();
-      _allLessons = [];
-      for (final ch in chapters) {
-        final chId = ch['id'];
-        final lessonResp = await ApiClient.instance.get('/admin/lessons/chapter/$chId');
-        final lData = lessonResp.data;
-        final lList = lData is List ? lData : (lData is Map && lData['data'] is List ? lData['data'] : []);
-        _allLessons.addAll((lList as List).map((e) => LessonModel.fromJson(e as Map<String, dynamic>)));
-      }
+      _chapters = (list as List).map((e) => ChapterModel.fromJson(e as Map<String, dynamic>)).toList();
     } catch (_) {}
-    setState(() => _isLoadingLessons = false);
+    setState(() => _isLoadingChapters = false);
+  }
+
+  Future<void> _fetchLessonsForChapter(String chapterId) async {
+    setState(() {
+      _chapterLessons = [];
+      _selectedLessonId = null;
+    });
+    try {
+      final lessonResp = await ApiClient.instance.get('/admin/lessons/chapter/$chapterId');
+      final lData = lessonResp.data;
+      final lList = lData is List ? lData : (lData is Map && lData['data'] is List ? lData['data'] : []);
+      setState(() {
+        _chapterLessons = (lList as List).map((e) => LessonModel.fromJson(e as Map<String, dynamic>)).toList();
+      });
+    } catch (_) {}
   }
 
   Future<void> _fetchQuestions() async {
@@ -362,23 +372,46 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
               const SizedBox(height: 16),
               const Text('Chọn một bài học để xem câu hỏi', style: TextStyle(fontSize: 16)),
               const SizedBox(height: 24),
-              _isLoadingLessons
+              _isLoadingChapters
                   ? const CircularProgressIndicator()
-                  : _allLessons.isEmpty
-                      ? const Text('Không có bài học nào')
-                      : DropdownButtonFormField<String>(
-                          value: null,
-                          decoration: const InputDecoration(
-                            labelText: 'Chọn bài học',
-                            border: OutlineInputBorder(),
-                          ),
-                          items: _allLessons
-                              .map((l) => DropdownMenuItem(value: l.id, child: Text(l.title)))
-                              .toList(),
-                          onChanged: (val) {
-                            setState(() => _selectedLessonId = val);
-                            _fetchQuestions();
-                          },
+                  : _chapters.isEmpty
+                      ? const Text('Không có chương nào')
+                      : Column(
+                          children: [
+                            DropdownButtonFormField<String>(
+                              value: _selectedChapterId,
+                              decoration: const InputDecoration(
+                                labelText: 'Chọn chương',
+                                border: OutlineInputBorder(),
+                              ),
+                              items: _chapters
+                                  .map((c) => DropdownMenuItem(value: c.id, child: Text(c.title)))
+                                  .toList(),
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setState(() => _selectedChapterId = val);
+                                  _fetchLessonsForChapter(val);
+                                }
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            DropdownButtonFormField<String>(
+                              value: _selectedLessonId,
+                              decoration: const InputDecoration(
+                                labelText: 'Chọn bài học',
+                                border: OutlineInputBorder(),
+                              ),
+                              items: _chapterLessons
+                                  .map((l) => DropdownMenuItem(value: l.id, child: Text(l.title)))
+                                  .toList(),
+                              onChanged: _selectedChapterId == null
+                                  ? null
+                                  : (val) {
+                                      setState(() => _selectedLessonId = val);
+                                      _fetchQuestions();
+                                    },
+                            ),
+                          ],
                         ),
             ],
           ),
@@ -511,7 +544,7 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
                   _selectedLessonId = null;
                   _questions = [];
                   _lessonTitle = '';
-                  _fetchLessons();
+                  // Note: keep _selectedChapterId and _chapterLessons to easily switch lessons within same chapter
                 }),
               )
             : null,

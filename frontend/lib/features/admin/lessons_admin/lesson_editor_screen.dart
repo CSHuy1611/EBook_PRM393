@@ -25,6 +25,8 @@ class _LessonEditorScreenState extends State<LessonEditorScreen> {
   late TextEditingController _contentCtrl;
   late TextEditingController _orderCtrl;
   String _simulationType = '';
+  String? _selectedTopicId;
+  List<dynamic> _topics = [];
   bool _isSaving = false;
 
   final _simulationTypes = ['', 'linear_graph', 'quadratic_graph', 'triangle', 'geogebra', 'desmos', 'phet', 'simulation'];
@@ -39,6 +41,20 @@ class _LessonEditorScreenState extends State<LessonEditorScreen> {
     _contentCtrl = TextEditingController(text: lesson?.contentBody ?? '');
     _orderCtrl = TextEditingController(text: (lesson?.orderIndex ?? 0).toString());
     _simulationType = lesson?.simulationType ?? '';
+    _selectedTopicId = lesson?.curriculumTopicId;
+    _fetchTopics();
+  }
+
+  Future<void> _fetchTopics() async {
+    try {
+      final response = await ApiClient.instance.get('/admin/curriculum-topics');
+      final data = response.data;
+      if (data is List) {
+        if (mounted) setState(() => _topics = data);
+      } else if (data is Map && data['data'] is List) {
+        if (mounted) setState(() => _topics = data['data']);
+      }
+    } catch (_) {}
   }
 
   @override
@@ -102,6 +118,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen> {
         'contentBody': _contentCtrl.text,
         'simulationType': _simulationType,
         'orderIndex': int.tryParse(_orderCtrl.text) ?? 0,
+        'curriculumTopicId': _selectedTopicId,
       };
       if (isEdit) {
         await ApiClient.instance.put('/admin/lessons/${widget.lesson!.id}', data: body);
@@ -226,6 +243,17 @@ class _LessonEditorScreenState extends State<LessonEditorScreen> {
           controller: _orderCtrl,
           decoration: const InputDecoration(labelText: 'Thứ tự', border: OutlineInputBorder()),
           keyboardType: TextInputType.number,
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          decoration: const InputDecoration(labelText: 'Chủ đề Toán học (Taxonomy)', border: OutlineInputBorder()),
+          value: _selectedTopicId,
+          items: _topics.map((t) => DropdownMenuItem<String>(
+            value: t['id'],
+            child: Text(t['name'] ?? 'Unknown', overflow: TextOverflow.ellipsis),
+          )).toList(),
+          onChanged: (v) => setState(() => _selectedTopicId = v),
+          validator: (v) => v == null ? 'Vui lòng chọn chủ đề' : null,
         ),
         const SizedBox(height: 12),
         DropdownButtonFormField<String>(

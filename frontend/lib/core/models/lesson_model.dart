@@ -1,6 +1,7 @@
 class LessonModel {
   final String id;
   final String chapterId;
+  final String? curriculumTopicId;
   final String title;
   final String contentBody;
   final String simulationType;
@@ -14,6 +15,7 @@ class LessonModel {
   LessonModel({
     required this.id,
     required this.chapterId,
+    this.curriculumTopicId,
     required this.title,
     this.contentBody = '',
     this.simulationType = '',
@@ -35,6 +37,7 @@ class LessonModel {
     return LessonModel(
       id: json['id'] ?? '',
       chapterId: json['chapterId'] ?? json['chapter_id'] ?? '',
+      curriculumTopicId: json['curriculumTopicId'] ?? json['curriculum_topic_id'],
       title: json['title'] ?? '',
       contentBody: json['contentBody'] ?? json['content_body'] ?? '',
       simulationType:
@@ -52,6 +55,7 @@ class LessonModel {
   Map<String, dynamic> toJson() => {
         'id': id,
         'chapterId': chapterId,
+        'curriculumTopicId': curriculumTopicId,
         'title': title,
         'contentBody': contentBody,
         'simulationType': simulationType,

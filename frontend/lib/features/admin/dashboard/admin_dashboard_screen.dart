@@ -18,26 +18,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   ReportOverviewDto? _report;
   bool _isLoading = true;
   String? _error;
-  String? _selectedUserId;
-  List<AdminUserDto> _students = [];
 
   @override
   void initState() {
     super.initState();
-    _fetchStudents();
-  }
-
-  Future<void> _fetchStudents() async {
-    try {
-      final response = await ApiClient.instance.get('/admin/users');
-      final data = response.data;
-      final list = data is List ? data : (data is Map && data['data'] is List ? data['data'] : []);
-      final allUsers = (list as List).map((e) => AdminUserDto.fromJson(e as Map<String, dynamic>)).toList();
-      _students = allUsers.where((u) => u.role == 'Student').toList();
-      _fetchData();
-    } catch (e) {
-      _fetchData();
-    }
+    _fetchData();
   }
 
   Future<void> _fetchData() async {
@@ -46,11 +31,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       _error = null;
     });
     try {
-      var path = '/admin/reports/overview';
-      if (_selectedUserId != null) {
-        path += '?userId=$_selectedUserId';
-      }
-      final response = await ApiClient.instance.get(path);
+      final response = await ApiClient.instance.get('/admin/reports/overview');
       final data = response.data;
       Map<String, dynamic> map;
       if (data is Map<String, dynamic>) {
@@ -84,56 +65,58 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       onRefresh: _onRefresh,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final isWide = constraints.maxWidth > 700;
+          final isWide = constraints.maxWidth > 800;
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              _buildStudentSelector(),
-              const SizedBox(height: 16),
               _buildStatCards(report, isWide),
               const SizedBox(height: 24),
-              _buildDailyActivityChart(report.dailyActivities),
-              const SizedBox(height: 24),
-              _buildChapterCompletionChart(report.chapterReports),
+              if (isWide)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        children: [
+                          _buildDailyActivityChart(report.dailyActivities),
+                          const SizedBox(height: 24),
+                          _buildUserGrowthChart(report.dailyActivities),
+                          const SizedBox(height: 24),
+                          _buildChapterCompletionChart(report.chapterReports),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 24),
+                    Expanded(
+                      flex: 1,
+                      child: Column(
+                        children: [
+                          _buildTopStudents(report.topStudents),
+                          const SizedBox(height: 24),
+                          _buildMostFailedQuestions(report.mostFailedQuestions),
+                        ],
+                      ),
+                    ),
+                  ],
+                )
+              else
+                Column(
+                  children: [
+                    _buildDailyActivityChart(report.dailyActivities),
+                    const SizedBox(height: 24),
+                    _buildUserGrowthChart(report.dailyActivities),
+                    const SizedBox(height: 24),
+                    _buildChapterCompletionChart(report.chapterReports),
+                    const SizedBox(height: 24),
+                    _buildTopStudents(report.topStudents),
+                    const SizedBox(height: 24),
+                    _buildMostFailedQuestions(report.mostFailedQuestions),
+                  ],
+                ),
             ],
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildStudentSelector() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            const Icon(Icons.person_search, size: 20),
-            const SizedBox(width: 12),
-            Expanded(
-              child: DropdownButtonFormField<String?>(
-                value: _selectedUserId,
-                decoration: const InputDecoration(
-                  labelText: 'Lọc theo học sinh',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                ),
-                items: [
-                  const DropdownMenuItem(value: null, child: Text('Tất cả học sinh')),
-                  ..._students.map((s) => DropdownMenuItem(
-                    value: s.id,
-                    child: Text('${s.name} (${s.email})'),
-                  )),
-                ],
-                onChanged: (val) {
-                  setState(() => _selectedUserId = val);
-                  _fetchData();
-                },
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -164,10 +147,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         value: '${report.totalCoinsAwarded}',
         color: Colors.purple,
       ),
+      _StatCard(
+        icon: Icons.workspace_premium,
+        label: 'Huy hiệu',
+        value: '${report.totalBadgesAwarded}',
+        color: Colors.red,
+      ),
     ];
-    return isWide
-        ? Row(children: cards.map((c) => Expanded(child: c)).toList())
-        : Column(children: cards);
+    if (isWide) {
+      return Row(children: cards.map((c) => Expanded(child: c)).toList());
+    }
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: cards.map((c) => SizedBox(width: MediaQuery.of(context).size.width / 2 - 24, child: c)).toList(),
+    );
   }
 
   Widget _buildDailyActivityChart(List<DailyActivityDto> activities) {
@@ -180,7 +174,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           BarChartRodData(
             toY: e.value.quizCount.toDouble(),
             color: Colors.blue,
-            width: isWideScreen() ? 20 : 12,
+            width: isWideScreen() ? 16 : 12,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
           ),
         ],
@@ -193,7 +187,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Hoạt động hàng ngày', style: Theme.of(context).textTheme.titleMedium),
+            Text('Lượt làm bài (14 ngày qua)', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             SizedBox(
               height: 200,
@@ -206,7 +200,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       getTooltipItem: (group, groupIndex, rod, rodIndex) {
                         final d = display[group.x];
                         return BarTooltipItem(
-                          '${d.date}\nSố lượng: ${d.quizCount}',
+                          '${d.date}\nLượt làm: ${d.quizCount}',
                           const TextStyle(color: Colors.white),
                         );
                       },
@@ -259,6 +253,85 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
+  Widget _buildUserGrowthChart(List<DailyActivityDto> activities) {
+    final display = activities.length > 14 ? activities.sublist(activities.length - 14) : activities;
+    final maxVal = display.fold<int>(0, (m, a) => a.newUsers > m ? a.newUsers : m);
+    if (maxVal == 0) {
+      return Card(child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Text('Chưa có dữ liệu người dùng mới', style: Theme.of(context).textTheme.bodyMedium),
+      ));
+    }
+    final bars = display.asMap().entries.map((e) {
+      return BarChartGroupData(
+        x: e.key,
+        barRods: [
+          BarChartRodData(
+            toY: e.value.newUsers.toDouble(),
+            color: Colors.indigo,
+            width: isWideScreen() ? 16 : 12,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+          ),
+        ],
+      );
+    }).toList();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Người dùng đăng ký mới (14 ngày qua)', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 200,
+              child: BarChart(
+                BarChartData(
+                  alignment: BarChartAlignment.spaceAround,
+                  maxY: (maxVal * 1.4).clamp(3, double.infinity),
+                  barTouchData: BarTouchData(
+                    touchTooltipData: BarTouchTooltipData(
+                      getTooltipItem: (group, _, rod, __) {
+                        final d = display[group.x];
+                        return BarTooltipItem('${d.date}\nMới: ${d.newUsers}', const TextStyle(color: Colors.white));
+                      },
+                    ),
+                  ),
+                  titlesData: FlTitlesData(
+                    show: true,
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(showTitles: true, reservedSize: 28,
+                        getTitlesWidget: (value, meta) {
+                          final idx = value.toInt();
+                          if (idx < 0 || idx >= display.length) return const SizedBox();
+                          final date = display[idx].date;
+                          final parts = date.split('-');
+                          final label = parts.length >= 3 ? '${parts[2]}/${parts[1]}' : date;
+                          return Padding(padding: const EdgeInsets.only(top: 4), child: Text(label, style: const TextStyle(fontSize: 9)));
+                        },
+                      ),
+                    ),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(showTitles: true, reservedSize: 36,
+                        getTitlesWidget: (v, _) => Text('${v.toInt()}', style: const TextStyle(fontSize: 10)),
+                      ),
+                    ),
+                    topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  ),
+                  borderData: FlBorderData(show: false),
+                  gridData: FlGridData(show: true, drawVerticalLine: false),
+                  barGroups: bars,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildChapterCompletionChart(List<ChapterReportDto> chapters) {
     if (chapters.isEmpty) {
       return Card(
@@ -277,7 +350,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           BarChartRodData(
             toY: e.value.completionRate,
             color: Colors.teal,
-            width: isWide ? 24 : 16,
+            width: isWide ? 20 : 16,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
           ),
         ],
@@ -290,7 +363,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Tỷ lệ hoàn thành theo chương', style: Theme.of(context).textTheme.titleMedium),
+            Text('Tỷ lệ hoàn thành theo chương', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             SizedBox(
               height: 200,
@@ -357,6 +430,92 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
+  Widget _buildTopStudents(List<TopStudentDto> students) {
+    if (students.isEmpty) {
+      return Card(child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Text('Chưa có dữ liệu học sinh', style: Theme.of(context).textTheme.bodyMedium),
+      ));
+    }
+    return Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text('Học sinh xuất sắc', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          ),
+          const Divider(height: 1),
+          Column(
+            children: students.take(5).toList().asMap().entries.map((e) {
+              final idx = e.key + 1;
+              final s = e.value;
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: idx <= 3 ? Colors.orange.withAlpha(50) : Colors.blue.withAlpha(25),
+                  child: Text('#$idx', style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: idx <= 3 ? Colors.deepOrange : Colors.blue,
+                  )),
+                ),
+                title: Text(s.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                trailing: Wrap(
+                  spacing: 8,
+                  children: [
+                    Chip(
+                      label: Text('${s.coins}', style: const TextStyle(color: Colors.amber, fontSize: 12)),
+                      avatar: const Icon(Icons.monetization_on, color: Colors.amber, size: 16),
+                      backgroundColor: Colors.amber.withAlpha(20),
+                      side: BorderSide.none,
+                      padding: EdgeInsets.zero,
+                    ),
+                    Chip(
+                      label: Text('${s.badgeCount}', style: const TextStyle(color: Colors.purple, fontSize: 12)),
+                      avatar: const Icon(Icons.emoji_events, color: Colors.purple, size: 16),
+                      backgroundColor: Colors.purple.withAlpha(20),
+                      side: BorderSide.none,
+                      padding: EdgeInsets.zero,
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMostFailedQuestions(List<FailedQuestionDto> questions) {
+    if (questions.isEmpty) {
+      return Card(child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Text('Chưa có dữ liệu câu hỏi sai', style: Theme.of(context).textTheme.bodyMedium),
+      ));
+    }
+    return Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text('Câu hỏi làm sai nhiều', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          ),
+          const Divider(height: 1),
+          Column(
+            children: questions.take(5).map((q) {
+              return ListTile(
+                leading: const Icon(Icons.error_outline, color: Colors.red),
+                title: Text(q.content, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
+                subtitle: Text('Sai: ${q.failedAttempts}/${q.totalAttempts} lần (${q.failureRate}%)', style: const TextStyle(fontSize: 12)),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
   bool isWideScreen() => MediaQuery.of(context).size.width > 700;
 }
 
@@ -378,26 +537,26 @@ class _StatCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: color.withAlpha(25),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon, color: color, size: 28),
+              child: Icon(icon, color: color, size: 24),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label, style: Theme.of(context).textTheme.bodySmall),
-                  const SizedBox(height: 4),
+                  Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 2),
                   Text(value,
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                 ],
               ),
             ),

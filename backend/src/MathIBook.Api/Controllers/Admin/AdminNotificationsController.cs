@@ -26,21 +26,44 @@ public class AdminNotificationsController : ControllerBase
         if (userId.HasValue)
         {
             query = query.Where(notification => notification.UserId == userId);
+            
+            return Ok(await query.OrderByDescending(notification => notification.CreatedAt)
+                .Select(notification => new NotificationDto
+                {
+                    Id = notification.Id,
+                    Title = notification.Title,
+                    Body = notification.Body,
+                    Link = notification.Link,
+                    Type = notification.Type,
+                    RelatedEntityId = notification.RelatedEntityId,
+                    IsRead = notification.IsRead,
+                    CreatedAt = notification.CreatedAt
+                })
+                .ToListAsync());
         }
 
-        return Ok(await query.OrderByDescending(notification => notification.CreatedAt)
-            .Select(notification => new NotificationDto
+        query = query.Where(n => n.Type == "admin_message");
+        var notifications = await query
+            .OrderByDescending(n => n.CreatedAt)
+            .Select(n => new NotificationDto
             {
-                Id = notification.Id,
-                Title = notification.Title,
-                Body = notification.Body,
-                Link = notification.Link,
-                Type = notification.Type,
-                RelatedEntityId = notification.RelatedEntityId,
-                IsRead = notification.IsRead,
-                CreatedAt = notification.CreatedAt
+                Id = n.Id,
+                Title = n.Title,
+                Body = n.Body,
+                Link = n.Link,
+                Type = n.Type,
+                RelatedEntityId = n.RelatedEntityId,
+                IsRead = n.IsRead,
+                CreatedAt = n.CreatedAt
             })
-            .ToListAsync());
+            .ToListAsync();
+
+        var distinctNotifications = notifications
+            .GroupBy(n => new { n.Title, n.Body, n.CreatedAt })
+            .Select(g => g.First())
+            .ToList();
+
+        return Ok(distinctNotifications);
     }
 
     [HttpPost]
@@ -77,6 +100,7 @@ public class AdminNotificationsController : ControllerBase
                 .ToListAsync();
         }
 
+        var now = DateTime.UtcNow;
         foreach (var recipient in recipients)
         {
             await _unitOfWork.Notifications.AddAsync(new Notification
@@ -87,7 +111,7 @@ public class AdminNotificationsController : ControllerBase
                 Link = dto.Link,
                 Type = string.IsNullOrWhiteSpace(dto.Type) ? "admin_message" : dto.Type,
                 RelatedEntityId = dto.RelatedEntityId,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = now
             });
         }
 
@@ -104,7 +128,24 @@ public class AdminNotificationsController : ControllerBase
             return NotFound();
         }
 
-        _unitOfWork.Notifications.Remove(notification);
+        var relatedNotifications = await _unitOfWork.Notifications.Query()
+            .Where(n => n.Title == notification.Title 
+                     && n.Body == notification.Body 
+                     && n.CreatedAt == notification.CreatedAt)
+            .ToListAsync();
+
+        if (relatedNotifications.Any())
+        {
+            foreach(var n in relatedNotifications)
+            {
+                _unitOfWork.Notifications.Remove(n);
+            }
+        }
+        else
+        {
+            _unitOfWork.Notifications.Remove(notification);
+        }
+
         await _unitOfWork.SaveChangesAsync();
         return NoContent();
     }
