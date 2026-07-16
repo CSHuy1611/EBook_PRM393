@@ -5,7 +5,6 @@ import 'package:math_ibook/core/models/dashboard_model.dart';
 import 'package:math_ibook/core/network/api_client.dart';
 import 'package:math_ibook/features/auth/domain/auth_provider.dart';
 import 'package:math_ibook/core/progress/progress_notifier.dart';
-import 'package:math_ibook/core/models/lesson_model.dart';
 
 class StudentHomeScreen extends StatefulWidget {
   const StudentHomeScreen({super.key});
@@ -172,17 +171,39 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
 
   Widget _buildStatsGrid(BuildContext context) {
     final dash = _dash!;
-    final completedLessons = dash.chapterProgress.fold<int>(0, (sum, cp) => sum + cp.completedLessons);
+    final totalChapters = dash.chapterProgress.length;
 
     return Row(
       children: [
-        Expanded(child: _statCard(context, Icons.menu_book_rounded, 'Bài học', '$completedLessons', const Color(0xFF3B82F6))),
+        Expanded(
+          child: _statCard(
+            context,
+            Icons.menu_book_rounded,
+            'Chương học',
+            '$totalChapters',
+            const Color(0xFF3B82F6),
+          ),
+        ),
         const SizedBox(width: 10),
-        Expanded(child: _statCard(context, Icons.score_rounded, 'Điểm TB', dash.averageScore.toStringAsFixed(1), const Color(0xFF10B981))),
+        Expanded(
+          child: _statCard(
+            context,
+            Icons.score_rounded,
+            'Điểm TB',
+            dash.averageScore.toStringAsFixed(1),
+            const Color(0xFF10B981),
+          ),
+        ),
         const SizedBox(width: 10),
-        Expanded(child: _statCard(context, Icons.emoji_events_rounded, 'Huy hiệu', '${dash.badges.length}', const Color(0xFFF59E0B))),
-        const SizedBox(width: 10),
-        Expanded(child: _statCard(context, Icons.trending_up_rounded, 'Tiến độ', '${dash.overallCompletionPercentage.toStringAsFixed(0)}%', const Color(0xFF8B5CF6))),
+        Expanded(
+          child: _statCard(
+            context,
+            Icons.emoji_events_rounded,
+            'Huy hiệu',
+            '${dash.badges.length}',
+            const Color(0xFFF59E0B),
+          ),
+        ),
       ],
     );
   }
@@ -224,12 +245,16 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
     final chapters = _dash!.chapterProgress;
     if (chapters.isEmpty) return const SizedBox.shrink();
 
-    final hasStarted = chapters.any((c) => c.completedLessons > 0);
+    final hasStarted = chapters.any((c) => c.completedLessons > 0) ||
+        (_dash!.continueLearning != null && _dash!.continueLearning!.status.toLowerCase() == 'inprogress');
     if (!hasStarted) return const SizedBox.shrink();
 
     final current = chapters.firstWhere(
-      (c) => c.completionPercentage < 100,
-      orElse: () => chapters.last,
+      (c) => _dash!.continueLearning != null && c.chapterId == _dash!.continueLearning!.chapterId,
+      orElse: () => chapters.firstWhere(
+        (c) => c.completionPercentage < 100,
+        orElse: () => chapters.last,
+      ),
     );
 
     return Container(
@@ -310,31 +335,12 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () async {
-                try {
-                  final response = await ApiClient.instance.get('/chapters/${current.chapterId}/lessons');
-                  final List<dynamic> data = response.data as List<dynamic>;
-                  final lessons = data.map((e) => LessonModel.fromJson(e as Map<String, dynamic>)).toList();
-                  if (lessons.isNotEmpty) {
-                    var targetLesson = lessons.firstWhere(
-                      (l) => l.status == 'InProgress',
-                      orElse: () => lessons.firstWhere(
-                        (l) => l.status == 'NotStarted',
-                        orElse: () => lessons.first,
-                      ),
-                    );
-                    if (context.mounted) {
-                      context.push('/student/lessons/${targetLesson.id}');
-                    }
-                  } else {
-                    if (context.mounted) {
-                      context.push('/student/chapters/${current.chapterId}');
-                    }
-                  }
-                } catch (_) {
-                  if (context.mounted) {
-                    context.push('/student/chapters/${current.chapterId}');
-                  }
+              onPressed: () {
+                final lessonId = _dash?.continueLearning?.lessonId;
+                if (lessonId != null && lessonId.isNotEmpty) {
+                  context.push('/student/lessons/$lessonId');
+                } else {
+                  context.push('/student/chapters/${current.chapterId}');
                 }
               },
               icon: const Icon(Icons.arrow_forward_rounded, size: 18),
@@ -367,7 +373,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
         ),
         Row(
           children: [
-            Expanded(child: _actionCard(context, Icons.menu_book_rounded, 'Bài học', const Color(0xFF3B82F6), () => context.go('/student/chapters'))),
+            Expanded(child: _actionCard(context, Icons.menu_book_rounded, 'Chương học', const Color(0xFF3B82F6), () => context.go('/student/chapters'))),
             const SizedBox(width: 12),
             Expanded(child: _actionCard(context, Icons.quiz_rounded, 'Kiểm tra', const Color(0xFF10B981), () => context.go('/student/chapters'))),
           ],

@@ -56,8 +56,10 @@ public class DashboardService : IDashboardService
         var overallCompletion = lessons.Count > 0
             ? Math.Round((double)completedLessons / lessons.Count * 100, 2)
             : 0;
-        var averageScore = attempts.Count > 0
-            ? Math.Round(attempts.Average(attempt => (double)attempt.Score10), 2)
+        var chapterQuizIds = chapterQuizzes.Select(q => q.Id).ToHashSet();
+        var chapterAttempts = attempts.Where(a => a.QuizId.HasValue && chapterQuizIds.Contains(a.QuizId.Value)).ToList();
+        var averageScore = chapterAttempts.Count > 0
+            ? Math.Round(chapterAttempts.Average(attempt => (double)attempt.Score10), 2)
             : 0;
 
         var chapterProgressDtos = chapters.Select(chapter =>

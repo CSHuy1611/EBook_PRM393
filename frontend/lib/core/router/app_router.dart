@@ -74,7 +74,6 @@ GoRouter createAppRouter(AuthProvider authProvider) {
         parentNavigatorKey: _rootNavigator,
       ),
       GoRoute(path: '/student/coins', builder: (_, __) => const CoinsScreen(), parentNavigatorKey: _rootNavigator),
-      GoRoute(path: '/student/leaderboard', builder: (_, __) => const LeaderboardScreen(), parentNavigatorKey: _rootNavigator),
       GoRoute(path: '/student/offline-sync', builder: (_, __) => const OfflineSyncScreen(), parentNavigatorKey: _rootNavigator),
       GoRoute(path: '/student/chapter-quiz/:chapterId', builder: (_, state) => ChapterQuizScreen(chapterId: state.pathParameters['chapterId']!), parentNavigatorKey: _rootNavigator),
       StatefulShellRoute.indexedStack(
@@ -92,6 +91,7 @@ GoRouter createAppRouter(AuthProvider authProvider) {
             GoRoute(path: '/student/quiz/result/:attemptId', builder: (_, state) => QuizResultScreen(attemptId: state.pathParameters['attemptId']!)),
           ]),
           StatefulShellBranch(routes: [
+            GoRoute(path: '/student/leaderboard', builder: (_, __) => const LeaderboardScreen()),
             GoRoute(path: '/student/dashboard', builder: (_, __) => const DashboardScreen()),
             GoRoute(path: '/student/badges', builder: (_, __) => const BadgesScreen()),
           ]),
