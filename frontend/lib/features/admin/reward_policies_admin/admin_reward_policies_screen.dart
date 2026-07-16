@@ -1,0 +1,347 @@
+import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
+import 'package:math_ibook/core/models/reward_policy_model.dart';
+import 'package:math_ibook/core/network/api_client.dart';
+import 'package:math_ibook/core/widgets/loading_widget.dart';
+import 'package:math_ibook/core/widgets/error_widget.dart';
+
+class AdminRewardPoliciesScreen extends StatefulWidget {
+  const AdminRewardPoliciesScreen({super.key});
+
+  @override
+  State<AdminRewardPoliciesScreen> createState() => _AdminRewardPoliciesScreenState();
+}
+
+class _AdminRewardPoliciesScreenState extends State<AdminRewardPoliciesScreen> {
+  List<RewardPolicyDto> _policies = [];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPolicies();
+  }
+
+  Future<void> _fetchPolicies() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final response = await ApiClient.instance.get('/admin/reward-policies');
+      final data = response.data;
+      final list = _extractList(data);
+      _policies = list.map((e) => RewardPolicyDto.fromJson(e as Map<String, dynamic>)).toList();
+    } catch (e) {
+      _error = e is DioException ? ApiClient.mapDioErrorToMessage(e) : e.toString();
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  List<dynamic> _extractList(dynamic data) {
+    if (data is List) return data;
+    if (data is Map<String, dynamic> && data.containsKey('data') && data['data'] is List) {
+      return data['data'] as List<dynamic>;
+    }
+    return [];
+  }
+
+  Future<void> _showPolicyDialog({RewardPolicyDto? policy}) async {
+    final isEdit = policy != null;
+    final formKey = GlobalKey<FormState>();
+    final nameCtrl = TextEditingController(text: policy?.name ?? '');
+    int quizType = policy?.quizType ?? 0;
+    final coinsPerCorrectCtrl = TextEditingController(text: (policy?.coinsPerCorrectAnswer ?? 10).toString());
+    final firstPassBonusCtrl = TextEditingController(text: (policy?.firstPassBonusCoins ?? 50).toString());
+    final perfectScoreBonusCtrl = TextEditingController(text: (policy?.perfectScoreBonusCoins ?? 20).toString());
+    final chapterCompletionBonusCtrl = TextEditingController(text: (policy?.chapterCompletionBonusCoins ?? 100).toString());
+    final retryRewardPercentCtrl = TextEditingController(text: (policy?.retryRewardPercent ?? 50).toString());
+    final dailyCoinLimitCtrl = TextEditingController(text: policy?.dailyCoinLimit?.toString() ?? '');
+    bool isActive = policy?.isActive ?? true;
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Text(isEdit ? 'Sửa chính sách xu' : 'Thêm chính sách xu'),
+          content: Form(
+            key: formKey,
+            child: SizedBox(
+              width: 500,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(labelText: 'Tên chính sách *', border: OutlineInputBorder()),
+                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Vui lòng nhập tên' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<int>(
+                      value: quizType,
+                      decoration: const InputDecoration(labelText: 'Áp dụng cho *', border: OutlineInputBorder()),
+                      items: const [
+                        DropdownMenuItem(value: 0, child: Text('Bài học (Lesson)')),
+                        DropdownMenuItem(value: 1, child: Text('Chương (Chapter)')),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) setDialogState(() => quizType = v);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: coinsPerCorrectCtrl,
+                            decoration: const InputDecoration(labelText: 'Xu/câu đúng *', border: OutlineInputBorder()),
+                            keyboardType: TextInputType.number,
+                            validator: (v) => (v == null || int.tryParse(v) == null) ? 'Hợp lệ?' : null,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextFormField(
+                            controller: perfectScoreBonusCtrl,
+                            decoration: const InputDecoration(labelText: 'Thưởng 10đ *', border: OutlineInputBorder()),
+                            keyboardType: TextInputType.number,
+                            validator: (v) => (v == null || int.tryParse(v) == null) ? 'Hợp lệ?' : null,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: firstPassBonusCtrl,
+                            decoration: const InputDecoration(labelText: 'Thưởng Pass lần đầu *', border: OutlineInputBorder()),
+                            keyboardType: TextInputType.number,
+                            validator: (v) => (v == null || int.tryParse(v) == null) ? 'Hợp lệ?' : null,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextFormField(
+                            controller: chapterCompletionBonusCtrl,
+                            decoration: const InputDecoration(labelText: 'Thưởng full chương *', border: OutlineInputBorder()),
+                            keyboardType: TextInputType.number,
+                            validator: (v) => (v == null || int.tryParse(v) == null) ? 'Hợp lệ?' : null,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: retryRewardPercentCtrl,
+                            decoration: const InputDecoration(labelText: '% Thưởng làm lại *', border: OutlineInputBorder()),
+                            keyboardType: TextInputType.number,
+                            validator: (v) => (v == null || int.tryParse(v) == null) ? 'Hợp lệ?' : null,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextFormField(
+                            controller: dailyCoinLimitCtrl,
+                            decoration: const InputDecoration(labelText: 'Giới hạn xu/ngày (tùy chọn)', border: OutlineInputBorder()),
+                            keyboardType: TextInputType.number,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    SwitchListTile(
+                      title: const Text('Đang hoạt động (Kích hoạt)'),
+                      value: isActive,
+                      onChanged: (v) => setDialogState(() => isActive = v),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+            FilledButton(
+              onPressed: () async {
+                if (!formKey.currentState!.validate()) return;
+                try {
+                  final body = {
+                    'name': nameCtrl.text.trim(),
+                    'quizType': quizType,
+                    'coinsPerCorrectAnswer': int.parse(coinsPerCorrectCtrl.text),
+                    'firstPassBonusCoins': int.parse(firstPassBonusCtrl.text),
+                    'perfectScoreBonusCoins': int.parse(perfectScoreBonusCtrl.text),
+                    'chapterCompletionBonusCoins': int.parse(chapterCompletionBonusCtrl.text),
+                    'retryRewardPercent': int.parse(retryRewardPercentCtrl.text),
+                    'dailyCoinLimit': dailyCoinLimitCtrl.text.trim().isEmpty ? null : int.parse(dailyCoinLimitCtrl.text),
+                    'isActive': isActive,
+                  };
+                  if (isEdit) {
+                    await ApiClient.instance.put('/admin/reward-policies/${policy!.id}', data: body);
+                  } else {
+                    await ApiClient.instance.post('/admin/reward-policies', data: body);
+                  }
+                  if (ctx.mounted) Navigator.pop(ctx, true);
+                } catch (e) {
+                  if (ctx.mounted) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      SnackBar(content: Text('Lỗi: ${e is DioException ? ApiClient.mapDioErrorToMessage(e) : e.toString()}')),
+                    );
+                  }
+                }
+              },
+              child: Text(isEdit ? 'Cập nhật' : 'Tạo'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (result == true) _fetchPolicies();
+  }
+
+  Future<void> _deactivatePolicy(RewardPolicyDto policy) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Xác nhận vô hiệu hóa'),
+        content: Text('Bạn có chắc muốn vô hiệu hóa chính sách "${policy.name}"?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
+            child: const Text('Vô hiệu hóa'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ApiClient.instance.delete('/admin/reward-policies/${policy.id}');
+      _fetchPolicies();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đã vô hiệu hóa chính sách')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi: ${e is DioException ? ApiClient.mapDioErrorToMessage(e) : e.toString()}')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) return const AppLoadingWidget(message: 'Đang tải chính sách...');
+    if (_error != null) return AppErrorWidget(message: _error!, onRetry: _fetchPolicies);
+
+    return Scaffold(
+      body: RefreshIndicator(
+        onRefresh: _fetchPolicies,
+        child: _policies.isEmpty
+            ? ListView(
+                children: const [
+                  SizedBox(height: 120),
+                  Center(child: Text('Chưa có chính sách nào', style: TextStyle(fontSize: 16))),
+                ],
+              )
+            : ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: _policies.length,
+                itemBuilder: (context, index) {
+                  final policy = _policies[index];
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: ExpansionTile(
+                      title: Row(
+                        children: [
+                          Icon(
+                            policy.isActive ? Icons.check_circle : Icons.cancel,
+                            color: policy.isActive ? Colors.green : Colors.red,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(policy.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          const SizedBox(width: 8),
+                          Chip(
+                            label: Text(policy.quizType == 0 ? 'Bài học' : 'Chương', style: const TextStyle(fontSize: 12)),
+                            padding: EdgeInsets.zero,
+                          ),
+                        ],
+                      ),
+                      subtitle: Text('Từ: ${policy.effectiveFrom.toString().split('.')[0]} ${policy.effectiveTo != null ? " Đến: ${policy.effectiveTo.toString().split('.')[0]}" : ""}'),
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('Xu/câu đúng: ${policy.coinsPerCorrectAnswer}'),
+                                  Text('Thưởng 10đ: ${policy.perfectScoreBonusCoins}'),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('Thưởng pass lần đầu: ${policy.firstPassBonusCoins}'),
+                                  Text('Thưởng hoàn thành chương: ${policy.chapterCompletionBonusCoins}'),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('Tỷ lệ làm lại: ${policy.retryRewardPercent}%'),
+                                  Text('Giới hạn xu/ngày: ${policy.dailyCoinLimit ?? "Không"}'),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  OutlinedButton.icon(
+                                    icon: const Icon(Icons.edit),
+                                    label: const Text('Sửa'),
+                                    onPressed: () => _showPolicyDialog(policy: policy),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  if (policy.isActive)
+                                    FilledButton.icon(
+                                      icon: const Icon(Icons.block),
+                                      label: const Text('Vô hiệu hóa'),
+                                      style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                                      onPressed: () => _deactivatePolicy(policy),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showPolicyDialog(),
+        tooltip: 'Thêm chính sách',
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+}

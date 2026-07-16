@@ -101,6 +101,14 @@ class AdminShell extends StatelessWidget {
                 icon: Icon(Icons.assessment),
                 label: Text('Reports'),
               ),
+              NavigationRailDestination(
+                icon: Icon(Icons.policy),
+                label: Text('Policies'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.notifications),
+                label: Text('Notifications'),
+              ),
             ],
           ),
           const VerticalDivider(width: 1),
@@ -161,6 +169,8 @@ class AdminShell extends StatelessWidget {
             _drawerItem(Icons.emoji_events, 'Badges', 4),
             _drawerItem(Icons.people, 'Users', 5),
             _drawerItem(Icons.assessment, 'Reports', 6),
+            _drawerItem(Icons.policy, 'Policies', 7),
+            _drawerItem(Icons.notifications, 'Notifications', 8),
           ],
         ),
       ),

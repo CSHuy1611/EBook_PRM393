@@ -1,36 +1,34 @@
-class NotificationModel {
+class NotificationDto {
   final String id;
   final String title;
   final String body;
   final String? link;
+  final String type;
+  final String? relatedEntityId;
   final bool isRead;
-  final String createdAt;
+  final DateTime createdAt;
 
-  NotificationModel({
-    this.id = '',
-    this.title = '',
-    this.body = '',
+  NotificationDto({
+    required this.id,
+    required this.title,
+    required this.body,
     this.link,
-    this.isRead = false,
-    this.createdAt = '',
+    required this.type,
+    this.relatedEntityId,
+    required this.isRead,
+    required this.createdAt,
   });
 
-  factory NotificationModel.fromJson(Map<String, dynamic> json) =>
-      NotificationModel(
-        id: json['id'] ?? '',
-        title: json['title'] ?? '',
-        body: json['body'] ?? '',
-        link: json['link'],
-        isRead: json['isRead'] ?? false,
-        createdAt: json['createdAt'] ?? '',
-      );
-}
-
-class UnreadCountModel {
-  final int count;
-
-  UnreadCountModel({this.count = 0});
-
-  factory UnreadCountModel.fromJson(Map<String, dynamic> json) =>
-      UnreadCountModel(count: json['count'] ?? 0);
+  factory NotificationDto.fromJson(Map<String, dynamic> json) {
+    return NotificationDto(
+      id: json['id'] as String,
+      title: json['title'] as String,
+      body: json['body'] as String,
+      link: json['link'] as String?,
+      type: json['type'] as String,
+      relatedEntityId: json['relatedEntityId'] as String?,
+      isRead: json['isRead'] as bool,
+      createdAt: DateTime.parse(json['createdAt'] as String).toLocal(),
+    );
+  }
 }

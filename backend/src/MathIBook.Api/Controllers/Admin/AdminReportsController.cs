@@ -20,7 +20,10 @@ public class AdminReportsController : ControllerBase
     }
 
     [HttpGet("overview")]
-    public async Task<ActionResult<ReportOverviewDto>> GetOverview([FromQuery] Guid? userId)
+    public async Task<ActionResult<ReportOverviewDto>> GetOverview(
+        [FromQuery] Guid? userId,
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to)
     {
         var studentQuery = _unitOfWork.Users.Query()
             .Where(user => user.Role == "Student");
@@ -30,25 +33,60 @@ public class AdminReportsController : ControllerBase
         }
 
         var studentIds = await studentQuery.Select(user => user.Id).ToListAsync();
-        var attempts = await _unitOfWork.QuizAttempts.Query()
+        
+        var attemptsQuery = _unitOfWork.QuizAttempts.Query()
             .Where(attempt => studentIds.Contains(attempt.UserId))
             .Include(attempt => attempt.Quiz)
             .ThenInclude(quiz => quiz!.Lesson)
-            .ToListAsync();
-        var transactions = await _unitOfWork.CoinTransactions.Query()
+            .AsQueryable();
+
+        var transactionsQuery = _unitOfWork.CoinTransactions.Query()
             .Where(transaction => studentIds.Contains(transaction.UserId))
-            .ToListAsync();
-        var badgeCount = await _unitOfWork.UserBadges.Query()
-            .CountAsync(item => studentIds.Contains(item.UserId));
+            .AsQueryable();
+
+        var userBadgesQuery = _unitOfWork.UserBadges.Query()
+            .Where(item => studentIds.Contains(item.UserId))
+            .AsQueryable();
+
+        var progressQuery = _unitOfWork.Progresses.Query()
+            .Where(item =>
+                studentIds.Contains(item.UserId)
+                && item.Status == LearningStatus.Passed)
+            .AsQueryable();
+
+        var newUsersQuery = _unitOfWork.Users.Query()
+            .Where(user => user.Role == "Student")
+            .AsQueryable();
+
+        if (from.HasValue)
+        {
+            var fromDate = from.Value.ToUniversalTime();
+            attemptsQuery = attemptsQuery.Where(item => item.CreatedAt >= fromDate);
+            transactionsQuery = transactionsQuery.Where(item => item.CreatedAt >= fromDate);
+            userBadgesQuery = userBadgesQuery.Where(item => item.EarnedAt >= fromDate);
+            progressQuery = progressQuery.Where(item => item.UpdatedAt >= fromDate);
+            newUsersQuery = newUsersQuery.Where(item => item.CreatedAt >= fromDate);
+        }
+
+        if (to.HasValue)
+        {
+            var toDate = to.Value.ToUniversalTime();
+            attemptsQuery = attemptsQuery.Where(item => item.CreatedAt <= toDate);
+            transactionsQuery = transactionsQuery.Where(item => item.CreatedAt <= toDate);
+            userBadgesQuery = userBadgesQuery.Where(item => item.EarnedAt <= toDate);
+            progressQuery = progressQuery.Where(item => item.UpdatedAt <= toDate);
+            newUsersQuery = newUsersQuery.Where(item => item.CreatedAt <= toDate);
+        }
+
+        var attempts = await attemptsQuery.ToListAsync();
+        var transactions = await transactionsQuery.ToListAsync();
+        var badgeCount = await userBadgesQuery.CountAsync();
+        var progress = await progressQuery.ToListAsync();
+
         var chapters = await _unitOfWork.Chapters.Query()
             .Where(chapter => !chapter.IsDeleted)
             .Include(chapter => chapter.Lessons.Where(lesson => !lesson.IsDeleted))
             .OrderBy(chapter => chapter.OrderIndex)
-            .ToListAsync();
-        var progress = await _unitOfWork.Progresses.Query()
-            .Where(item =>
-                studentIds.Contains(item.UserId)
-                && item.Status == LearningStatus.Passed)
             .ToListAsync();
 
         var chapterReports = chapters.Select(chapter =>
@@ -76,8 +114,7 @@ public class AdminReportsController : ControllerBase
             };
         }).ToList();
 
-        var newUsers = await _unitOfWork.Users.Query()
-            .Where(user => user.Role == "Student")
+        var newUsers = await newUsersQuery
             .GroupBy(user => user.CreatedAt.Date)
             .Select(group => new { Date = group.Key, Count = group.Count() })
             .ToListAsync();
