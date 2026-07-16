@@ -22,9 +22,11 @@ public class AdminUsersController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<AdminUserDto>>> GetAll(
+    public async Task<IActionResult> GetAll(
         [FromQuery] string? search,
-        [FromQuery] bool? isActive)
+        [FromQuery] bool? isActive,
+        [FromQuery] int page = 1,
+        [FromQuery] int limit = 20)
     {
         var query = _unitOfWork.Users.Query().Where(user => user.Role == "Student");
         if (!string.IsNullOrWhiteSpace(search))
@@ -40,16 +42,24 @@ public class AdminUsersController : ControllerBase
             query = query.Where(user => user.IsActive == isActive.Value);
         }
 
+        var total = await query.CountAsync();
+
         var users = await query
             .Include(user => user.QuizAttempts)
             .Include(user => user.UserBadges)
             .Include(user => user.Progresses)
             .Include(user => user.ChapterProgresses)
             .OrderBy(user => user.Name)
+            .Skip((page - 1) * limit)
+            .Take(limit)
             .ToListAsync();
         var ranks = await BuildRanksAsync();
 
-        return Ok(users.Select(user => Map(user, ranks)).ToList());
+        return Ok(new
+        {
+            total,
+            items = users.Select(user => Map(user, ranks)).ToList()
+        });
     }
 
     [HttpGet("{id}")]

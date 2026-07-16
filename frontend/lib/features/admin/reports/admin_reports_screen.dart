@@ -18,11 +18,23 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
   ReportOverviewDto? _report;
   bool _isLoading = true;
   String? _error;
-  String _dateFilter = '7';
+  String _dateFilter = '30';
+  
+  List<dynamic> _chapters = [];
+  String? _selectedChapterId;
+  String? _selectedLessonId;
 
   @override
   void initState() {
     super.initState();
+    _fetchInitialData();
+  }
+  
+  Future<void> _fetchInitialData() async {
+    try {
+      final res = await ApiClient.instance.get('/chapters');
+      _chapters = res.data as List<dynamic>;
+    } catch (_) {}
     _fetchData();
   }
 
@@ -32,9 +44,25 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
       _error = null;
     });
     try {
-      final response = await ApiClient.instance.get('/admin/reports/overview', queryParameters: {
-        'days': _dateFilter,
-      });
+      final now = DateTime.now();
+      final from = now.subtract(Duration(days: int.parse(_dateFilter)));
+      
+      final Map<String, dynamic> queryParams = {
+        'from': from.toUtc().toIso8601String(),
+        'to': now.toUtc().toIso8601String(),
+      };
+      
+      if (_selectedChapterId != null) {
+        queryParams['chapterId'] = _selectedChapterId;
+      }
+      if (_selectedLessonId != null) {
+        queryParams['lessonId'] = _selectedLessonId;
+      }
+      
+      final response = await ApiClient.instance.get(
+        '/admin/reports/overview',
+        queryParameters: queryParams,
+      );
       final data = response.data;
       Map<String, dynamic> map;
       if (data is Map<String, dynamic>) {
@@ -83,6 +111,14 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                 const SizedBox(height: 8),
                 _buildUserGrowthChart(report.dailyActivities),
                 const SizedBox(height: 24),
+                _buildSectionTitle('Top học sinh (Theo xu & Huy hiệu)'),
+                const SizedBox(height: 8),
+                _buildTopStudents(report.topStudents),
+                const SizedBox(height: 24),
+                _buildSectionTitle('Câu hỏi sai nhiều nhất'),
+                const SizedBox(height: 8),
+                _buildMostFailedQuestions(report.mostFailedQuestions),
+                const SizedBox(height: 24),
                 _buildSectionTitle('Bài học có điểm thấp'),
                 const SizedBox(height: 8),
                 _buildLowScoreLessons(report.chapterReports),
@@ -95,22 +131,68 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
   }
 
   Widget _buildDateFilter() {
-    return Row(
+    final selectedChapter = _chapters.cast<Map<String,dynamic>>().where((c) => c['id'] == _selectedChapterId).firstOrNull;
+    final lessons = selectedChapter != null ? (selectedChapter['lessons'] as List<dynamic>?)?.cast<Map<String,dynamic>>() ?? [] : [];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Khoảng thời gian: ', style: TextStyle(fontWeight: FontWeight.w500)),
-        const SizedBox(width: 8),
-        SegmentedButton<String>(
-          segments: const [
-            ButtonSegment(value: '7', label: Text('7 ngày')),
-            ButtonSegment(value: '14', label: Text('14 ngày')),
-            ButtonSegment(value: '30', label: Text('30 ngày')),
-            ButtonSegment(value: '90', label: Text('90 ngày')),
+        DropdownButtonFormField<String>(
+          decoration: const InputDecoration(labelText: 'Khoảng thời gian', border: OutlineInputBorder()),
+          value: _dateFilter,
+          items: const [
+            DropdownMenuItem(value: '7', child: Text('7 ngày qua')),
+            DropdownMenuItem(value: '14', child: Text('14 ngày qua')),
+            DropdownMenuItem(value: '30', child: Text('30 ngày qua')),
+            DropdownMenuItem(value: '90', child: Text('90 ngày qua')),
           ],
-          selected: {_dateFilter},
-          onSelectionChanged: (v) {
-            setState(() => _dateFilter = v.first);
-            _fetchData();
+          onChanged: (v) {
+            if (v != null) {
+              setState(() => _dateFilter = v);
+              _fetchData();
+            }
           },
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Chương', border: OutlineInputBorder()),
+                value: _selectedChapterId,
+                items: [
+                  const DropdownMenuItem(value: null, child: Text('Tất cả các chương')),
+                  ..._chapters.map((c) => DropdownMenuItem<String>(value: c['id'], child: Text(c['title'] ?? '', overflow: TextOverflow.ellipsis))),
+                ],
+                onChanged: (v) {
+                  setState(() {
+                    _selectedChapterId = v;
+                    _selectedLessonId = null;
+                  });
+                  _fetchData();
+                },
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Bài học', border: OutlineInputBorder()),
+                value: _selectedLessonId,
+                items: [
+                  const DropdownMenuItem(value: null, child: Text('Tất cả bài học')),
+                  ...lessons.map((l) => DropdownMenuItem<String>(value: l['id'], child: Text(l['title'] ?? '', overflow: TextOverflow.ellipsis))),
+                ],
+                onChanged: _selectedChapterId == null
+                    ? null
+                    : (v) {
+                        setState(() => _selectedLessonId = v);
+                        _fetchData();
+                      },
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -125,7 +207,6 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
       _SummaryCard(icon: Icons.people, label: 'Tổng người dùng', value: '${report.totalUsers}', color: Colors.blue),
       _SummaryCard(icon: Icons.quiz, label: 'Bài quiz đã làm', value: '${report.totalQuizAttempts}', color: Colors.green),
       _SummaryCard(icon: Icons.score, label: 'Điểm TB', value: '${report.overallAverageScore.toStringAsFixed(1)}%', color: Colors.orange),
-      _SummaryCard(icon: Icons.monetization_on, label: 'Coin đã thưởng', value: '${report.totalCoinsAwarded}', color: Colors.purple),
       _SummaryCard(icon: Icons.emoji_events, label: 'Huy hiệu đã thưởng', value: '${report.totalBadgesAwarded}', color: Colors.amber),
     ];
     if (isWide) {
@@ -381,8 +462,8 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                 margin: const EdgeInsets.only(bottom: 8),
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: Colors.red.withAlpha(25),
-                    child: const Icon(Icons.warning, color: Colors.red),
+                    backgroundColor: c.averageScore < 50 ? Colors.red.withAlpha(25) : Colors.green.withAlpha(25),
+                    child: Icon(c.averageScore < 50 ? Icons.warning : Icons.check_circle, color: c.averageScore < 50 ? Colors.red : Colors.green),
                   ),
                   title: Text(c.chapterTitle),
                   subtitle: Column(
@@ -397,7 +478,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: c.averageScore < 50 ? Colors.red : Colors.orange,
+                      color: c.averageScore < 50 ? Colors.red : Colors.green,
                     ),
                   ),
                 ),
@@ -410,6 +491,103 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
     final days = int.tryParse(_dateFilter) ?? 7;
     if (activities.length <= days) return activities;
     return activities.sublist(activities.length - days);
+  }
+
+  Widget _buildTopStudents(List<TopStudentDto> students) {
+    if (students.isEmpty) {
+      return Card(child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Text('Chưa có dữ liệu học sinh', style: Theme.of(context).textTheme.bodyMedium),
+      ));
+    }
+    return Column(
+      children: students.take(5).toList().asMap().entries.map((e) {
+        final idx = e.key + 1;
+        final s = e.value;
+        return Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor: idx <= 3 ? Colors.orange.withAlpha(50) : Colors.blue.withAlpha(25),
+              child: Text('#$idx', style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: idx <= 3 ? Colors.deepOrange : Colors.blue,
+              )),
+            ),
+            title: Text(s.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+            trailing: Wrap(
+              spacing: 8,
+              children: [
+                Chip(
+                  label: Text('${s.coins}', style: const TextStyle(color: Colors.amber, fontSize: 12)),
+                  avatar: const Icon(Icons.monetization_on, color: Colors.amber, size: 16),
+                  backgroundColor: Colors.amber.withAlpha(20),
+                  side: BorderSide.none,
+                ),
+                Chip(
+                  label: Text('${s.badgeCount}', style: const TextStyle(color: Colors.purple, fontSize: 12)),
+                  avatar: const Icon(Icons.emoji_events, color: Colors.purple, size: 16),
+                  backgroundColor: Colors.purple.withAlpha(20),
+                  side: BorderSide.none,
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildMostFailedQuestions(List<FailedQuestionDto> questions) {
+    if (questions.isEmpty) {
+      return Card(child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Text('Chưa có dữ liệu câu hỏi sai', style: Theme.of(context).textTheme.bodyMedium),
+      ));
+    }
+    return Column(
+      children: questions.map((q) {
+        return Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: ExpansionTile(
+            leading: const Icon(Icons.error_outline, color: Colors.red),
+            title: Text(q.content, maxLines: 1, overflow: TextOverflow.ellipsis),
+            subtitle: Text('Sai: ${q.failedAttempts}/${q.totalAttempts} lần (${q.failureRate}%)'),
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Chi tiết câu hỏi:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                    const SizedBox(height: 8),
+                    Text(q.content),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildStat('Trả lời', '${q.totalAttempts}', Colors.blue),
+                        _buildStat('Sai', '${q.failedAttempts}', Colors.red),
+                        _buildStat('Tỷ lệ', '${q.failureRate}%', Colors.orange),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildStat(String label, String val, Color c) {
+    return Column(
+      children: [
+        Text(val, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: c)),
+        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+      ],
+    );
   }
 }
 

@@ -70,6 +70,25 @@ public class ReportOverviewDto
     public int TotalBadgesAwarded { get; set; }
     public List<ChapterReportDto> ChapterReports { get; set; } = new();
     public List<DailyActivityDto> DailyActivities { get; set; } = new();
+    public List<TopStudentDto> TopStudents { get; set; } = new();
+    public List<FailedQuestionDto> MostFailedQuestions { get; set; } = new();
+}
+
+public class TopStudentDto
+{
+    public Guid UserId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public int Coins { get; set; }
+    public int BadgeCount { get; set; }
+}
+
+public class FailedQuestionDto
+{
+    public Guid QuestionId { get; set; }
+    public string Content { get; set; } = string.Empty;
+    public int TotalAttempts { get; set; }
+    public int FailedAttempts { get; set; }
+    public double FailureRate { get; set; }
 }
 
 public class ChapterReportDto
