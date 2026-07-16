@@ -7,6 +7,7 @@ class LessonModel {
   final int orderIndex;
   final bool isPublished;
   final bool isCompleted;
+  final String status;
   final double bestScore;
   final List<QuestionModel> questions;
 
@@ -19,6 +20,7 @@ class LessonModel {
     this.orderIndex = 0,
     this.isPublished = true,
     this.isCompleted = false,
+    this.status = 'NotStarted',
     this.bestScore = 0.0,
     this.questions = const [],
   });
@@ -40,6 +42,7 @@ class LessonModel {
       orderIndex: json['orderIndex'] ?? json['order_index'] ?? 0,
       isPublished: json['isPublished'] ?? json['is_published'] ?? true,
       isCompleted: json['isCompleted'] ?? json['is_completed'] ?? false,
+      status: json['status'] ?? 'NotStarted',
       bestScore:
           (json['bestScore'] ?? json['best_score'] ?? 0.0).toDouble(),
       questions: questionsList,
@@ -55,6 +58,7 @@ class LessonModel {
         'orderIndex': orderIndex,
         'isPublished': isPublished,
         'isCompleted': isCompleted,
+        'status': status,
         'bestScore': bestScore,
         'questions': questions.map((q) => q.toJson()).toList(),
       };

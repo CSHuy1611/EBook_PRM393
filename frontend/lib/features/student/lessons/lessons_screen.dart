@@ -87,7 +87,7 @@ class _LessonsScreenState extends State<LessonsScreen> {
           }
           final lessonIndex = _chapterQuizData != null ? index - 1 : index;
           final lesson = _lessons![lessonIndex];
-          final isCompleted = lesson.isCompleted;
+          final status = lesson.status;
           return Container(
             margin: const EdgeInsets.only(bottom: 10),
             child: Material(
@@ -108,19 +108,23 @@ class _LessonsScreenState extends State<LessonsScreen> {
                         width: 42,
                         height: 42,
                         decoration: BoxDecoration(
-                          color: isCompleted
+                          color: status == 'Passed'
                               ? const Color(0xFF10B981).withAlpha(20)
-                              : const Color(0xFF3B82F6).withAlpha(20),
+                              : (status == 'InProgress'
+                                  ? const Color(0xFF3B82F6).withAlpha(20)
+                                  : const Color(0xFFF1F5F9)),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Center(
-                          child: isCompleted
+                          child: status == 'Passed'
                               ? const Icon(Icons.check_rounded, color: Color(0xFF10B981), size: 22)
                               : Text(
                                   '${lesson.orderIndex + 1}',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF3B82F6),
+                                    color: status == 'InProgress'
+                                        ? const Color(0xFF3B82F6)
+                                        : const Color(0xFF64748B),
                                     fontSize: 16,
                                   ),
                                 ),
@@ -135,10 +139,12 @@ class _LessonsScreenState extends State<LessonsScreen> {
                               lesson.title,
                               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: Color(0xFF1E293B)),
                             ),
-                            if (lesson.bestScore > 0) ...[
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                _buildStatusChip(status),
+                                if (lesson.bestScore > 0) ...[
+                                  const SizedBox(width: 8),
                                   Icon(Icons.score_rounded, size: 14, color: const Color(0xFFF59E0B)),
                                   const SizedBox(width: 4),
                                   Text(
@@ -146,8 +152,8 @@ class _LessonsScreenState extends State<LessonsScreen> {
                                     style: const TextStyle(fontSize: 12, color: Color(0xFFF59E0B), fontWeight: FontWeight.w600),
                                   ),
                                 ],
-                              ),
-                            ],
+                              ],
+                            ),
                           ],
                         ),
                       ),
@@ -319,5 +325,53 @@ class _LessonsScreenState extends State<LessonsScreen> {
 
   void _startChapterQuiz() {
     context.push('/student/chapter-quiz/${widget.chapterId}');
+  }
+
+  Widget _buildStatusChip(String status) {
+    Color bgColor;
+    Color textColor;
+    String label;
+    IconData icon;
+
+    switch (status) {
+      case 'Passed':
+        bgColor = const Color(0xFF10B981).withAlpha(20);
+        textColor = const Color(0xFF10B981);
+        label = 'Đã pass';
+        icon = Icons.check_circle_rounded;
+        break;
+      case 'InProgress':
+        bgColor = const Color(0xFF3B82F6).withAlpha(20);
+        textColor = const Color(0xFF3B82F6);
+        label = 'Đang học';
+        icon = Icons.pending_rounded;
+        break;
+      case 'NotStarted':
+      default:
+        bgColor = const Color(0xFF94A3B8).withAlpha(20);
+        textColor = const Color(0xFF64748B);
+        label = 'Chưa học';
+        icon = Icons.radio_button_unchecked_rounded;
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: textColor, size: 12),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textColor),
+          ),
+        ],
+      ),
+    );
   }
 }

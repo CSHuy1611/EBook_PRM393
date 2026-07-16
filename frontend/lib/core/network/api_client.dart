@@ -185,8 +185,13 @@ class ApiClient {
         return 'Connection timed out. Please check your internet connection.';
       case DioExceptionType.badResponse:
         final statusCode = e.response?.statusCode;
-        final message = e.response?.data is Map ? e.response?.data['message'] : null;
-        if (message is String && message.isNotEmpty) return message;
+        final data = e.response?.data;
+        if (data is Map) {
+          final message = data['message'] ?? data['detail'] ?? data['Detail'];
+          if (message is String && message.isNotEmpty) return message;
+          final title = data['title'] ?? data['Title'];
+          if (title is String && title.isNotEmpty) return title;
+        }
         switch (statusCode) {
           case 400:
             return 'Invalid request. Please check your input.';
