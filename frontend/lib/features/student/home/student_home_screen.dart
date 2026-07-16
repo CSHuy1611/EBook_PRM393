@@ -261,9 +261,13 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primaryContainer,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).colorScheme.primary.withAlpha(50)),
+        border: Border.all(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF334155)
+              : const Color(0xFFE2E8F0),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -297,7 +301,11 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
           const SizedBox(height: 16),
           Text(
             current.chapterTitle,
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onPrimaryContainer),
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
           ),
           const SizedBox(height: 12),
           Row(
@@ -308,7 +316,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
                   child: LinearProgressIndicator(
                     value: current.completionPercentage / 100,
                     minHeight: 8,
-                    backgroundColor: Colors.white,
+                    backgroundColor: Theme.of(context).colorScheme.primary.withAlpha(20),
                     valueColor: AlwaysStoppedAnimation<Color>(
                       current.completionPercentage >= 100 ? const Color(0xFF10B981) : Theme.of(context).colorScheme.primary,
                     ),
@@ -326,10 +334,10 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
             '${current.completedLessons}/${current.totalLessons} bài học',
-            style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onPrimaryContainer.withAlpha(180)),
+            style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
           ),
           const SizedBox(height: 16),
           SizedBox(
