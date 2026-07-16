@@ -9,6 +9,7 @@ class ChapterModel {
   final String? chapterQuizId;
   final String chapterQuizStatus;
   final bool isUnlocked;
+  final bool isPublished;
   final String? relatedBadgeId;
   final String? relatedBadgeTitle;
   final String? curriculumTopicId;
@@ -24,6 +25,7 @@ class ChapterModel {
     this.chapterQuizId,
     this.chapterQuizStatus = 'Unavailable',
     this.isUnlocked = true,
+    this.isPublished = false,
     this.relatedBadgeId,
     this.relatedBadgeTitle,
     this.curriculumTopicId,
@@ -47,6 +49,7 @@ class ChapterModel {
         chapterQuizId: json['chapterQuizId'] ?? json['chapter_quiz_id'],
         chapterQuizStatus: json['chapterQuizStatus'] ?? json['chapter_quiz_status'] ?? 'Unavailable',
         isUnlocked: json['isUnlocked'] ?? json['is_unlocked'] ?? true,
+        isPublished: json['isPublished'] ?? json['is_published'] ?? false,
         relatedBadgeId: json['relatedBadgeId'] ?? json['related_badge_id'],
         relatedBadgeTitle: json['relatedBadgeTitle'] ?? json['related_badge_title'],
         curriculumTopicId: json['curriculumTopicId'] ?? json['curriculum_topic_id'],

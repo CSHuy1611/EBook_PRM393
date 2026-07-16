@@ -149,9 +149,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ),
       _StatCard(
         icon: Icons.workspace_premium,
-        label: 'Huy hiệu',
+        label: 'Huy hiệu đã thưởng',
         value: '${report.totalBadgesAwarded}',
         color: Colors.red,
+      ),
+      _StatCard(
+        icon: Icons.check_circle_outline,
+        label: 'Tiến độ học tập',
+        value: '${report.chapterReports.isEmpty ? 0 : (report.chapterReports.map((c) => c.completionRate).reduce((a, b) => a + b) / report.chapterReports.length).toStringAsFixed(1)}%',
+        color: Colors.teal,
       ),
     ];
     if (isWide) {

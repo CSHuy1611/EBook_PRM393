@@ -181,6 +181,21 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
     }
   }
 
+  Future<void> _togglePublish(ChapterModel chapter) async {
+    try {
+      await ApiClient.instance.patch('/admin/chapters/${chapter.id}/publish', data: {
+        'isPublished': !chapter.isPublished,
+      });
+      _fetchChapters();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi: ${e is DioException ? ApiClient.mapDioErrorToMessage(e) : e.toString()}')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) return const AppLoadingWidget(message: 'Đang tải chương...');
@@ -212,6 +227,10 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          Switch(
+                            value: chapter.isPublished,
+                            onChanged: (_) => _togglePublish(chapter),
+                          ),
                           IconButton(
                             icon: const Icon(Icons.menu_book),
                             tooltip: 'Xem bài học',
