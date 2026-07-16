@@ -11,6 +11,7 @@ import 'package:math_ibook/features/student/chapters/lessons_screen.dart';
 import 'package:math_ibook/features/student/lessons/lesson_detail_screen.dart';
 import 'package:math_ibook/features/student/quiz/quiz_screen.dart';
 import 'package:math_ibook/features/student/quiz/quiz_result_screen.dart';
+import 'package:math_ibook/features/student/quiz/chapter_quiz_screen.dart';
 import 'package:math_ibook/features/student/dashboard/dashboard_screen.dart';
 import 'package:math_ibook/features/student/badges/badges_screen.dart';
 import 'package:math_ibook/features/student/profile/profile_screen.dart';
@@ -70,6 +71,7 @@ GoRouter createAppRouter(AuthProvider authProvider) {
       GoRoute(path: '/student/coins', builder: (_, __) => const CoinsScreen(), parentNavigatorKey: _rootNavigator),
       GoRoute(path: '/student/leaderboard', builder: (_, __) => const LeaderboardScreen(), parentNavigatorKey: _rootNavigator),
       GoRoute(path: '/student/offline-sync', builder: (_, __) => const OfflineSyncScreen(), parentNavigatorKey: _rootNavigator),
+      GoRoute(path: '/student/chapter-quiz/:chapterId', builder: (_, state) => ChapterQuizScreen(chapterId: state.pathParameters['chapterId']!), parentNavigatorKey: _rootNavigator),
       StatefulShellRoute.indexedStack(
         builder: (_, __, navigationShell) => StudentShell(navigationShell: navigationShell),
         branches: [
