@@ -16,6 +16,23 @@ class ChaptersScreen extends StatefulWidget {
 }
 
 class _ChaptersScreenState extends State<ChaptersScreen> {
+  String _quizStatusText(ChapterModel chapter) {
+    switch (chapter.chapterQuizStatus) {
+      case 'Passed': return 'Đã hoàn thành bài kiểm tra chương';
+      case 'Unlocked': return 'Bài kiểm tra chương đã mở khóa';
+      case 'Locked': return 'Chưa đủ điều kiện làm bài kiểm tra chương';
+      default: return '';
+    }
+  }
+
+  Color _quizStatusColor(ChapterModel chapter) {
+    switch (chapter.chapterQuizStatus) {
+      case 'Passed': return Colors.green;
+      case 'Unlocked': return Colors.blue;
+      case 'Locked': return Colors.orange;
+      default: return Colors.grey;
+    }
+  }
   List<ChapterModel>? _chapters;
   bool _isLoading = true;
   String? _error;
@@ -67,63 +84,114 @@ class _ChaptersScreenState extends State<ChaptersScreen> {
         itemCount: _chapters!.length,
         itemBuilder: (context, index) {
           final chapter = _chapters![index];
+          final showLocked = !chapter.isUnlocked;
+
           return Card(
             margin: const EdgeInsets.only(bottom: 12),
+            color: showLocked ? Colors.grey.withAlpha(30) : null,
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
-              onTap: () => context.push('/student/chapters/${chapter.id}'),
+              onTap: showLocked
+                  ? () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Chương này chưa được mở khóa. Hoàn thành bài kiểm tra chương trước để mở khóa.')),
+                      );
+                    }
+                  : () => context.push('/student/chapters/${chapter.id}'),
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Stack(
                   children: [
-                    Row(
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Text(
-                            chapter.title,
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                chapter.title,
+                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: showLocked ? Colors.grey : null,
+                                ),
+                              ),
+                            ),
+                            if (chapter.isQuizPassed)
+                              const Icon(Icons.check_circle, color: Colors.green, size: 20)
+                            else if (chapter.isQuizUnlocked)
+                              const Icon(Icons.lock_open, color: Colors.blue, size: 20)
+                            else if (showLocked)
+                              const Icon(Icons.lock, color: Colors.grey, size: 20),
+                          ],
+                        ),
+                        if (chapter.description.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            chapter.description,
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: showLocked ? Colors.grey : Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
+                        ],
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: LinearProgressIndicator(
+                                value: chapter.completionPercentage / 100,
+                                minHeight: 8,
+                                borderRadius: BorderRadius.circular(4),
+                                color: showLocked ? Colors.grey : null,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              '${chapter.completionPercentage.toStringAsFixed(0)}%',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: showLocked ? Colors.grey : null,
+                              ),
+                            ),
+                          ],
                         ),
-                        if (chapter.completionPercentage >= 100)
-                          const Icon(Icons.check_circle, color: Colors.green, size: 20),
-                      ],
-                    ),
-                    if (chapter.description.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        chapter.description,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: LinearProgressIndicator(
-                            value: chapter.completionPercentage / 100,
-                            minHeight: 8,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
+                        const SizedBox(height: 4),
                         Text(
-                          '${chapter.completionPercentage.toStringAsFixed(0)}%',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                          '${chapter.lessonCount} bài học',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: showLocked ? Colors.grey : Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
                         ),
+                        if (showLocked) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            'Bị khóa - cần hoàn thành chương trước',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.orange.shade700,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ] else if (chapter.chapterQuizStatus != 'Unavailable') ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            _quizStatusText(chapter),
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: _quizStatusColor(chapter),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${chapter.lessonCount} bài học',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    if (showLocked)
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: Container(color: Colors.transparent),
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
