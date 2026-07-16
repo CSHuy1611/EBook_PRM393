@@ -287,6 +287,7 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: DropdownButtonFormField<String>(
+        isExpanded: true,
         value: _selectedChapterId,
         decoration: const InputDecoration(
           labelText: 'Chọn chương',
