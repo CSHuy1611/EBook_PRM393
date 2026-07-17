@@ -7,6 +7,7 @@ class DashboardDto {
   final List<ChapterProgressDto> chapterProgress;
   final List<BadgeEarnedDto> badges;
   final List<RecentActivityDto> recentActivities;
+  final ContinueLearningDto? continueLearning;
 
   DashboardDto({
     this.overallCompletionPercentage = 0.0,
@@ -15,6 +16,7 @@ class DashboardDto {
     this.chapterProgress = const [],
     this.badges = const [],
     this.recentActivities = const [],
+    this.continueLearning,
   });
 
   factory DashboardDto.fromJson(Map<String, dynamic> json) {
@@ -44,6 +46,9 @@ class DashboardDto {
       chapterProgress: chapterProgressList,
       badges: badgesList,
       recentActivities: recentActivitiesList,
+      continueLearning: json['continueLearning'] != null
+          ? ContinueLearningDto.fromJson(json['continueLearning'])
+          : null,
     );
   }
 
@@ -56,6 +61,40 @@ class DashboardDto {
         'badges': badges.map((b) => b.toJson()).toList(),
         'recentActivities':
             recentActivities.map((ra) => ra.toJson()).toList(),
+        'continueLearning': continueLearning?.toJson(),
+      };
+}
+
+class ContinueLearningDto {
+  final String chapterId;
+  final String lessonId;
+  final String chapterTitle;
+  final String lessonTitle;
+  final String status;
+
+  ContinueLearningDto({
+    required this.chapterId,
+    required this.lessonId,
+    required this.chapterTitle,
+    required this.lessonTitle,
+    required this.status,
+  });
+
+  factory ContinueLearningDto.fromJson(Map<String, dynamic> json) =>
+      ContinueLearningDto(
+        chapterId: json['chapterId'] ?? '',
+        lessonId: json['lessonId'] ?? '',
+        chapterTitle: json['chapterTitle'] ?? '',
+        lessonTitle: json['lessonTitle'] ?? '',
+        status: json['status'] ?? 'NotStarted',
+      );
+
+  Map<String, dynamic> toJson() => {
+        'chapterId': chapterId,
+        'lessonId': lessonId,
+        'chapterTitle': chapterTitle,
+        'lessonTitle': lessonTitle,
+        'status': status,
       };
 }
 

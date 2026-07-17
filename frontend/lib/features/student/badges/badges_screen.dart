@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:math_ibook/core/models/student_feature_models.dart';
 import 'package:math_ibook/core/network/student_feature_api.dart';
+import 'package:dio/dio.dart';
+import 'package:math_ibook/core/network/api_client.dart';
 import 'package:math_ibook/core/widgets/error_widget.dart';
 import 'package:math_ibook/core/widgets/loading_widget.dart';
 
@@ -29,27 +31,30 @@ class _BadgesScreenState extends State<BadgesScreen> with SingleTickerProviderSt
       final collection = await StudentFeatureApi.instance.getBadges();
       if (mounted) setState(() { _collection = collection; _loading = false; });
     } catch (error) {
-      if (mounted) setState(() { _error = error.toString(); _loading = false; });
+      if (mounted) setState(() { _error = error is DioException ? ApiClient.mapDioErrorToMessage(error) : error.toString(); _loading = false; });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const AppLoadingWidget(message: 'Đang tải huy hiệu...');
-    if (_error != null) return AppErrorWidget(message: _error!, onRetry: _load);
+    if (_loading) return const Scaffold(body: AppLoadingWidget(message: 'Đang tải huy hiệu...'));
+    if (_error != null) return Scaffold(body: AppErrorWidget(message: _error!, onRetry: _load));
     final all = _collection!.items;
-    return Column(children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
-        child: Align(alignment: Alignment.centerLeft, child: Text('Đã đạt ${_collection!.earnedCount}/${_collection!.totalCount}', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold))),
-      ),
-      TabBar(controller: _tabs, tabs: const [Tab(text: 'Đã đạt'), Tab(text: 'Đang tiến tới'), Tab(text: 'Chưa đủ điều kiện')]),
-      Expanded(child: TabBarView(controller: _tabs, children: [
-        _BadgeList(items: all.where((item) => item.status == 'Earned').toList(), empty: 'Bạn chưa nhận huy hiệu nào.', onRefresh: _load),
-        _BadgeList(items: all.where((item) => item.status == 'InProgress').toList(), empty: 'Chưa có huy hiệu nào đang tiến tới.', onRefresh: _load),
-        _BadgeList(items: all.where((item) => item.status == 'Locked').toList(), empty: 'Không còn huy hiệu bị khóa.', onRefresh: _load),
-      ])),
-    ]);
+    return Scaffold(
+      appBar: AppBar(title: const Text('Huy hiệu')),
+      body: Column(children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
+          child: Align(alignment: Alignment.centerLeft, child: Text('Đã đạt ${_collection!.earnedCount}/${_collection!.totalCount}', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold))),
+        ),
+        TabBar(controller: _tabs, tabs: const [Tab(text: 'Đã đạt'), Tab(text: 'Đang tiến tới'), Tab(text: 'Chưa đủ điều kiện')]),
+        Expanded(child: TabBarView(controller: _tabs, children: [
+          _BadgeList(items: all.where((item) => item.status == 'Earned').toList(), empty: 'Bạn chưa nhận huy hiệu nào.', onRefresh: _load),
+          _BadgeList(items: all.where((item) => item.status == 'InProgress').toList(), empty: 'Chưa có huy hiệu nào đang tiến tới.', onRefresh: _load),
+          _BadgeList(items: all.where((item) => item.status == 'Locked').toList(), empty: 'Không còn huy hiệu bị khóa.', onRefresh: _load),
+        ])),
+      ]),
+    );
   }
 }
 

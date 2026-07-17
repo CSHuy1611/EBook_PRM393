@@ -6,6 +6,7 @@ import 'package:math_ibook/core/network/api_client.dart';
 import 'package:math_ibook/core/progress/progress_notifier.dart';
 import 'package:math_ibook/core/widgets/loading_widget.dart';
 import 'package:math_ibook/core/widgets/error_widget.dart';
+import 'package:dio/dio.dart';
 
 class LessonsScreen extends StatefulWidget {
   final String chapterId;
@@ -43,7 +44,7 @@ class _LessonsScreenState extends State<LessonsScreen> {
       setState(() => _isLoading = false);
     } catch (e) {
       setState(() {
-        _error = e.toString();
+        _error = e is DioException ? ApiClient.mapDioErrorToMessage(e) : e.toString();
         _isLoading = false;
       });
     }
@@ -120,7 +121,7 @@ class _LessonsScreenState extends State<LessonsScreen> {
                               ? const Color(0xFF10B981).withAlpha(20)
                               : (status == 'InProgress'
                                   ? const Color(0xFF3B82F6).withAlpha(20)
-                                  : const Color(0xFFF1F5F9)),
+                                  : Theme.of(context).colorScheme.surfaceContainerHighest),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Center(
@@ -145,7 +146,7 @@ class _LessonsScreenState extends State<LessonsScreen> {
                           children: [
                             Text(
                               lesson.title,
-                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: Color(0xFF1E293B)),
+                              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: Theme.of(context).colorScheme.onSurface),
                             ),
                             const SizedBox(height: 4),
                             Row(
@@ -247,9 +248,9 @@ class _LessonsScreenState extends State<LessonsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Bài kiểm tra cuối chương',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF1E293B)),
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Theme.of(context).colorScheme.onSurface),
                           ),
                           Text(
                             statusText,

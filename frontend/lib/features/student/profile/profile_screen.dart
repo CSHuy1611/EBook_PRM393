@@ -7,6 +7,8 @@ import 'package:math_ibook/core/storage/local_prefs_service.dart';
 import 'package:math_ibook/core/widgets/error_widget.dart';
 import 'package:math_ibook/core/widgets/loading_widget.dart';
 import 'package:math_ibook/features/auth/domain/auth_provider.dart';
+import 'package:dio/dio.dart';
+import 'package:math_ibook/core/network/api_client.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -28,7 +30,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final profile = await StudentFeatureApi.instance.getProfile();
       if (mounted) setState(() { _profile = profile; _loading = false; });
     } catch (error) {
-      if (mounted) setState(() { _error = error.toString(); _loading = false; });
+      if (mounted) setState(() { _error = error is DioException ? ApiClient.mapDioErrorToMessage(error) : error.toString(); _loading = false; });
     }
   }
 
@@ -99,7 +101,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _Section(title: 'Thành tích', child: Wrap(spacing: 10, runSpacing: 10, children: [
           _Metric(label: 'Xu', value: '${p.coins}', icon: Icons.monetization_on, onTap: () => context.push('/student/coins')),
           _Metric(label: 'Huy hiệu', value: '${p.badgeCount}', icon: Icons.workspace_premium, onTap: () => context.push('/student/badges')),
-          _Metric(label: 'Thứ hạng', value: p.rank == null ? '--' : '#${p.rank}', icon: Icons.leaderboard, onTap: () => context.push('/student/leaderboard')),
+          _Metric(label: 'Thứ hạng', value: p.rank == null ? '--' : '#${p.rank}', icon: Icons.leaderboard, onTap: () => context.go('/student/leaderboard')),
           _Metric(label: 'Bài / Chương', value: '${p.completedLessons}/${p.completedChapters}', icon: Icons.menu_book),
           _Metric(label: 'Điểm TB', value: p.averageScore.toStringAsFixed(1), icon: Icons.analytics),
           _Metric(label: 'Điểm tốt nhất', value: p.bestScore.toStringAsFixed(1), icon: Icons.star),

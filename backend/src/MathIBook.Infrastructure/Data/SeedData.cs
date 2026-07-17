@@ -7,10 +7,22 @@ namespace MathIBook.Infrastructure.Data;
 
 public static class SeedData
 {
+    private const string DemoStudentPassword = "Student@123";
+
+    private static readonly (string Name, string Email, int Coins)[] AdditionalStudentDefinitions =
+    {
+        ("Nguyễn Minh Anh", "student1@mathibook.vn", 1250),
+        ("Trần Gia Huy", "student2@mathibook.vn", 980),
+        ("Lê Khánh Linh", "student3@mathibook.vn", 760),
+        ("Phạm Hoài Nam", "student4@mathibook.vn", 540),
+        ("Võ Ngọc Mai", "student5@mathibook.vn", 320)
+    };
+
     public static async Task SeedAsync(AppDbContext context)
     {
         if (await context.Users.AnyAsync())
         {
+            await SeedAdditionalStudentsAsync(context);
             await RepairLegacyBadgeRuleThresholdsAsync(context);
             return;
         }
@@ -39,6 +51,7 @@ public static class SeedData
                 Coins = 0,
                 CreatedAt = DateTime.UtcNow
             });
+        context.Users.AddRange(CreateAdditionalStudents(AdditionalStudentDefinitions));
 
         var topicPoly = Id("poly"); var topicFrac = Id("frac");
         var topicFunc = Id("func"); var topicQuad = Id("quad");
@@ -570,6 +583,48 @@ public static class SeedData
     // ──────────────────────────────────────────────
     // HELPERS
     // ──────────────────────────────────────────────
+    private static async Task SeedAdditionalStudentsAsync(AppDbContext context)
+    {
+        var seedEmails = AdditionalStudentDefinitions
+            .Select(student => student.Email)
+            .ToArray();
+        var existingEmails = await context.Users
+            .Where(user => seedEmails.Contains(user.Email))
+            .Select(user => user.Email)
+            .ToListAsync();
+        var existingEmailSet = existingEmails.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var missingStudents = AdditionalStudentDefinitions
+            .Where(student => !existingEmailSet.Contains(student.Email))
+            .ToArray();
+
+        if (missingStudents.Length == 0)
+            return;
+
+        context.Users.AddRange(CreateAdditionalStudents(missingStudents));
+        await context.SaveChangesAsync();
+    }
+
+    private static IEnumerable<User> CreateAdditionalStudents(
+        IEnumerable<(string Name, string Email, int Coins)> definitions)
+    {
+        var now = DateTime.UtcNow;
+        foreach (var definition in definitions)
+        {
+            yield return new User
+            {
+                Id = Guid.NewGuid(),
+                Name = definition.Name,
+                Email = definition.Email,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(DemoStudentPassword),
+                Role = "Student",
+                Coins = definition.Coins,
+                CoinsUpdatedAt = now,
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+        }
+    }
+
     private static Guid Id(string seed)
     {
         var bytes = System.Security.Cryptography.SHA256.HashData(

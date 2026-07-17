@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:math_ibook/core/progress/progress_notifier.dart';
 import 'package:math_ibook/core/storage/local_db_service.dart';
 import 'package:math_ibook/core/sync/offline_sync_service.dart';
 import 'package:math_ibook/features/auth/domain/auth_provider.dart';
@@ -17,6 +18,7 @@ class _OfflineSyncScreenState extends State<OfflineSyncScreen> {
   final _connectivity = Connectivity();
   StreamSubscription<List<ConnectivityResult>>? _subscription;
   bool _online = false;
+  bool? _wasOnline;
   bool _syncing = false;
   List<Map<String, dynamic>> _attempts = [];
   List<Map<String, dynamic>> _progress = [];
@@ -30,14 +32,19 @@ class _OfflineSyncScreenState extends State<OfflineSyncScreen> {
 
   Future<void> _start() async {
     final result = await _connectivity.checkConnectivity();
+    if (!mounted) return;
     _setConnectivity(result);
     _subscription = _connectivity.onConnectivityChanged.listen(_setConnectivity);
     await _reload();
   }
 
   void _setConnectivity(List<ConnectivityResult> result) {
+    if (!mounted) return;
     final online = result.any((item) => item != ConnectivityResult.none);
-    if (mounted) setState(() => _online = online);
+    final reconnected = _wasOnline == false && online;
+    _wasOnline = online;
+    setState(() => _online = online);
+    if (reconnected) unawaited(_sync(automatic: true));
   }
 
   Future<void> _reload() async {
@@ -46,14 +53,37 @@ class _OfflineSyncScreenState extends State<OfflineSyncScreen> {
     if (mounted) setState(() { _attempts = values[0]; _progress = values[1]; });
   }
 
-  Future<void> _sync() async {
+  Future<void> _sync({bool automatic = false}) async {
     if (!_online || _syncing || _userId.isEmpty) return;
     setState(() => _syncing = true);
     try {
       final summary = await OfflineSyncService.instance.sync(_userId);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Đã đồng bộ ${summary.attempts} quiz và ${summary.progress} tiến độ.')));
-    } catch (error) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Chưa thể đồng bộ. Dữ liệu được giữ lại để thử lại.\n$error')));
+      if (!mounted) return;
+      if (summary.hasSyncedData) {
+        context.read<ProgressNotifier>().notifyProgressChanged();
+      }
+      final message = summary.hasSyncedData
+          ? 'Đã đồng bộ ${summary.attempts} bài làm và ${summary.progress} tiến độ.'
+          : automatic
+              ? 'Đã kết nối lại mạng. Không có dữ liệu chờ đồng bộ.'
+              : 'Không có dữ liệu chờ đồng bộ.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: summary.hasSyncedData ? Colors.green : null,
+        ),
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Đã có mạng nhưng chưa thể đồng bộ. Dữ liệu vẫn được giữ lại để thử lại.',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       await _reload();
       if (mounted) setState(() => _syncing = false);

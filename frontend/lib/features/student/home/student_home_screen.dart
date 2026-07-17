@@ -5,7 +5,6 @@ import 'package:math_ibook/core/models/dashboard_model.dart';
 import 'package:math_ibook/core/network/api_client.dart';
 import 'package:math_ibook/features/auth/domain/auth_provider.dart';
 import 'package:math_ibook/core/progress/progress_notifier.dart';
-import 'package:math_ibook/core/models/lesson_model.dart';
 
 class StudentHomeScreen extends StatefulWidget {
   const StudentHomeScreen({super.key});
@@ -172,17 +171,39 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
 
   Widget _buildStatsGrid(BuildContext context) {
     final dash = _dash!;
-    final completedLessons = dash.chapterProgress.fold<int>(0, (sum, cp) => sum + cp.completedLessons);
+    final totalChapters = dash.chapterProgress.length;
 
     return Row(
       children: [
-        Expanded(child: _statCard(context, Icons.menu_book_rounded, 'Bài học', '$completedLessons', const Color(0xFF3B82F6))),
+        Expanded(
+          child: _statCard(
+            context,
+            Icons.menu_book_rounded,
+            'Chương học',
+            '$totalChapters',
+            const Color(0xFF3B82F6),
+          ),
+        ),
         const SizedBox(width: 10),
-        Expanded(child: _statCard(context, Icons.score_rounded, 'Điểm TB', dash.averageScore.toStringAsFixed(1), const Color(0xFF10B981))),
+        Expanded(
+          child: _statCard(
+            context,
+            Icons.score_rounded,
+            'Điểm TB',
+            dash.averageScore.toStringAsFixed(1),
+            const Color(0xFF10B981),
+          ),
+        ),
         const SizedBox(width: 10),
-        Expanded(child: _statCard(context, Icons.emoji_events_rounded, 'Huy hiệu', '${dash.badges.length}', const Color(0xFFF59E0B))),
-        const SizedBox(width: 10),
-        Expanded(child: _statCard(context, Icons.trending_up_rounded, 'Tiến độ', '${dash.overallCompletionPercentage.toStringAsFixed(0)}%', const Color(0xFF8B5CF6))),
+        Expanded(
+          child: _statCard(
+            context,
+            Icons.emoji_events_rounded,
+            'Huy hiệu',
+            '${dash.badges.length}',
+            const Color(0xFFF59E0B),
+          ),
+        ),
       ],
     );
   }
@@ -224,21 +245,29 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
     final chapters = _dash!.chapterProgress;
     if (chapters.isEmpty) return const SizedBox.shrink();
 
-    final hasStarted = chapters.any((c) => c.completedLessons > 0);
+    final hasStarted = chapters.any((c) => c.completedLessons > 0) ||
+        (_dash!.continueLearning != null && _dash!.continueLearning!.status.toLowerCase() == 'inprogress');
     if (!hasStarted) return const SizedBox.shrink();
 
     final current = chapters.firstWhere(
-      (c) => c.completionPercentage < 100,
-      orElse: () => chapters.last,
+      (c) => _dash!.continueLearning != null && c.chapterId == _dash!.continueLearning!.chapterId,
+      orElse: () => chapters.firstWhere(
+        (c) => c.completionPercentage < 100,
+        orElse: () => chapters.last,
+      ),
     );
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFFEEF2FF),
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFC7D2FE)),
+        border: Border.all(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF334155)
+              : const Color(0xFFE2E8F0),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -272,7 +301,11 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
           const SizedBox(height: 16),
           Text(
             current.chapterTitle,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
           ),
           const SizedBox(height: 12),
           Row(
@@ -283,7 +316,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
                   child: LinearProgressIndicator(
                     value: current.completionPercentage / 100,
                     minHeight: 8,
-                    backgroundColor: Colors.white,
+                    backgroundColor: Theme.of(context).colorScheme.primary.withAlpha(20),
                     valueColor: AlwaysStoppedAnimation<Color>(
                       current.completionPercentage >= 100 ? const Color(0xFF10B981) : Theme.of(context).colorScheme.primary,
                     ),
@@ -301,7 +334,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
             '${current.completedLessons}/${current.totalLessons} bài học',
             style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
@@ -310,31 +343,12 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () async {
-                try {
-                  final response = await ApiClient.instance.get('/chapters/${current.chapterId}/lessons');
-                  final List<dynamic> data = response.data as List<dynamic>;
-                  final lessons = data.map((e) => LessonModel.fromJson(e as Map<String, dynamic>)).toList();
-                  if (lessons.isNotEmpty) {
-                    var targetLesson = lessons.firstWhere(
-                      (l) => l.status == 'InProgress',
-                      orElse: () => lessons.firstWhere(
-                        (l) => l.status == 'NotStarted',
-                        orElse: () => lessons.first,
-                      ),
-                    );
-                    if (context.mounted) {
-                      context.push('/student/lessons/${targetLesson.id}');
-                    }
-                  } else {
-                    if (context.mounted) {
-                      context.push('/student/chapters/${current.chapterId}');
-                    }
-                  }
-                } catch (_) {
-                  if (context.mounted) {
-                    context.push('/student/chapters/${current.chapterId}');
-                  }
+              onPressed: () {
+                final lessonId = _dash?.continueLearning?.lessonId;
+                if (lessonId != null && lessonId.isNotEmpty) {
+                  context.push('/student/lessons/$lessonId');
+                } else {
+                  context.push('/student/chapters/${current.chapterId}');
                 }
               },
               icon: const Icon(Icons.arrow_forward_rounded, size: 18),
@@ -367,7 +381,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
         ),
         Row(
           children: [
-            Expanded(child: _actionCard(context, Icons.menu_book_rounded, 'Bài học', const Color(0xFF3B82F6), () => context.go('/student/chapters'))),
+            Expanded(child: _actionCard(context, Icons.menu_book_rounded, 'Chương học', const Color(0xFF3B82F6), () => context.go('/student/chapters'))),
             const SizedBox(width: 12),
             Expanded(child: _actionCard(context, Icons.quiz_rounded, 'Kiểm tra', const Color(0xFF10B981), () => context.go('/student/chapters'))),
           ],
@@ -375,7 +389,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
         const SizedBox(height: 12),
         Row(
           children: [
-            Expanded(child: _actionCard(context, Icons.leaderboard_rounded, 'Bảng xếp hạng', const Color(0xFFF59E0B), () => context.push('/student/leaderboard'))),
+            Expanded(child: _actionCard(context, Icons.leaderboard_rounded, 'Bảng xếp hạng', const Color(0xFFF59E0B), () => context.go('/student/leaderboard'))),
             const SizedBox(width: 12),
             Expanded(child: _actionCard(context, Icons.person_rounded, 'Cá nhân', const Color(0xFF8B5CF6), () => context.go('/student/profile'))),
           ],
@@ -411,7 +425,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
               const SizedBox(height: 10),
               Text(
                 label,
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface),
               ),
             ],
           ),
@@ -456,9 +470,9 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
                 width: 76,
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFF7ED),
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFFFEDD5)),
+                  border: Border.all(color: const Color(0xFFF59E0B).withAlpha(50)),
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -467,7 +481,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
                     const SizedBox(height: 4),
                     Text(
                       badge.title,
-                      style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Color(0xFFC2410C)),
+                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurfaceVariant),
                       textAlign: TextAlign.center,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -535,7 +549,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Text(a.description, style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B))),
+                      child: Text(a.description, style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurface)),
                     ),
                     Text(
                       a.timestamp.length >= 10 ? a.timestamp.substring(0, 10) : a.timestamp,

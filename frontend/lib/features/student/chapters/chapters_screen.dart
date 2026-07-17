@@ -6,6 +6,7 @@ import 'package:math_ibook/core/network/api_client.dart';
 import 'package:math_ibook/core/progress/progress_notifier.dart';
 import 'package:math_ibook/core/widgets/loading_widget.dart';
 import 'package:math_ibook/core/widgets/error_widget.dart';
+import 'package:dio/dio.dart';
 import 'package:math_ibook/core/storage/local_db_service.dart';
 
 class ChaptersScreen extends StatefulWidget {
@@ -43,7 +44,7 @@ class _ChaptersScreenState extends State<ChaptersScreen> {
       if (cached.isNotEmpty) {
         setState(() { _chapters = cached.map(ChapterModel.fromJson).toList(); _isLoading = false; });
       } else {
-        setState(() { _error = e.toString(); _isLoading = false; });
+        setState(() { _error = e is DioException ? ApiClient.mapDioErrorToMessage(e) : e.toString(); _isLoading = false; });
       }
     }
   }
@@ -204,26 +205,32 @@ class _ChaptersScreenState extends State<ChaptersScreen> {
                           ),
                           if (chapter.relatedBadgeTitle != null && chapter.relatedBadgeTitle!.isNotEmpty) ...[
                             const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFFF7ED),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: const Color(0xFFFFEDD5)),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.military_tech_rounded, color: Color(0xFFF59E0B), size: 14),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    chapter.relatedBadgeTitle!,
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFFC2410C),
+                            Flexible(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFF7ED),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: const Color(0xFFFFEDD5)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.military_tech_rounded, color: Color(0xFFF59E0B), size: 14),
+                                    const SizedBox(width: 4),
+                                    Flexible(
+                                      child: Text(
+                                        chapter.relatedBadgeTitle!,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFFC2410C),
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           ],
