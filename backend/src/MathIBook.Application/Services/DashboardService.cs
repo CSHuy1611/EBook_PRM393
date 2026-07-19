@@ -195,12 +195,10 @@ public class DashboardService : IDashboardService
         }
 
         var startedChapterIds = new HashSet<Guid>();
-        var userHasAnyProgress = progresses.Any();
         foreach (var ch in sortedChapters)
         {
-            var isFirstChapter = sortedChapters.Count > 0 && sortedChapters[0].Id == ch.Id;
             var hasChapterProgress = progresses.Any(p => lessons.Any(l => l.ChapterId == ch.Id && l.Id == p.LessonId));
-            if (hasChapterProgress || (isFirstChapter && !userHasAnyProgress))
+            if (hasChapterProgress)
             {
                 startedChapterIds.Add(ch.Id);
             }
