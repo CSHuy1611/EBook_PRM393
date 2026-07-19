@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
-import 'package:math_ibook/core/network/api_client.dart';
 import 'package:math_ibook/core/storage/secure_storage_service.dart';
 import 'package:math_ibook/features/auth/domain/auth_provider.dart';
 import 'package:math_ibook/features/auth/presentation/login_screen.dart';
@@ -41,7 +40,7 @@ void main() {
       expect(find.byType(ElevatedButton), findsOneWidget);
       expect(find.text('Đăng nhập'), findsWidgets);
       expect(find.text('Math IBook'), findsOneWidget);
-      expect(find.text('Chưa có tài khoản? Đăng ký'), findsOneWidget);
+      expect(find.text('Đăng ký ngay'), findsOneWidget);
     });
 
     testWidgets('shows validation error for empty email field', (tester) async {
@@ -104,8 +103,7 @@ void main() {
     testWidgets('register navigation button is present', (tester) async {
       await tester.pumpWidget(createLoginScreen());
 
-      expect(find.byType(TextButton), findsOneWidget);
-      expect(find.text('Chưa có tài khoản? Đăng ký'), findsOneWidget);
+      expect(find.text('Đăng ký ngay'), findsOneWidget);
     });
 
     testWidgets('email field exists', (tester) async {

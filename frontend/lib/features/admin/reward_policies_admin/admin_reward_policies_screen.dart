@@ -231,7 +231,7 @@ class _AdminRewardPoliciesScreenState extends State<AdminRewardPoliciesScreen> {
                     'chapterCompletionBonusCoins': int.parse(chapterCompletionBonusCtrl.text),
                     'retryRewardPercent': int.parse(retryRewardPercentCtrl.text),
                     'dailyCoinLimit': dailyCoinLimitCtrl.text.trim().isEmpty ? null : int.parse(dailyCoinLimitCtrl.text),
-                    'effectiveFrom': effectiveFrom.toIso8601String(),
+                    'effectiveFrom': effectiveFrom.toUtc().toIso8601String(),
                     'isActive': isActive,
                   };
                   if (isEdit) {
@@ -275,7 +275,7 @@ class _AdminRewardPoliciesScreenState extends State<AdminRewardPoliciesScreen> {
     );
     if (confirmed != true) return;
     try {
-      await ApiClient.instance.put('/admin/reward-policies/${policy.id}/deactivate');
+      await ApiClient.instance.put('/admin/reward-policies/${policy.id}/deactivate', data: {});
       _fetchPolicies();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -30,6 +30,28 @@ class _LessonEditorScreenState extends State<LessonEditorScreen> {
   bool _isSaving = false;
 
   final _simulationTypes = ['', 'linear_graph', 'quadratic_graph', 'triangle', 'geogebra', 'desmos', 'phet', 'simulation'];
+  static const Map<String, String> _simulationTypeLabels = {
+    '': 'Không sử dụng mô phỏng',
+    'linear_graph': 'Đồ thị hàm số bậc nhất (Linear Graph)',
+    'quadratic_graph': 'Đồ thị hàm số bậc hai (Quadratic Graph)',
+    'triangle': 'Hình tam giác & Hình học (Geometry)',
+    'geogebra': 'Mô phỏng GeoGebra',
+    'desmos': 'Mô phỏng Đồ thị Desmos',
+    'phet': 'Mô phỏng Khoa học & Toán PhET',
+    'simulation': 'Mô phỏng tương tác tổng hợp',
+  };
+
+  void _cleanUpFormatting() {
+    String text = _contentCtrl.text;
+    text = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    text = text.replaceAll(RegExp(r'\n{3,}'), '\n\n');
+    final lines = text.split('\n').map((l) => l.trimRight()).toList();
+    _contentCtrl.text = lines.join('\n');
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Đã tối ưu và làm sạch khoảng dòng dư thừa')),
+    );
+  }
 
   bool get isEdit => widget.lesson != null;
 
@@ -257,20 +279,35 @@ class _LessonEditorScreenState extends State<LessonEditorScreen> {
         ),
         const SizedBox(height: 12),
         DropdownButtonFormField<String>(
+          isExpanded: true,
           value: _simulationType.isEmpty ? null : _simulationType,
           decoration: const InputDecoration(labelText: 'Loại mô phỏng', border: OutlineInputBorder()),
           items: _simulationTypes
               .map((t) => DropdownMenuItem(
                     value: t.isEmpty ? null : t,
-                    child: Text(t.isEmpty ? 'Không' : t),
+                    child: Text(_simulationTypeLabels[t] ?? t, overflow: TextOverflow.ellipsis),
                   ))
               .toList(),
           onChanged: (v) => setState(() => _simulationType = v ?? ''),
         ),
         const SizedBox(height: 16),
-        Text('Nội dung (hỗ trợ LaTeX với \$...\$ và \$\$...\$\$)',
-            style: Theme.of(context).textTheme.titleSmall),
-        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Text(
+                'Nội dung (hỗ trợ LaTeX với \$...\$ và \$\$...\$\$)',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ),
+            TextButton.icon(
+              onPressed: _cleanUpFormatting,
+              icon: const Icon(Icons.cleaning_services, size: 18),
+              label: const Text('Làm sạch dòng dư', style: TextStyle(fontSize: 12)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
         MathToolbar(onInsert: _insertLatex),
         const SizedBox(height: 8),
         TextFormField(

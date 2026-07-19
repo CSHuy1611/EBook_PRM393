@@ -84,14 +84,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     // Email - FULL WIDTH
                     TextFormField(
                       controller: _emailController,
+                      style: TextStyle(color: colorScheme.onSurface),
                       decoration: InputDecoration(
                         labelText: 'Email',
+                        labelStyle: TextStyle(color: colorScheme.onSurface.withOpacity(0.7)),
                         hintText: 'example@gmail.com',
-                        prefixIcon: const Icon(Icons.email_outlined),
+                        prefixIcon: Icon(Icons.email_outlined, color: colorScheme.primary),
                         filled: true,
-                        fillColor: Colors.white.withOpacity(0.9),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.grey.shade300)),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.grey.shade300)),
+                        fillColor: colorScheme.surfaceContainerHighest.withOpacity(0.85),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.5))),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.5))),
                         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: colorScheme.primary, width: 2)),
                       ),
                       keyboardType: TextInputType.emailAddress,
@@ -102,16 +104,18 @@ class _LoginScreenState extends State<LoginScreen> {
                     // Password - FULL WIDTH
                     TextFormField(
                       controller: _passwordController,
+                      style: TextStyle(color: colorScheme.onSurface),
                       decoration: InputDecoration(
                         labelText: 'Mật khẩu',
-                        prefixIcon: const Icon(Icons.lock_outline),
+                        labelStyle: TextStyle(color: colorScheme.onSurface.withOpacity(0.7)),
+                        prefixIcon: Icon(Icons.lock_outline, color: colorScheme.primary),
                         filled: true,
-                        fillColor: Colors.white.withOpacity(0.9),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.grey.shade300)),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.grey.shade300)),
+                        fillColor: colorScheme.surfaceContainerHighest.withOpacity(0.85),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.5))),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.5))),
                         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: colorScheme.primary, width: 2)),
                         suffixIcon: IconButton(
-                          icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: Colors.grey),
+                          icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: colorScheme.onSurface.withOpacity(0.6)),
                           onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                         ),
                       ),
