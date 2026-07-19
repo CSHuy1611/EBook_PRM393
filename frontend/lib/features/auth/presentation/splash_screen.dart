@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:math_ibook/features/auth/domain/auth_provider.dart';
-import 'package:flutter/scheduler.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});

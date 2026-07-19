@@ -90,6 +90,20 @@ class _AdminBadgesScreenState extends State<AdminBadgesScreen> {
     return Icon(_iconData(iconUrl), size: size, color: color ?? Colors.amber);
   }
 
+  String _sortBy = 'title';
+
+  void _sortBadges() {
+    if (_sortBy == 'title') {
+      _badges.sort((a, b) => a.title.compareTo(b.title));
+    } else if (_sortBy == 'type') {
+      _badges.sort((a, b) {
+        final typeA = a.rules.isNotEmpty ? a.rules.first.ruleType : '';
+        final typeB = b.rules.isNotEmpty ? b.rules.first.ruleType : '';
+        return typeA.compareTo(typeB);
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -110,6 +124,7 @@ class _AdminBadgesScreenState extends State<AdminBadgesScreen> {
       final chaptersData = _extractList(responses[1].data);
       _badges = badgesData.map((e) => BadgeDto.fromJson(e as Map<String, dynamic>)).toList();
       _chapters = chaptersData;
+      _sortBadges();
     } catch (e) {
       _error = e is DioException ? ApiClient.mapDioErrorToMessage(e) : e.toString();
     } finally {
@@ -389,19 +404,48 @@ class _AdminBadgesScreenState extends State<AdminBadgesScreen> {
     if (_isLoading) return const AppLoadingWidget(message: 'Đang tải huy hiệu...');
     if (_error != null) return AppErrorWidget(message: _error!, onRetry: _fetchBadges);
     return Scaffold(
-      body: RefreshIndicator(
-        onRefresh: _fetchBadges,
-        child: _badges.isEmpty
-            ? ListView(
-                children: const [
-                  SizedBox(height: 120),
-                  Center(child: Text('Chưa có huy hiệu nào', style: TextStyle(fontSize: 16))),
-                ],
-              )
-            : ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: _badges.length,
-                itemBuilder: (context, index) {
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Tổng số: ${_badges.length} huy hiệu', style: const TextStyle(fontWeight: FontWeight.bold)),
+                DropdownButton<String>(
+                  value: _sortBy,
+                  underline: const SizedBox(),
+                  icon: const Icon(Icons.sort, size: 20),
+                  items: const [
+                    DropdownMenuItem(value: 'title', child: Text('Sắp xếp theo tên (A-Z)')),
+                    DropdownMenuItem(value: 'type', child: Text('Sắp xếp theo loại điều kiện')),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) {
+                      setState(() {
+                        _sortBy = v;
+                        _sortBadges();
+                      });
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _fetchBadges,
+              child: _badges.isEmpty
+                  ? ListView(
+                      children: const [
+                        SizedBox(height: 120),
+                        Center(child: Text('Chưa có huy hiệu nào', style: TextStyle(fontSize: 16))),
+                      ],
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _badges.length,
+                      itemBuilder: (context, index) {
                   final badge = _badges[index];
                     return Card(
                       margin: const EdgeInsets.only(bottom: 8),
@@ -438,6 +482,9 @@ class _AdminBadgesScreenState extends State<AdminBadgesScreen> {
                   );
                 },
               ),
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showBadgeDialog(),

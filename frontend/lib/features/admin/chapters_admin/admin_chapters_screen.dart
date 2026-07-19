@@ -73,75 +73,83 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
 
     final result = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(isEdit ? 'Sửa chương' : 'Thêm chương mới'),
-        content: Form(
-          key: formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: titleCtrl,
-                  decoration: const InputDecoration(labelText: 'Tiêu đề', border: OutlineInputBorder()),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Vui lòng nhập tiêu đề' : null,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Text(isEdit ? 'Sửa chương' : 'Thêm chương mới'),
+          content: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(ctx).size.width > 600 ? 550 : MediaQuery.of(ctx).size.width - 48,
+            ),
+            child: Form(
+              key: formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: titleCtrl,
+                      decoration: const InputDecoration(labelText: 'Tiêu đề', border: OutlineInputBorder()),
+                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Vui lòng nhập tiêu đề' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: descCtrl,
+                      decoration: const InputDecoration(labelText: 'Mô tả', border: OutlineInputBorder()),
+                      maxLines: 3,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: orderCtrl,
+                      decoration: const InputDecoration(labelText: 'Thứ tự', border: OutlineInputBorder()),
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      isExpanded: true,
+                      decoration: const InputDecoration(labelText: 'Chủ đề Toán học (Taxonomy)', border: OutlineInputBorder()),
+                      value: selectedTopicId,
+                      items: _topics.map((t) => DropdownMenuItem<String>(
+                        value: t['id']?.toString(),
+                        child: Text(t['name'] ?? 'Unknown', overflow: TextOverflow.ellipsis),
+                      )).toList(),
+                      onChanged: (v) => setDialogState(() => selectedTopicId = v),
+                      validator: (v) => v == null ? 'Vui lòng chọn chủ đề' : null,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: descCtrl,
-                  decoration: const InputDecoration(labelText: 'Mô tả', border: OutlineInputBorder()),
-                  maxLines: 3,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: orderCtrl,
-                  decoration: const InputDecoration(labelText: 'Thứ tự', border: OutlineInputBorder()),
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(labelText: 'Chủ đề Toán học (Taxonomy)', border: OutlineInputBorder()),
-                  value: selectedTopicId,
-                  items: _topics.map((t) => DropdownMenuItem<String>(
-                    value: t['id'],
-                    child: Text(t['name'] ?? 'Unknown', overflow: TextOverflow.ellipsis),
-                  )).toList(),
-                  onChanged: (v) => setState(() => selectedTopicId = v),
-                  validator: (v) => v == null ? 'Vui lòng chọn chủ đề' : null,
-                ),
-              ],
+              ),
             ),
           ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+            FilledButton(
+              onPressed: () async {
+                if (!formKey.currentState!.validate()) return;
+                try {
+                  final body = {
+                    'title': titleCtrl.text.trim(),
+                    'description': descCtrl.text.trim(),
+                    'orderIndex': int.tryParse(orderCtrl.text) ?? 0,
+                    'curriculumTopicId': selectedTopicId,
+                  };
+                  if (isEdit) {
+                    await ApiClient.instance.put('/admin/chapters/${chapter!.id}', data: body);
+                  } else {
+                    await ApiClient.instance.post('/admin/chapters', data: body);
+                  }
+                  if (ctx.mounted) Navigator.pop(ctx, true);
+                } catch (e) {
+                  if (ctx.mounted) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      SnackBar(content: Text('Lỗi: ${e is DioException ? ApiClient.mapDioErrorToMessage(e) : e.toString()}')),
+                    );
+                  }
+                }
+              },
+              child: Text(isEdit ? 'Cập nhật' : 'Tạo'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
-          FilledButton(
-            onPressed: () async {
-              if (!formKey.currentState!.validate()) return;
-              try {
-                final body = {
-                  'title': titleCtrl.text.trim(),
-                  'description': descCtrl.text.trim(),
-                  'orderIndex': int.tryParse(orderCtrl.text) ?? 0,
-                  'curriculumTopicId': selectedTopicId,
-                };
-                if (isEdit) {
-                  await ApiClient.instance.put('/admin/chapters/${chapter!.id}', data: body);
-                } else {
-                  await ApiClient.instance.post('/admin/chapters', data: body);
-                }
-                if (ctx.mounted) Navigator.pop(ctx, true);
-              } catch (e) {
-                if (ctx.mounted) {
-                  ScaffoldMessenger.of(ctx).showSnackBar(
-                    SnackBar(content: Text('Lỗi: ${e is DioException ? ApiClient.mapDioErrorToMessage(e) : e.toString()}')),
-                  );
-                }
-              }
-            },
-            child: Text(isEdit ? 'Cập nhật' : 'Tạo'),
-          ),
-        ],
       ),
     );
     if (result == true) _fetchChapters();
@@ -226,20 +234,26 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                             value: chapter.isPublished,
                             onChanged: (_) => _togglePublish(chapter),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.menu_book),
-                            tooltip: 'Xem bài học',
-                            onPressed: () => context.go('/admin/chapters/${chapter.id}/lessons'),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.edit),
-                            tooltip: 'Sửa',
-                            onPressed: () => _showChapterDialog(chapter: chapter),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            tooltip: 'Xóa',
-                            onPressed: () => _deleteChapter(chapter),
+                          PopupMenuButton<String>(
+                            onSelected: (value) {
+                              if (value == 'lessons') context.go('/admin/chapters/${chapter.id}/lessons');
+                              if (value == 'edit') _showChapterDialog(chapter: chapter);
+                              if (value == 'delete') _deleteChapter(chapter);
+                            },
+                            itemBuilder: (context) => [
+                              const PopupMenuItem(
+                                value: 'lessons',
+                                child: Row(children: [Icon(Icons.menu_book, size: 20), SizedBox(width: 8), Text('Xem bài học')]),
+                              ),
+                              const PopupMenuItem(
+                                value: 'edit',
+                                child: Row(children: [Icon(Icons.edit, size: 20), SizedBox(width: 8), Text('Sửa')]),
+                              ),
+                              const PopupMenuItem(
+                                value: 'delete',
+                                child: Row(children: [Icon(Icons.delete, size: 20, color: Colors.red), SizedBox(width: 8), Text('Xóa')]),
+                              ),
+                            ],
                           ),
                         ],
                       ),

@@ -172,7 +172,7 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                 if (lesson.contentBody.isNotEmpty) ...[
                   const Text('Nội dung:', style: TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
-                  Text(lesson.contentBody),
+                  MathText(lesson.contentBody),
                 ],
                 if (lesson.simulationType != null && lesson.simulationType!.isNotEmpty) ...[
                   const SizedBox(height: 16),
@@ -229,7 +229,7 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                                   ? Colors.green.withAlpha(25)
                                   : Colors.grey.withAlpha(25),
                               child: Icon(
-                                lesson.isPublished ? Icons.visibility : Icons.visibility_off,
+                                lesson.isPublished ? Icons.check_circle : Icons.unpublished_outlined,
                                 color: lesson.isPublished ? Colors.green : Colors.grey,
                               ),
                             ),
@@ -242,25 +242,31 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                                   value: lesson.isPublished,
                                   onChanged: (_) => _togglePublish(lesson),
                                 ),
-                                IconButton(
-                                  icon: const Icon(Icons.visibility),
-                                  tooltip: 'Xem nội dung',
-                                  onPressed: () => _viewContent(lesson),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.help_outline),
-                                  tooltip: 'Câu hỏi',
-                                  onPressed: () => context.go('/admin/lessons/${lesson.id}/questions'),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.edit),
-                                  tooltip: 'Sửa',
-                                  onPressed: () => _openEditor(lesson: lesson),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete, color: Colors.red),
-                                  tooltip: 'Xóa',
-                                  onPressed: () => _deleteLesson(lesson),
+                                PopupMenuButton<String>(
+                                  onSelected: (value) {
+                                    if (value == 'view') _viewContent(lesson);
+                                    if (value == 'questions') context.go('/admin/lessons/${lesson.id}/questions');
+                                    if (value == 'edit') _openEditor(lesson: lesson);
+                                    if (value == 'delete') _deleteLesson(lesson);
+                                  },
+                                  itemBuilder: (context) => [
+                                    const PopupMenuItem(
+                                      value: 'view',
+                                      child: Row(children: [Icon(Icons.visibility, size: 20), SizedBox(width: 8), Text('Xem nội dung')]),
+                                    ),
+                                    const PopupMenuItem(
+                                      value: 'questions',
+                                      child: Row(children: [Icon(Icons.help_outline, size: 20), SizedBox(width: 8), Text('Câu hỏi')]),
+                                    ),
+                                    const PopupMenuItem(
+                                      value: 'edit',
+                                      child: Row(children: [Icon(Icons.edit, size: 20), SizedBox(width: 8), Text('Sửa')]),
+                                    ),
+                                    const PopupMenuItem(
+                                      value: 'delete',
+                                      child: Row(children: [Icon(Icons.delete, size: 20, color: Colors.red), SizedBox(width: 8), Text('Xóa')]),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
