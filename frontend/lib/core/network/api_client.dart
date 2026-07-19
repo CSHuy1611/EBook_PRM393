@@ -14,9 +14,9 @@ class ApiClient {
         BaseOptions(
           // AppConfig tự chọn localhost, Android emulator hoặc biến API_BASE_URL.
           baseUrl: AppConfig.baseUrl,
-          // Không để UI chờ vô hạn khi server hoặc mạng không phản hồi.
-          connectTimeout: const Duration(seconds: 10),
-          receiveTimeout: const Duration(seconds: 10),
+          // Tăng thời gian chờ lên 60 giây để chờ AI sinh câu hỏi
+          connectTimeout: const Duration(seconds: 60),
+          receiveTimeout: const Duration(seconds: 60),
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',

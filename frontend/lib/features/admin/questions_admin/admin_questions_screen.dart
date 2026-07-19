@@ -370,59 +370,61 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
     if (_selectedLessonId == null) {
       title = 'Câu hỏi';
       body = Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.help_outline, size: 64, color: Colors.grey),
-              const SizedBox(height: 16),
-              const Text('Chọn một bài học để xem câu hỏi', style: TextStyle(fontSize: 16)),
-              const SizedBox(height: 24),
-              _isLoadingChapters
-                  ? const CircularProgressIndicator()
-                  : _chapters.isEmpty
-                      ? const Text('Không có chương nào')
-                      : Column(
-                          children: [
-                            DropdownButtonFormField<String>(
-                              isExpanded: true,
-                              value: _selectedChapterId,
-                              decoration: const InputDecoration(
-                                labelText: 'Chọn chương',
-                                border: OutlineInputBorder(),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.help_outline, size: 64, color: Colors.grey),
+                const SizedBox(height: 16),
+                const Text('Chọn một bài học để xem câu hỏi', style: TextStyle(fontSize: 16)),
+                const SizedBox(height: 24),
+                _isLoadingChapters
+                    ? const CircularProgressIndicator()
+                    : _chapters.isEmpty
+                        ? const Text('Không có chương nào')
+                        : Column(
+                            children: [
+                              DropdownButtonFormField<String>(
+                                isExpanded: true,
+                                value: _selectedChapterId,
+                                decoration: const InputDecoration(
+                                  labelText: 'Chọn chương',
+                                  border: OutlineInputBorder(),
+                                ),
+                                items: _chapters
+                                    .map((c) => DropdownMenuItem(value: c.id, child: Text(c.title)))
+                                    .toList(),
+                                onChanged: (val) {
+                                  if (val != null) {
+                                    setState(() => _selectedChapterId = val);
+                                    _fetchLessonsForChapter(val);
+                                  }
+                                },
                               ),
-                              items: _chapters
-                                  .map((c) => DropdownMenuItem(value: c.id, child: Text(c.title)))
-                                  .toList(),
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setState(() => _selectedChapterId = val);
-                                  _fetchLessonsForChapter(val);
-                                }
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            DropdownButtonFormField<String>(
-                              isExpanded: true,
-                              value: _selectedLessonId,
-                              decoration: const InputDecoration(
-                                labelText: 'Chọn bài học',
-                                border: OutlineInputBorder(),
+                              const SizedBox(height: 16),
+                              DropdownButtonFormField<String>(
+                                isExpanded: true,
+                                value: _selectedLessonId,
+                                decoration: const InputDecoration(
+                                  labelText: 'Chọn bài học',
+                                  border: OutlineInputBorder(),
+                                ),
+                                items: _chapterLessons
+                                    .map((l) => DropdownMenuItem(value: l.id, child: Text(l.title)))
+                                    .toList(),
+                                onChanged: _selectedChapterId == null
+                                    ? null
+                                    : (val) {
+                                        setState(() => _selectedLessonId = val);
+                                        _fetchQuestions();
+                                      },
                               ),
-                              items: _chapterLessons
-                                  .map((l) => DropdownMenuItem(value: l.id, child: Text(l.title)))
-                                  .toList(),
-                              onChanged: _selectedChapterId == null
-                                  ? null
-                                  : (val) {
-                                      setState(() => _selectedLessonId = val);
-                                      _fetchQuestions();
-                                    },
-                            ),
-                          ],
-                        ),
-            ],
+                            ],
+                          ),
+              ],
+            ),
           ),
         ),
       );
