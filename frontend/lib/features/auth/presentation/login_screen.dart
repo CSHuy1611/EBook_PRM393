@@ -14,32 +14,45 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  // GlobalKey dùng để quản lý trạng thái và kích hoạt validation của Form đăng nhập
   final _formKey = GlobalKey<FormState>();
+  
+  // Bộ điều khiển (Controller) dùng để lấy dữ liệu text từ các ô nhập liệu Email và Mật khẩu
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  
+  // Trạng thái ẩn/hiện mật khẩu (true = ẩn dạng chấm tròn, false = hiện chữ thường)
   bool _obscurePassword = true;
 
   @override
   void dispose() {
+    // Giải phóng bộ nhớ của các Controller khi không dùng màn hình này nữa để tránh rò rỉ bộ nhớ (memory leak)
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
+  // Hàm kiểm tra tính hợp lệ (validation) của định dạng Email nhập vào
   String? _validateEmail(String? value) {
     if (value == null || value.isEmpty) return 'Vui lòng nhập email';
-    final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
+    final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+$'); // Biểu thức chính quy kiểm tra định dạng email
     if (!emailRegex.hasMatch(value)) return 'Email không hợp lệ';
     return null;
   }
 
+  // Hàm xử lý khi người dùng nhấn nút "Đăng nhập"
   Future<void> _handleLogin() async {
+    // 1. Kiểm tra tính hợp lệ của Form (nếu FormValidator báo lỗi thì dừng lại)
     if (!_formKey.currentState!.validate()) return;
+    
+    // 2. Lấy đối tượng AuthProvider thông qua read (không lắng nghe sự thay đổi liên tục, chỉ gọi hàm)
     final authProvider = context.read<AuthProvider>();
     try {
+      // 3. Gọi hàm login để đóng gói dữ liệu và gửi HTTP POST request lên backend API
       await authProvider.login(_emailController.text.trim(), _passwordController.text);
     } catch (e) {
       if (!mounted) return;
+      // 4. Nếu có lỗi (sai pass, mất mạng...), chuyển đổi mã lỗi DioException thành thông điệp tiếng Việt thân thiện
       final message = e is DioException ? ApiClient.mapDioErrorToMessage(e) : e.toString();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message), backgroundColor: Colors.red),
@@ -49,6 +62,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Watch AuthProvider để rebuild lại giao diện khi trạng thái đăng nhập thay đổi (ví dụ hiển thị nút Loading khi đang gọi API)
     final authProvider = context.watch<AuthProvider>();
     final colorScheme = Theme.of(context).colorScheme;
 

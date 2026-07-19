@@ -16,25 +16,29 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  DashboardDto? _dashboard;
-  bool _isLoading = true;
-  String? _error;
-  int _lastVersion = -1;
+  DashboardDto? _dashboard; // Dữ liệu thống kê tổng thể nhận về từ API
+  bool _isLoading = true; // Trạng thái đang tải dữ liệu (hiển thị vòng xoay loading)
+  String? _error; // Lưu trữ chuỗi thông báo lỗi khi API thất bại
+  int _lastVersion = -1; // Theo dõi phiên bản đồng bộ cục bộ để tự động cập nhật lại khi học sinh vừa hoàn thành bài tập
 
   @override
   void initState() {
     super.initState();
-    _fetchDashboard();
+    _fetchDashboard(); // Tự động gọi dữ liệu khi bắt đầu tạo màn hình
   }
 
+  // Hàm gọi API lấy dữ liệu dashboard từ máy chủ
   Future<void> _fetchDashboard() async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
     try {
+      // Gọi HTTP GET tới `/api/dashboard/me` thông qua ApiClient
       final response = await ApiClient.instance.get('/dashboard/me');
       final data = response.data as Map<String, dynamic>;
+      
+      // Chuyển đổi dữ liệu JSON thành đối tượng Dart model
       _dashboard = DashboardDto.fromJson(data);
       setState(() => _isLoading = false);
     } catch (e) {
@@ -47,11 +51,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Theo dõi 'version' của ProgressNotifier (được cập nhật mỗi khi học sinh làm xong bài tập, đồng bộ offline thành công)
     final version = context.watch<ProgressNotifier>().version;
+    
+    // Nếu có sự thay đổi tiến độ (version tăng), tự động làm mới (refetch) dữ liệu dashboard từ server
     if (version != _lastVersion) {
       _lastVersion = version;
       if (_dashboard != null && !_isLoading) _fetchDashboard();
     }
+    
+    // Quản lý hiển thị các trạng thái UI: Đang tải / Lỗi / Không có dữ liệu
     if (_isLoading) return const AppLoadingWidget(message: 'Đang tải thông tin...');
     if (_error != null) return AppErrorWidget(message: _error!, onRetry: _fetchDashboard);
     if (_dashboard == null) return const Center(child: Text('Không có dữ liệu'));
@@ -59,15 +68,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final dash = _dashboard!;
 
     return RefreshIndicator(
-      onRefresh: _fetchDashboard,
+      onRefresh: _fetchDashboard, // Kéo xuống để làm mới (Pull to refresh)
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 1. Khối Header hiển thị Tên và Thanh tiến độ tổng thể (Đã học X/Y bài)
             _buildHeaderCard(context, dash),
             const SizedBox(height: 20),
+            
+            // 2. Hàng hiển thị Số xu học tập & Điểm số trung bình các bài tập
             Row(
               children: [
                 Expanded(child: _buildCoinsCard(context, dash)),
@@ -76,11 +88,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
             const SizedBox(height: 20),
+            
+            // 3. Tiến trình chi tiết của từng Chương học (Tỷ lệ phần trăm và trạng thái khóa/mở bài thi)
             _buildChapterProgress(context, dash),
+            
+            // 4. Danh sách các Huy hiệu đã đạt được
             if (dash.badges.isNotEmpty) ...[
               const SizedBox(height: 20),
               _buildBadgesSection(context, dash),
             ],
+            
+            // 5. Nhật ký 3 Hoạt động học tập gần đây nhất
             if (dash.recentActivities.isNotEmpty) ...[
               const SizedBox(height: 20),
               _buildRecentActivities(context, dash),
