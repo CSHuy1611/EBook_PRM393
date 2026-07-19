@@ -3,6 +3,7 @@ import 'package:math_ibook/core/network/api_client.dart';
 import 'package:math_ibook/core/storage/local_db_service.dart';
 
 class OfflineSyncAttemptDetail {
+  // Chi tiết do server chấm, chỉ dùng trình bày dialog sau đồng bộ.
   final bool isPassed;
   final int correctCount;
   final int totalQuestions;
@@ -19,6 +20,7 @@ class OfflineSyncAttemptDetail {
 }
 
 class OfflineSyncSummary {
+  // Summary tách khỏi JSON API để StudentShell/OfflineSyncScreen dùng thống nhất.
   final int attempts;
   final int progress;
   final int totalCoinsEarned;
@@ -36,6 +38,7 @@ class OfflineSyncSummary {
   });
 
   int get totalItems => attempts + progress;
+  // Progress không có quiz vẫn được coi là dữ liệu đã đồng bộ.
   bool get hasSyncedData => totalItems > 0;
 }
 
@@ -43,13 +46,16 @@ class OfflineSyncService {
   OfflineSyncService._();
   static final instance = OfflineSyncService._();
   final _db = LocalDbService();
+  // Map userId → Future đang chạy ngăn StudentShell và OfflineSyncScreen gửi hai request.
   final Map<String, Future<OfflineSyncSummary>> _activeSyncs = {};
 
   Future<OfflineSyncSummary> sync(String userId) async {
+    // Nếu user này đang sync, caller mới chờ cùng kết quả thay vì POST lần nữa.
     final activeSync = _activeSyncs[userId];
     if (activeSync != null) return activeSync;
 
     late final Future<OfflineSyncSummary> operation;
+    // whenComplete luôn dọn map dù request thành công hay ném lỗi.
     operation = _syncInternal(userId).whenComplete(() {
       if (identical(_activeSyncs[userId], operation)) {
         _activeSyncs.remove(userId);
@@ -60,32 +66,54 @@ class OfflineSyncService {
   }
 
   Future<OfflineSyncSummary> _syncInternal(String userId) async {
+    // Đọc song song hai loại queue logic cho đúng user hiện tại.
     final attempts = await _db.getUnsyncedAttempts(userId);
     final progress = await _db.getUnsyncedProgress(userId);
-    if (attempts.isEmpty && progress.isEmpty) return const OfflineSyncSummary(attempts: 0, progress: 0);
+    // Queue rỗng không cần gọi server nhưng vẫn trả summary hợp lệ cho UI.
+    if (attempts.isEmpty && progress.isEmpty)
+      return const OfflineSyncSummary(attempts: 0, progress: 0);
+    // Giữ local ids riêng để mark đúng record sau response.
     final attemptIds = attempts.map((item) => item['id'] as int).toList();
     final progressIds = progress.map((item) => item['id'] as int).toList();
+    // Chuyển tên cột snake_case SQLite sang JSON camelCase của C# DTO.
     final body = {
-      'attempts': attempts.map((item) => {
-        'quizId': item['quiz_id'],
-        'lessonId': item['lesson_id'] == '' ? null : item['lesson_id'],
-        'clientAttemptId': item['client_attempt_id'],
-        'durationSeconds': item['duration_seconds'],
-        'clientCreatedAt': item['client_created_at'],
-        'answers': (jsonDecode(item['answers_json'] as String) as List<dynamic>),
-      }).toList(),
-      'progress': {'items': progress.map((item) => {
-        'lessonId': item['lesson_id'],
-        'isCompleted': false,
-        'bestScore': 0,
-        'clientUpdatedAt': item['client_updated_at'],
-      }).toList()},
+      'attempts': attempts
+          .map(
+            (item) => {
+              'quizId': item['quiz_id'],
+              'lessonId': item['lesson_id'] == '' ? null : item['lesson_id'],
+              // clientAttemptId phải giữ nguyên qua mọi lần retry để server nhận ra duplicate.
+              'clientAttemptId': item['client_attempt_id'],
+              'durationSeconds': item['duration_seconds'],
+              'clientCreatedAt': item['client_created_at'],
+              // Decode answers_json trở lại List trước khi Dio encode toàn body.
+              'answers':
+                  (jsonDecode(item['answers_json'] as String) as List<dynamic>),
+            },
+          )
+          .toList(),
+      'progress': {
+        'items': progress
+            .map(
+              (item) => {
+                'lessonId': item['lesson_id'],
+                // Client không tự khai completed/bestScore; server suy ra từ QuizAttempts.
+                'isCompleted': false,
+                'bestScore': 0,
+                'clientUpdatedAt': item['client_updated_at'],
+              },
+            )
+            .toList(),
+      },
     };
     try {
+      // Một request bulk gửi attempts trước và progress sau đến /api/sync.
       final response = await ApiClient.instance.post('/sync', data: body);
+      // Chỉ đánh dấu synced sau khi toàn bộ endpoint trả 2xx.
       await _db.markAttemptsSynced(attemptIds);
       await _db.markProgressSynced(progressIds);
 
+      // Tổng hợp response để dialog có số bài đạt, điểm và xu.
       int totalCoins = 0;
       int passedCount = 0;
       int failedCount = 0;
@@ -93,6 +121,7 @@ class OfflineSyncService {
 
       if (response.data != null && response.data['attempts'] is List) {
         for (var att in response.data['attempts']) {
+          // Dùng giá trị mặc định để client không crash nếu server thiếu field tùy chọn.
           final coins = (att['coinsEarned'] ?? 0) as int;
           final isPassed = att['isPassed'] == true;
           final correct = (att['correctCount'] ?? 0) as int;
@@ -105,13 +134,15 @@ class OfflineSyncService {
           } else {
             failedCount++;
           }
-          details.add(OfflineSyncAttemptDetail(
-            isPassed: isPassed,
-            correctCount: correct,
-            totalQuestions: total,
-            coinsEarned: coins,
-            score: score,
-          ));
+          details.add(
+            OfflineSyncAttemptDetail(
+              isPassed: isPassed,
+              correctCount: correct,
+              totalQuestions: total,
+              coinsEarned: coins,
+              score: score,
+            ),
+          );
         }
       }
 
@@ -124,6 +155,7 @@ class OfflineSyncService {
         attemptDetails: details,
       );
     } catch (error) {
+      // Không xóa queue; ghi lỗi và rethrow để UI hiện thông báo thất bại.
       await _db.markAttemptsFailed(attemptIds, error.toString());
       rethrow;
     }

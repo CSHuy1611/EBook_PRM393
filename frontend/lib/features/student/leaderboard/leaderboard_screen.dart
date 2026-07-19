@@ -44,17 +44,21 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       return;
     }
 
+    // ProgressNotifier tăng version sau quiz/sync; version mới làm bảng tải lại.
     if (version == _lastProgressVersion) return;
     _lastProgressVersion = version;
+    // Đợi frame hiện tại kết thúc để không setState trong build/didChangeDependencies.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _load();
     });
   }
 
   Future<void> _load() async {
+    // Chặn refresh nút, pull-to-refresh và ProgressNotifier chạy đồng thời.
     if (_requestInFlight) return;
     _requestInFlight = true;
 
+    // Nếu đã có data, giữ nội dung cũ và chỉ hiện trạng thái refreshing nhẹ.
     if (mounted && _data != null) {
       setState(() {
         _refreshing = true;
@@ -63,9 +67,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     }
 
     try {
+      // Test có thể inject loader giả; production dùng StudentFeatureApi.
       final loader =
           widget.loadLeaderboard ?? StudentFeatureApi.instance.getLeaderboard;
       final data = await loader();
+      // Chỉ cập nhật state nếu widget vẫn còn trong cây giao diện.
       if (!mounted) return;
       setState(() {
         _data = data;
@@ -77,6 +83,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       if (!mounted) return;
       const message =
           'Không thể tải bảng xếp hạng. Vui lòng kiểm tra kết nối và thử lại.';
+      // Lỗi lần đầu chuyển sang full error; lỗi refresh chỉ hiện SnackBar để giữ data cũ.
       if (_data == null) {
         setState(() {
           _error = message;
@@ -90,12 +97,14 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         ).showSnackBar(const SnackBar(content: Text(message)));
       }
     } finally {
+      // Luôn mở khóa request kể cả success, error hoặc widget đã unmount.
       _requestInFlight = false;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Loading và error là trạng thái toàn màn hình trước khi có dữ liệu đầu tiên.
     if (_loading) {
       return const AppLoadingWidget(message: 'Đang tải bảng xếp hạng...');
     }
@@ -104,6 +113,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     }
 
     final data = _data!;
+    // Tách ba người đầu cho bục; phần còn lại dùng danh sách lazy.
     final topEntries = data.top100.take(3).toList(growable: false);
     final remainingEntries = data.top100.skip(3).toList(growable: false);
 
@@ -111,9 +121,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       builder: (context, constraints) {
         return Center(
           child: ConstrainedBox(
+            // Giới hạn 760 px để giao diện tablet/web không bị kéo quá rộng.
             constraints: const BoxConstraints(maxWidth: 760),
             child: RefreshIndicator(
               onRefresh: _load,
+              // CustomScrollView cho phép các khối header, podium và list cuộn chung.
               child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
@@ -127,6 +139,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                       ),
                     ),
                   ),
+                  // Thẻ cá nhân nằm ngoài danh sách Top 100 nên vẫn hiện khi rank > 100.
                   if (data.currentUser != null)
                     SliverPadding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
@@ -134,6 +147,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                         child: _CurrentUserCard(entry: data.currentUser!),
                       ),
                     ),
+                  // Không có Student thì hiển thị empty state thay vì podium rỗng.
                   if (data.top100.isEmpty)
                     const SliverFillRemaining(
                       hasScrollBody: false,
@@ -168,6 +182,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                       ),
                       SliverPadding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
+                        // SliverList chỉ dựng row đang cần hiển thị, phù hợp Top 100.
                         sliver: SliverList.separated(
                           itemCount: remainingEntries.length,
                           itemBuilder: (context, index) =>

@@ -28,40 +28,49 @@ public class QuizScoringService : IQuizScoringService
 
     public async Task<QuizResultDto> ScoreQuizAsync(Guid userId, QuizSubmitDto dto)
     {
+        // Xác minh lại user ở service vì hàm cũng có thể được gọi ngoài controller trực tiếp.
         var user = await _unitOfWork.Users.GetByIdAsync(userId);
         if (user is null || !user.IsActive || user.Role != "Student")
         {
             throw new UnauthorizedAccessException("Tài khoản học sinh không tồn tại hoặc đã bị khóa.");
         }
 
+        // Resolve quiz, tải câu hỏi server và validate đủ/mỗi câu một đáp án.
         var quiz = await ResolveQuizAsync(dto);
         var questions = await LoadQuestionsAsync(quiz);
         ValidateSubmission(dto, questions);
 
+        // Online có thể không truyền id; offline bắt buộc giữ UUID đã tạo từ client.
         var clientAttemptId = dto.ClientAttemptId ?? Guid.NewGuid();
+        // Cùng user+clientAttemptId đã tồn tại nghĩa là retry của attempt cũ.
         var existingAttempt = await _unitOfWork.QuizAttempts.FirstOrDefaultAsync(
             attempt => attempt.UserId == userId && attempt.ClientAttemptId == clientAttemptId);
         if (existingAttempt is not null)
         {
+            // Trả kết quả cũ, không tạo attempt/cộng xu/xét badge lần hai.
             return await BuildExistingResultAsync(existingAttempt, quiz, questions);
         }
 
+        // Quiz chương chỉ được chấm sau khi toàn bộ điều kiện mở khóa đã đạt.
         if (quiz.QuizType == QuizType.Chapter)
         {
             await EnsureChapterQuizUnlockedAsync(userId, quiz.ChapterId!.Value);
         }
 
+        // priorAttempts dùng tính AttemptNumber và chính sách giảm thưởng khi retry.
         var priorAttempts = (await _unitOfWork.QuizAttempts.FindAsync(
                 attempt => attempt.UserId == userId && attempt.QuizId == quiz.Id))
             .OrderBy(attempt => attempt.CreatedAt)
             .ToList();
 
+        // Dictionary cho phép tìm đáp án theo QuestionId O(1) trong vòng lặp.
         var answerMap = dto.Answers.ToDictionary(answer => answer.QuestionId);
         var correctAnswers = new List<CorrectAnswerDto>();
         var score = 0;
 
         foreach (var question in questions)
         {
+            // So sánh lựa chọn client với CorrectOption chỉ tồn tại trên server.
             var selectedOption = answerMap[question.Id].SelectedOption;
             var isCorrect = selectedOption == question.CorrectOption;
             if (isCorrect)
@@ -69,6 +78,7 @@ public class QuizScoringService : IQuizScoringService
                 score++;
             }
 
+            // CorrectAnswerDto trả giải thích để màn hình kết quả cho người học xem lại.
             correctAnswers.Add(new CorrectAnswerDto
             {
                 QuestionId = question.Id,
@@ -80,6 +90,7 @@ public class QuizScoringService : IQuizScoringService
         }
 
         var now = DateTime.UtcNow;
+        // Chuẩn hóa điểm thô sang thang 10 và làm tròn hai chữ số.
         var score10 = Math.Round((decimal)score / questions.Count * 10m, 2);
         var attempt = new QuizAttempt
         {
@@ -90,6 +101,7 @@ public class QuizScoringService : IQuizScoringService
             Score = score,
             TotalQuestions = questions.Count,
             Score10 = score10,
+            // Pass/fail dùng PassScore cấu hình của chính quiz.
             IsPassed = score10 >= quiz.PassScore,
             DurationSeconds = dto.DurationSeconds,
             ClientCreatedAt = dto.ClientCreatedAt == default ? now : dto.ClientCreatedAt,
@@ -97,6 +109,7 @@ public class QuizScoringService : IQuizScoringService
             SyncedAt = now
         };
 
+        // Lưu attempt và từng đáp án trước khi chạy progress/reward.
         await _unitOfWork.QuizAttempts.AddAsync(attempt);
         foreach (var question in questions)
         {
@@ -112,10 +125,12 @@ public class QuizScoringService : IQuizScoringService
 
         await _unitOfWork.SaveChangesAsync();
 
+        // Chọn entity Progress hoặc ChapterProgress tùy loại quiz.
         var progressResult = quiz.QuizType == QuizType.Lesson
             ? await UpdateLessonProgressAsync(userId, quiz, score, score10, now)
             : await UpdateChapterProgressAsync(userId, quiz, score10, now);
 
+        // RewardService là nguồn duy nhất tính/cộng xu và tạo CoinTransaction.
         var coinsEarned = await _rewardService.AwardAsync(userId, new QuizRewardContext
         {
             Quiz = quiz,
@@ -124,11 +139,13 @@ public class QuizScoringService : IQuizScoringService
             IsRetry = priorAttempts.Count > 0
         });
 
+        // Ghi số xu thực tế vào attempt để duplicate response trả đúng kết quả cũ.
         attempt.CoinsEarned = coinsEarned;
         attempt.RewardProcessedAt = DateTime.UtcNow;
         _unitOfWork.QuizAttempts.Update(attempt);
         await _unitOfWork.SaveChangesAsync();
 
+        // Sau khi progress/xu thay đổi mới xét badge vì rule có thể phụ thuộc hai dữ liệu này.
         var chapterId = quiz.ChapterId ?? progressResult.ChapterId;
         var newBadges = await _badgeCheckService.CheckAndAwardBadgesAsync(userId, chapterId);
 
@@ -140,6 +157,7 @@ public class QuizScoringService : IQuizScoringService
             quiz.Id,
             coinsEarned);
 
+        // DTO là hợp đồng cuối cùng cho quiz online và offline bulk sync.
         return new QuizResultDto
         {
             Id = attempt.Id,

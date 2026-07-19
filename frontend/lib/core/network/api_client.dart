@@ -3,22 +3,29 @@ import 'app_config.dart';
 import '../storage/secure_storage_service.dart';
 
 class ApiClient {
+  // Dio là HTTP client dùng chung cho toàn bộ ứng dụng. Mọi feature gọi qua
+  // instance này để dùng cùng base URL, timeout, header và cơ chế refresh JWT.
   final Dio _dio;
+  // SecureStorageService giữ access token/refresh token trong vùng lưu trữ an toàn.
   final SecureStorageService _storageService;
 
   ApiClient(this._storageService)
-      : _dio = Dio(
-          BaseOptions(
-            baseUrl: AppConfig.baseUrl,
-            connectTimeout: const Duration(seconds: 10),
-            receiveTimeout: const Duration(seconds: 10),
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-            },
-          ),
-        ) {
+    : _dio = Dio(
+        BaseOptions(
+          // AppConfig tự chọn localhost, Android emulator hoặc biến API_BASE_URL.
+          baseUrl: AppConfig.baseUrl,
+          // Không để UI chờ vô hạn khi server hoặc mạng không phản hồi.
+          connectTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 10),
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+        ),
+      ) {
+    // AuthInterceptor chạy trước request để gắn JWT và chạy khi có lỗi 401/403.
     _dio.interceptors.add(AuthInterceptor(_storageService));
+    // Log request/response phục vụ debug; không tham gia xử lý nghiệp vụ.
     _dio.interceptors.add(
       LogInterceptor(
         requestBody: true,
@@ -30,11 +37,13 @@ class ApiClient {
 
   static ApiClient? _instance;
   static ApiClient get instance {
+    // Lazy singleton: chỉ tạo client ở lần truy cập đầu tiên.
     _instance ??= ApiClient(SecureStorageService());
     return _instance!;
   }
 
   static void init(SecureStorageService storage) {
+    // Cho phép bootstrap ứng dụng truyền đúng storage đã được khởi tạo.
     _instance = ApiClient(storage);
   }
 
@@ -46,6 +55,7 @@ class ApiClient {
     Options? options,
     CancelToken? cancelToken,
   }) {
+    // Giữ nguyên generic T để feature có thể yêu cầu Map, List hoặc DTO khác nhau.
     return _dio.get<T>(
       path,
       queryParameters: queryParameters,
@@ -61,6 +71,7 @@ class ApiClient {
     Options? options,
     CancelToken? cancelToken,
   }) {
+    // data là JSON body; queryParameters là tham số trên URL.
     return _dio.post<T>(
       path,
       data: data,
@@ -77,6 +88,7 @@ class ApiClient {
     Options? options,
     CancelToken? cancelToken,
   }) {
+    // PUT được dùng trong chức năng cập nhật hồ sơ Student.
     return _dio.put<T>(
       path,
       data: data,
@@ -126,29 +138,40 @@ class ApiClient {
     return response.data ?? {};
   }
 
-  Future<Map<String, dynamic>> register(String name, String email, String password, String confirmPassword, String otp) async {
+  Future<Map<String, dynamic>> register(
+    String name,
+    String email,
+    String password,
+    String confirmPassword,
+    String otp,
+  ) async {
     final response = await post<Map<String, dynamic>>(
       '/auth/register',
-      data: {'name': name, 'email': email, 'password': password, 'confirmPassword': confirmPassword, 'otp': otp},
+      data: {
+        'name': name,
+        'email': email,
+        'password': password,
+        'confirmPassword': confirmPassword,
+        'otp': otp,
+      },
     );
     return response.data ?? {};
   }
 
   Future<void> sendOtp(String email) async {
-    await post(
-      '/auth/send-otp',
-      data: {'email': email},
-    );
+    await post('/auth/send-otp', data: {'email': email});
   }
 
   Future<void> forgotPassword(String email) async {
-    await post(
-      '/auth/forgot-password',
-      data: {'email': email},
-    );
+    await post('/auth/forgot-password', data: {'email': email});
   }
 
-  Future<void> resetPassword(String email, String otp, String newPassword, String confirmNewPassword) async {
+  Future<void> resetPassword(
+    String email,
+    String otp,
+    String newPassword,
+    String confirmNewPassword,
+  ) async {
     await post(
       '/auth/reset-password',
       data: {
@@ -187,7 +210,9 @@ class ApiClient {
         final statusCode = e.response?.statusCode;
         final data = e.response?.data;
         if (data is Map) {
-          if (data.containsKey('isValid') && data['isValid'] == false && data['errors'] is List) {
+          if (data.containsKey('isValid') &&
+              data['isValid'] == false &&
+              data['errors'] is List) {
             final errors = data['errors'] as List;
             if (errors.isNotEmpty && errors.first is Map) {
               return errors.first['message'] ?? 'Dữ liệu không hợp lệ.';
@@ -235,80 +260,103 @@ class AuthInterceptor extends Interceptor {
 
   @override
   void onRequest(
-      RequestOptions options, RequestInterceptorHandler handler) async {
+    RequestOptions options,
+    RequestInterceptorHandler handler,
+  ) async {
+    // Đọc token ngay trước lúc gửi để luôn dùng token mới nhất sau refresh/login.
     final token = await _storage.getAccessToken();
     if (token != null && token.isNotEmpty) {
+      // Backend JwtBearer đọc token từ header Authorization chuẩn Bearer.
       options.headers['Authorization'] = 'Bearer $token';
     }
+    // Cho request tiếp tục đi qua chuỗi interceptor đến server.
     handler.next(options);
   }
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
+    // 401 nghĩa là access token thiếu, hết hạn hoặc không hợp lệ.
     if (err.response?.statusCode == 401) {
+      // Nếu chính request refresh cũng 401 thì không được refresh đệ quy.
       if (err.requestOptions.path.contains('/auth/refresh')) {
         await _storage.clearAll();
-        handler.reject(DioException(
-          requestOptions: err.requestOptions,
-          message: 'Session expired',
-          error: 'Session expired',
-          type: DioExceptionType.badResponse,
-          response: err.response,
-        ));
+        handler.reject(
+          DioException(
+            requestOptions: err.requestOptions,
+            message: 'Session expired',
+            error: 'Session expired',
+            type: DioExceptionType.badResponse,
+            response: err.response,
+          ),
+        );
         return;
       }
 
       final refreshToken = await _storage.getRefreshToken();
+      // Không có refresh token thì phiên đăng nhập không thể phục hồi.
       if (refreshToken == null || refreshToken.isEmpty) {
         await _storage.clearAll();
-        handler.reject(DioException(
-          requestOptions: err.requestOptions,
-          message: 'Session expired',
-          error: 'Session expired',
-          type: DioExceptionType.badResponse,
-          response: err.response,
-        ));
+        handler.reject(
+          DioException(
+            requestOptions: err.requestOptions,
+            message: 'Session expired',
+            error: 'Session expired',
+            type: DioExceptionType.badResponse,
+            response: err.response,
+          ),
+        );
         return;
       }
 
       try {
+        // Dùng Dio riêng, không gắn AuthInterceptor, để tránh vòng lặp interceptor.
         final refreshDio = Dio(BaseOptions(baseUrl: AppConfig.baseUrl));
         final response = await refreshDio.post(
           '/auth/refresh',
           data: {'refreshToken': refreshToken},
         );
         final data = response.data;
+        // Response refresh bắt buộc phải có accessToken mới.
         if (data == null || data['accessToken'] == null) {
           throw Exception('Invalid refresh response');
         }
+        // Lưu token mới trước khi retry để các request tiếp theo dùng được ngay.
         await _storage.saveAccessToken(data['accessToken'] as String);
         if (data['refreshToken'] != null) {
           await _storage.saveRefreshToken(data['refreshToken'] as String);
         }
 
+        // Gắn access token mới trực tiếp vào request đã thất bại.
         err.requestOptions.headers['Authorization'] =
             'Bearer ${data['accessToken']}';
+        // Gửi lại đúng method, URL, body và query của request ban đầu.
         final retryDio = Dio(BaseOptions(baseUrl: AppConfig.baseUrl));
         final retryResponse = await retryDio.fetch(err.requestOptions);
         handler.resolve(retryResponse);
       } catch (e) {
+        // Refresh thất bại: xóa credential cũ để tránh lặp 401 vô hạn.
         await _storage.clearAll();
-        handler.reject(DioException(
-          requestOptions: err.requestOptions,
-          message: 'Session expired',
-          error: 'Session expired',
-          type: DioExceptionType.badResponse,
-          response: err.response,
-        ));
+        handler.reject(
+          DioException(
+            requestOptions: err.requestOptions,
+            message: 'Session expired',
+            error: 'Session expired',
+            type: DioExceptionType.badResponse,
+            response: err.response,
+          ),
+        );
       }
     } else if (err.response?.statusCode == 403) {
-      handler.reject(DioException(
-        requestOptions: err.requestOptions,
-        message: 'Access denied. You do not have permission.',
-        error: 'Access denied',
-        type: DioExceptionType.badResponse,
-        response: err.response,
-      ));
+      // 403 là đã xác thực nhưng role/quyền không cho phép thực hiện request.
+      handler.reject(
+        DioException(
+          requestOptions: err.requestOptions,
+          message: 'Access denied. You do not have permission.',
+          error: 'Access denied',
+          type: DioExceptionType.badResponse,
+          response: err.response,
+        ),
+      );
     } else {
       handler.next(err);
     }
