@@ -171,13 +171,16 @@ class _QuizScreenState extends State<QuizScreen> {
       }
     } catch (e) {
       if (_isNetworkError(e)) {
+        // [NGOẠI TUYẾN] Bước 1: Bắt lỗi mạng khi gửi bài thi bài học.
         final userId = context.read<AuthProvider>().currentUser?.id;
         if (userId != null && userId.isNotEmpty) {
+          // [NGOẠI TUYẾN] Bước 2: Lưu kết quả bài làm cùng thời gian, đáp án vào SQLite.
           await LocalDbService().queueQuizAttempt(
             userId: userId, lessonId: dto.lessonId!, quizId: dto.quizId, clientAttemptId: dto.clientAttemptId,
             durationSeconds: dto.durationSeconds, answers: dto.answers.map((answer) => answer.toJson()).toList(), createdAt: DateTime.parse(dto.clientCreatedAt),
           );
           if (mounted) {
+            // [NGOẠI TUYẾN] Bước 3: Báo cho học sinh yên tâm tắt máy.
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã lưu bài làm. Server sẽ chấm điểm khi đồng bộ lại.')));
             context.pop();
           }

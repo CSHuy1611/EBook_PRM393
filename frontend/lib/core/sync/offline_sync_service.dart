@@ -107,9 +107,9 @@ class OfflineSyncService {
       },
     };
     try {
-      // Một request bulk gửi attempts trước và progress sau đến /api/sync.
+      // [NGOẠI TUYẾN] Bước 6: Nhân viên giao liên - Lấy bài từ SQLite và gửi tất cả lên Backend (Server) chấm điểm.
       final response = await ApiClient.instance.post('/sync', data: body);
-      // Chỉ đánh dấu synced sau khi toàn bộ endpoint trả 2xx.
+      // [NGOẠI TUYẾN] Bước 7: Dọn dẹp - Sau khi Server báo 200 OK (đã nhận và chấm xong), xóa sạch bài tạm trong SQLite để không gửi trùng.
       await _db.markAttemptsSynced(attemptIds);
       await _db.markProgressSynced(progressIds);
 

@@ -165,13 +165,16 @@ class _ChapterQuizScreenState extends State<ChapterQuizScreen> {
       }
     } catch (e) {
       if (_isNetworkError(e)) {
+        // [NGOẠI TUYẾN] Bước 1: Phát hiện rớt mạng. Thay vì văng lỗi, ứng dụng bắt lỗi mất kết nối ở đây.
         final userId = context.read<AuthProvider>().currentUser?.id;
         if (userId != null && userId.isNotEmpty) {
+          // [NGOẠI TUYẾN] Bước 2: Kế hoạch B - Đưa dữ liệu tạm vào hàng đợi (Queue) trong kho SQLite cục bộ.
           await LocalDbService().queueQuizAttempt(
             userId: userId, lessonId: '', quizId: dto.quizId, clientAttemptId: dto.clientAttemptId,
             durationSeconds: dto.durationSeconds, answers: dto.answers.map((answer) => answer.toJson()).toList(), createdAt: DateTime.parse(dto.clientCreatedAt),
           );
           if (mounted) {
+            // [NGOẠI TUYẾN] Bước 3: Hiện câu thông báo trấn an học sinh, sau đó thoát ra ngoài an toàn.
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã lưu bài làm chương. Server sẽ chấm điểm khi đồng bộ lại.')));
             context.pop();
           }

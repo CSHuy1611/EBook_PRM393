@@ -52,9 +52,9 @@ class _StudentShellState extends State<StudentShell> {
   }
 
   void _onConnectivityChanged(List<ConnectivityResult> result) {
-    // connectivity_plus có thể trả nhiều interface; chỉ cần một interface khác none.
+    // [NGOẠI TUYẾN] Bước 4: Người gác cổng - Theo dõi khi mạng kết nối lại.
     final online = result.any((r) => r != ConnectivityResult.none);
-    // Chỉ coi là reconnect khi đã từng xác nhận offline.
+    // Chỉ coi là reconnect khi trạng thái mạng vừa chuyển từ offline sang online.
     final justReconnected = _wasOnline == false && online;
     _wasOnline = online;
 
@@ -62,7 +62,7 @@ class _StudentShellState extends State<StudentShell> {
     if (!online) return;
 
     if (justReconnected && mounted) {
-      // Thông báo tức thời để người dùng biết app đã nhận sự kiện có mạng lại.
+      // [NGOẠI TUYẾN] Bước 5: Kích hoạt đồng bộ - Mạng đã có lại, thông báo cho học sinh biết.
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
