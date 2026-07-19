@@ -65,7 +65,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       onRefresh: _onRefresh,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final isWide = constraints.maxWidth > 800;
+          final isWide = constraints.maxWidth > 900;
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
@@ -476,7 +476,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     color: idx <= 3 ? Colors.deepOrange : Colors.blue,
                   )),
                 ),
-                title: Text(s.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                title: Text(
+                  s.name, 
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 trailing: Wrap(
                   spacing: 8,
                   children: [

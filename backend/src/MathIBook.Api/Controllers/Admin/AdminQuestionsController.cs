@@ -122,8 +122,15 @@ public class AdminQuestionsController : ControllerBase
             var lesson = await _unitOfWork.Lessons.GetByIdAsync(dto.LessonId.Value);
             if (lesson is null || lesson.IsDeleted) return NotFound(new ProblemDetails { Title = "Không tìm thấy bài học.", Status = 404 });
 
-            questionsToCreate = await _generatorService.GenerateQuestionsAsync(lesson.Id, null, lesson.Title, dto.Count, "Bài học");
-            
+            try
+            {
+                questionsToCreate = await _generatorService.GenerateQuestionsAsync(lesson.Id, null, lesson.Title, dto.Count, "Bài học");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(502, new ProblemDetails { Title = "Lỗi từ OpenAI", Detail = ex.Message, Status = 502 });
+            }
+
             maxOrder = await _unitOfWork.Questions.Query()
                 .Where(q => q.LessonId == lesson.Id && !q.IsDeleted)
                 .MaxAsync(q => (int?)q.OrderIndex) ?? 0;
@@ -136,8 +143,15 @@ public class AdminQuestionsController : ControllerBase
             var chapter = await _unitOfWork.Chapters.GetByIdAsync(dto.ChapterId.Value);
             if (chapter is null || chapter.IsDeleted) return NotFound(new ProblemDetails { Title = "Không tìm thấy chương.", Status = 404 });
 
-            questionsToCreate = await _generatorService.GenerateQuestionsAsync(null, chapter.Id, chapter.Title, dto.Count, "Chương");
-            
+            try
+            {
+                questionsToCreate = await _generatorService.GenerateQuestionsAsync(null, chapter.Id, chapter.Title, dto.Count, "Chương");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(502, new ProblemDetails { Title = "Lỗi từ OpenAI", Detail = ex.Message, Status = 502 });
+            }
+
             maxOrder = await _unitOfWork.Questions.Query()
                 .Where(q => q.ChapterId == chapter.Id && !q.IsDeleted)
                 .MaxAsync(q => (int?)q.OrderIndex) ?? 0;
