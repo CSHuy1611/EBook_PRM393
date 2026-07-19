@@ -230,8 +230,6 @@ public class AdminQuizzesController : ControllerBase
             OrderIndex = dto.OrderIndex,
             Weight = Math.Max(1, dto.Weight)
         });
-        quiz.IsPublished = false;
-        quiz.PublishedAt = null;
         quiz.UpdatedAt = DateTime.UtcNow;
         _unitOfWork.Quizzes.Update(quiz);
         await AddAuditAsync("Quiz", quiz.Id, "AddQuestion", null, new { question.Id });
@@ -279,8 +277,6 @@ public class AdminQuizzesController : ControllerBase
         link.Question.UpdatedAt = DateTime.UtcNow;
         link.OrderIndex = dto.OrderIndex;
         link.Weight = Math.Max(1, dto.Weight);
-        link.Quiz.IsPublished = false;
-        link.Quiz.PublishedAt = null;
         link.Quiz.UpdatedAt = DateTime.UtcNow;
         _unitOfWork.Questions.Update(link.Question);
         _unitOfWork.QuizQuestions.Update(link);
@@ -303,8 +299,6 @@ public class AdminQuizzesController : ControllerBase
         }
 
         _unitOfWork.QuizQuestions.Remove(link);
-        link.Quiz.IsPublished = false;
-        link.Quiz.PublishedAt = null;
         link.Quiz.UpdatedAt = DateTime.UtcNow;
         _unitOfWork.Quizzes.Update(link.Quiz);
         await AddAuditAsync("Quiz", quizId, "RemoveQuestion", new { questionId }, null);

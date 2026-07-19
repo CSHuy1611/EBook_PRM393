@@ -110,7 +110,6 @@ public class AdminQuestionsController : ControllerBase
                 OrderIndex = newQuizQuestionOrderIndex,
                 Weight = 1
             });
-            // We don't change IsPublished to false here to avoid disrupting an active quiz
             quiz.UpdatedAt = DateTime.UtcNow;
             _unitOfWork.Quizzes.Update(quiz);
         }
@@ -221,7 +220,7 @@ public class AdminQuestionsController : ControllerBase
                 ChapterId = dto.ChapterId,
                 Title = title,
                 PassScore = 5m,
-                DurationSeconds = 1200, // 20 phút
+                DurationSeconds = 1200,
                 IsPublished = true,
                 PublishedAt = DateTime.UtcNow,
                 CreatedAt = DateTime.UtcNow,
@@ -276,7 +275,6 @@ public class AdminQuestionsController : ControllerBase
         question.OrderIndex = dto.OrderIndex;
         question.UpdatedAt = DateTime.UtcNow;
         _unitOfWork.Questions.Update(question);
-        await UnpublishLinkedQuizzesAsync(id);
         await _unitOfWork.SaveChangesAsync();
         return NoContent();
     }
@@ -293,24 +291,8 @@ public class AdminQuestionsController : ControllerBase
         question.IsDeleted = true;
         question.UpdatedAt = DateTime.UtcNow;
         _unitOfWork.Questions.Update(question);
-        await UnpublishLinkedQuizzesAsync(id);
         await _unitOfWork.SaveChangesAsync();
         return NoContent();
-    }
-
-    private async Task UnpublishLinkedQuizzesAsync(Guid questionId)
-    {
-        var quizzes = await _unitOfWork.QuizQuestions.Query()
-            .Where(link => link.QuestionId == questionId)
-            .Select(link => link.Quiz)
-            .ToListAsync();
-        foreach (var quiz in quizzes)
-        {
-            quiz.IsPublished = false;
-            quiz.PublishedAt = null;
-            quiz.UpdatedAt = DateTime.UtcNow;
-            _unitOfWork.Quizzes.Update(quiz);
-        }
     }
 
     private static ProblemDetails? Validate(
