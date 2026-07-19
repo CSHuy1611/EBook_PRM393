@@ -286,7 +286,7 @@ class _StudentShellState extends State<StudentShell> {
                   ] else if (summary.attempts > 0) ...[
                     Row(
                       children: [
-                        const Text('✅ Đạt: '),
+                        const Text('Đã Đạt: '),
                         Text('${summary.passedCount} bài'),
                         const SizedBox(width: 12),
                         const Text('❌ Chưa đạt: '),
