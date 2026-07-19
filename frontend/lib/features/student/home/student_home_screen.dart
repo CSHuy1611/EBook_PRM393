@@ -160,7 +160,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
               ],
             ),
             Text(
-              'Tiến độ tổng thể',
+              'Tiến độ tổng thể (${_dash!.completedLessons}/${_dash!.totalLessons} bài học)',
               style: TextStyle(color: Colors.white.withAlpha(170), fontSize: 12),
             ),
           ],

@@ -8,6 +8,8 @@ class DashboardDto {
   final List<BadgeEarnedDto> badges;
   final List<RecentActivityDto> recentActivities;
   final ContinueLearningDto? continueLearning;
+  final int completedLessons;
+  final int totalLessons;
 
   DashboardDto({
     this.overallCompletionPercentage = 0.0,
@@ -17,6 +19,8 @@ class DashboardDto {
     this.badges = const [],
     this.recentActivities = const [],
     this.continueLearning,
+    this.completedLessons = 0,
+    this.totalLessons = 0,
   });
 
   factory DashboardDto.fromJson(Map<String, dynamic> json) {
@@ -49,6 +53,8 @@ class DashboardDto {
       continueLearning: json['continueLearning'] != null
           ? ContinueLearningDto.fromJson(json['continueLearning'])
           : null,
+      completedLessons: json['completedLessons'] ?? 0,
+      totalLessons: json['totalLessons'] ?? 0,
     );
   }
 
@@ -62,6 +68,8 @@ class DashboardDto {
         'recentActivities':
             recentActivities.map((ra) => ra.toJson()).toList(),
         'continueLearning': continueLearning?.toJson(),
+        'completedLessons': completedLessons,
+        'totalLessons': totalLessons,
       };
 }
 

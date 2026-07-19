@@ -160,9 +160,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Hoàn thành', style: TextStyle(color: Colors.white.withAlpha(180), fontSize: 12)),
+              Text('Đã học: ${dash.completedLessons}/${dash.totalLessons} bài', style: TextStyle(color: Colors.white.withAlpha(180), fontSize: 12)),
               Text(
-                'Còn lại ${(100 - dash.overallCompletionPercentage).toStringAsFixed(0)}%',
+                'Còn lại: ${dash.totalLessons - dash.completedLessons} bài',
                 style: TextStyle(color: Colors.white.withAlpha(180), fontSize: 12),
               ),
             ],
