@@ -77,112 +77,127 @@ class _LessonsScreenState extends State<LessonsScreen> {
         _fetchChapterQuiz();
       }
     }
-    if (_isLoading) return const AppLoadingWidget(message: 'Đang tải bài học...');
-    if (_error != null) return AppErrorWidget(message: _error!, onRetry: _fetchLessons);
-    if (_lessons == null || _lessons!.isEmpty) {
-      return const Center(child: Text('Chưa có bài học nào'));
-    }
-    return RefreshIndicator(
-      onRefresh: () async {
-        await _fetchLessons();
-        await _fetchChapterQuiz();
-      },
-      child: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-        itemCount: _lessons!.length + (_chapterQuizData != null ? 1 : 0),
-        itemBuilder: (context, index) {
-          if (_chapterQuizData != null && index == 0) {
-            return _buildChapterQuizCard();
-          }
-          final lessonIndex = _chapterQuizData != null ? index - 1 : index;
-          final lesson = _lessons![lessonIndex];
-          final status = lesson.status;
-          return Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            child: Material(
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(12),
-              child: InkWell(
+    Widget body;
+    if (_isLoading) {
+      body = const AppLoadingWidget(message: 'Đang tải bài học...');
+    } else if (_error != null) {
+      body = AppErrorWidget(message: _error!, onRetry: _fetchLessons);
+    } else if (_lessons == null || _lessons!.isEmpty) {
+      body = const Center(child: Text('Chưa có bài học nào'));
+    } else {
+      body = RefreshIndicator(
+        onRefresh: () async {
+          await _fetchLessons();
+          await _fetchChapterQuiz();
+        },
+        child: ListView.builder(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          itemCount: _lessons!.length + (_chapterQuizData != null ? 1 : 0),
+          itemBuilder: (context, index) {
+            if (_chapterQuizData != null && index == 0) {
+              return _buildChapterQuizCard();
+            }
+            final lessonIndex = _chapterQuizData != null ? index - 1 : index;
+            final lesson = _lessons![lessonIndex];
+            final status = lesson.status;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              child: Material(
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(12),
-                onTap: () => context.push('/student/lessons/${lesson.id}'),
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: status == 'Passed'
-                              ? const Color(0xFF10B981).withAlpha(20)
-                              : (status == 'InProgress'
-                                  ? const Color(0xFF3B82F6).withAlpha(20)
-                                  : Theme.of(context).colorScheme.surfaceContainerHighest),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Center(
-                          child: status == 'Passed'
-                              ? const Icon(Icons.check_rounded, color: Color(0xFF10B981), size: 22)
-                              : Text(
-                                  '${lesson.orderIndex}',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: status == 'InProgress'
-                                        ? const Color(0xFF3B82F6)
-                                        : const Color(0xFF64748B),
-                                    fontSize: 16,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => context.push('/student/lessons/${lesson.id}'),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: status == 'Passed'
+                                ? const Color(0xFF10B981).withAlpha(20)
+                                : (status == 'InProgress'
+                                    ? const Color(0xFF3B82F6).withAlpha(20)
+                                    : Theme.of(context).colorScheme.surfaceContainerHighest),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Center(
+                            child: status == 'Passed'
+                                ? const Icon(Icons.check_rounded, color: Color(0xFF10B981), size: 22)
+                                : Text(
+                                    '${lesson.orderIndex}',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: status == 'InProgress'
+                                          ? const Color(0xFF3B82F6)
+                                          : const Color(0xFF64748B),
+                                      fontSize: 16,
+                                    ),
                                   ),
-                                ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              lesson.title,
-                              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: Theme.of(context).colorScheme.onSurface),
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                _buildStatusChip(status),
-                                if (lesson.bestScore > 0) ...[
-                                  const SizedBox(width: 8),
-                                  Icon(Icons.score_rounded, size: 14, color: const Color(0xFFF59E0B)),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Điểm: ${lesson.bestScore % 1 == 0 ? lesson.bestScore.toInt().toString() : lesson.bestScore.toStringAsFixed(1)}',
-                                    style: const TextStyle(fontSize: 12, color: Color(0xFFF59E0B), fontWeight: FontWeight.w600),
-                                  ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                lesson.title,
+                                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: Theme.of(context).colorScheme.onSurface),
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  _buildStatusChip(status),
+                                  if (lesson.bestScore > 0) ...[
+                                    const SizedBox(width: 8),
+                                    Icon(Icons.score_rounded, size: 14, color: const Color(0xFFF59E0B)),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Điểm: ${lesson.bestScore % 1 == 0 ? lesson.bestScore.toInt().toString() : lesson.bestScore.toStringAsFixed(1)}',
+                                      style: const TextStyle(fontSize: 12, color: Color(0xFFF59E0B), fontWeight: FontWeight.w600),
+                                    ),
+                                  ],
                                 ],
-                              ],
-                            ),
-                          ],
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      Container(
-                        width: 26,
-                        height: 26,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF3B82F6).withAlpha(15),
-                          borderRadius: BorderRadius.circular(8),
+                        Container(
+                          width: 26,
+                          height: 26,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF3B82F6).withAlpha(15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.chevron_right_rounded, size: 16, color: Color(0xFF3B82F6)),
                         ),
-                        child: const Icon(Icons.chevron_right_rounded, size: 16, color: Color(0xFF3B82F6)),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Danh sách bài học'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.pop(),
+        ),
       ),
+      body: body,
     );
   }
 

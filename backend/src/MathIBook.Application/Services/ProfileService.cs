@@ -42,6 +42,19 @@ public class ProfileService : IProfileService
             .ToList();
         var rankIndex = students.FindIndex(item => item.User.Id == userId);
 
+        var chapterQuizzes = (await _unitOfWork.Quizzes.FindAsync(
+                quiz => quiz.QuizType == QuizType.Chapter && quiz.IsPublished && !quiz.IsDeleted))
+            .ToList();
+        var chapterQuizIds = chapterQuizzes.Select(q => q.Id).ToHashSet();
+        var chapterAttempts = attempts.Where(a => a.QuizId.HasValue && chapterQuizIds.Contains(a.QuizId.Value)).ToList();
+        var bestScores = chapterAttempts
+            .GroupBy(a => a.QuizId!.Value)
+            .Select(g => (double)g.Max(a => a.Score10))
+            .ToList();
+        var averageScore = bestScores.Count > 0
+            ? Math.Round(bestScores.Average(), 2)
+            : 0;
+
         return new StudentProfileDto
         {
             Id = user.Id,
@@ -53,9 +66,7 @@ public class ProfileService : IProfileService
             Rank = rankIndex >= 0 ? rankIndex + 1 : null,
             CompletedLessons = progresses.Count(),
             CompletedChapters = chapterProgresses.Count(),
-            AverageScore = attempts.Count > 0
-                ? Math.Round(attempts.Average(attempt => (double)attempt.Score10), 2)
-                : 0,
+            AverageScore = averageScore,
             BestScore = attempts.Count > 0
                 ? Math.Round(attempts.Max(attempt => (double)attempt.Score10), 2)
                 : 0

@@ -32,6 +32,7 @@ public class ChapterProgressDto
     public int TotalLessons { get; set; }
     public double CompletionPercentage { get; set; }
     public string ChapterQuizStatus { get; set; } = "Unavailable";
+    public bool IsUnlocked { get; set; }
 }
 
 public class RecentActivityDto

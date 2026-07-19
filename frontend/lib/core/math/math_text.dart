@@ -15,6 +15,16 @@ class MathText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final defaultStyle = Theme.of(context).textTheme.bodyMedium;
+    final resolvedTextStyle = defaultStyle?.merge(textStyle) ?? textStyle;
+    
+    final defaultMathStyle = TextStyle(
+      fontSize: 16, 
+      fontStyle: FontStyle.italic,
+      color: Theme.of(context).colorScheme.onSurface,
+    );
+    final resolvedMathStyle = defaultMathStyle.merge(mathStyle);
+
     try {
       var input = data;
       if (input.contains(r'\') && !input.contains(r'$')) {
@@ -29,14 +39,14 @@ class MathText extends StatelessWidget {
 
       for (final block in blocks) {
         if (block.isMath) {
-          children.add(_buildDisplayMath(block.content));
+          children.add(_buildDisplayMath(block.content, resolvedMathStyle, resolvedTextStyle));
         } else {
-          children.addAll(_buildInlineContent(block.content, context));
+          children.addAll(_buildInlineContent(block.content, context, resolvedTextStyle, resolvedMathStyle));
         }
       }
 
       if (children.isEmpty) {
-        return SelectableText(data, style: textStyle);
+        return SelectableText(data, style: resolvedTextStyle);
       }
 
       return Column(
@@ -44,7 +54,7 @@ class MathText extends StatelessWidget {
         children: children,
       );
     } catch (_) {
-      return SelectableText(data, style: textStyle);
+      return SelectableText(data, style: resolvedTextStyle);
     }
   }
 
@@ -65,13 +75,13 @@ class MathText extends StatelessWidget {
     return result;
   }
 
-  List<Widget> _buildInlineContent(String text, BuildContext context) {
+  List<Widget> _buildInlineContent(String text, BuildContext context, TextStyle? resolvedTextStyle, TextStyle? resolvedMathStyle) {
     final regex = RegExp(r'\$(.+?)\$');
     if (!regex.hasMatch(text)) {
       return [
         SelectableText(
           text,
-          style: textStyle,
+          style: resolvedTextStyle,
         ),
       ];
     }
@@ -87,8 +97,7 @@ class MathText extends StatelessWidget {
           WidgetSpan(
             child: Math.tex(
               match.group(1)!,
-              textStyle: mathStyle ??
-                  const TextStyle(fontSize: 16, fontStyle: FontStyle.italic),
+              textStyle: resolvedMathStyle,
             ),
           ),
         );
@@ -104,22 +113,21 @@ class MathText extends StatelessWidget {
     return [
       RichText(
         text: TextSpan(
-          style: textStyle ?? DefaultTextStyle.of(context).style,
+          style: resolvedTextStyle ?? DefaultTextStyle.of(context).style,
           children: spans,
         ),
       ),
     ];
   }
 
-  Widget _buildDisplayMath(String latex) {
+  Widget _buildDisplayMath(String latex, TextStyle? resolvedMathStyle, TextStyle? resolvedTextStyle) {
     try {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Center(
           child: Math.tex(
             latex,
-            textStyle:
-                mathStyle ?? const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+            textStyle: resolvedMathStyle?.copyWith(fontSize: 18, fontWeight: FontWeight.w500),
           ),
         ),
       );
@@ -128,7 +136,7 @@ class MathText extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: SelectableText(
           latex,
-          style: textStyle?.copyWith(fontFamily: 'monospace'),
+          style: resolvedTextStyle?.copyWith(fontFamily: 'monospace'),
         ),
       );
     }

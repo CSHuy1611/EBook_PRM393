@@ -104,6 +104,7 @@ class ChapterProgressDto {
   final int completedLessons;
   final int totalLessons;
   final double completionPercentage;
+  final bool isUnlocked;
 
   ChapterProgressDto({
     required this.chapterId,
@@ -111,6 +112,7 @@ class ChapterProgressDto {
     this.completedLessons = 0,
     this.totalLessons = 0,
     this.completionPercentage = 0.0,
+    this.isUnlocked = false,
   });
 
   factory ChapterProgressDto.fromJson(Map<String, dynamic> json) =>
@@ -121,6 +123,7 @@ class ChapterProgressDto {
         totalLessons: json['totalLessons'] ?? 0,
         completionPercentage:
             (json['completionPercentage'] ?? 0.0).toDouble(),
+        isUnlocked: json['isUnlocked'] ?? false,
       );
 
   Map<String, dynamic> toJson() => {
@@ -129,6 +132,7 @@ class ChapterProgressDto {
         'completedLessons': completedLessons,
         'totalLessons': totalLessons,
         'completionPercentage': completionPercentage,
+        'isUnlocked': isUnlocked,
       };
 }
 

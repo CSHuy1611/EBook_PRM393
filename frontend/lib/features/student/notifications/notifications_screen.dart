@@ -64,6 +64,41 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return '${dt.day}/${dt.month}/${dt.year}';
   }
 
+  String? _resolveLink(String? link) {
+    if (link == null || link.isEmpty) return null;
+    
+    // 1. Map "/badges" -> "/student/badges"
+    if (link == '/badges') {
+      return '/student/badges';
+    }
+    
+    // 2. Map "/chapters/:id/quiz" -> "/student/chapter-quiz/:id"
+    final chapterQuizRegExp = RegExp(r'^/chapters/([^/]+)/quiz$');
+    final chapterQuizMatch = chapterQuizRegExp.firstMatch(link);
+    if (chapterQuizMatch != null) {
+      final chapterId = chapterQuizMatch.group(1);
+      return '/student/chapter-quiz/$chapterId';
+    }
+    
+    // 3. Map "/lessons/:id" -> "/student/lessons/:id"
+    final lessonRegExp = RegExp(r'^/lessons/([^/]+)$');
+    final lessonMatch = lessonRegExp.firstMatch(link);
+    if (lessonMatch != null) {
+      final lessonId = lessonMatch.group(1);
+      return '/student/lessons/$lessonId';
+    }
+    
+    if (link.startsWith('/student')) {
+      return link;
+    }
+    
+    if (link.startsWith('/')) {
+      return '/student$link';
+    }
+    
+    return link;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -82,10 +117,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         separatorBuilder: (_, __) => const Divider(height: 1),
                         itemBuilder: (ctx, i) {
                           final n = _notifications[i];
+                          final resolvedLink = _resolveLink(n.link);
                           return ListTile(
                             leading: Icon(
-                              n.isRead ? Icons.notifications_none : Icons.notifications,
-                              color: n.isRead ? Colors.grey : Theme.of(context).colorScheme.primary,
+                              n.isRead ? Icons.notifications_none_outlined : Icons.notifications_active_rounded,
+                              color: n.isRead ? Colors.grey.shade400 : Colors.amber.shade700,
                             ),
                             title: Text(n.title, style: TextStyle(fontWeight: n.isRead ? FontWeight.normal : FontWeight.bold)),
                             subtitle: Column(
@@ -97,7 +133,40 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             ),
                             onTap: () {
                               if (!n.isRead) _markRead(n.id);
-                              if (n.link != null && n.link!.isNotEmpty) context.push(n.link!);
+                              showDialog(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: Text(n.title),
+                                  content: SingleChildScrollView(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(n.body),
+                                        const SizedBox(height: 16),
+                                        Text(
+                                          _timeAgo(n.createdAt),
+                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  actions: [
+                                    if (resolvedLink != null && resolvedLink.isNotEmpty)
+                                      TextButton(
+                                        onPressed: () {
+                                          Navigator.pop(context);
+                                          context.push(resolvedLink);
+                                        },
+                                        child: const Text('Xem chi tiết'),
+                                      ),
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text('Đóng'),
+                                    ),
+                                  ],
+                                ),
+                              );
                             },
                           );
                         },

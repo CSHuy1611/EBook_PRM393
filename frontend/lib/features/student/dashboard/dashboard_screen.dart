@@ -414,7 +414,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             border: Border.all(color: const Color(0xFFE2E8F0)),
           ),
           child: Column(
-            children: dash.recentActivities.map((activity) {
+            children: dash.recentActivities.take(3).map((activity) {
               IconData icon;
               Color color;
               switch (activity.type) {

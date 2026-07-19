@@ -76,19 +76,21 @@ class _QuizResultScreenState extends State<QuizResultScreen> with SingleTickerPr
             Text('Danh hiệu mới!'),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: _result!.newBadges.map((badge) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Column(
-              children: [
-                Icon(Icons.military_tech, size: 48, color: Colors.amber.shade700),
-                const SizedBox(height: 8),
-                Text(badge.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                if (badge.description.isNotEmpty) Text(badge.description, textAlign: TextAlign.center),
-              ],
-            ),
-          )).toList(),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: _result!.newBadges.map((badge) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                children: [
+                  Icon(Icons.military_tech, size: 48, color: Colors.amber.shade700),
+                  const SizedBox(height: 8),
+                  Text(badge.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  if (badge.description.isNotEmpty) Text(badge.description, textAlign: TextAlign.center),
+                ],
+              ),
+            )).toList(),
+          ),
         ),
         actions: [
           FilledButton(
@@ -116,7 +118,13 @@ class _QuizResultScreenState extends State<QuizResultScreen> with SingleTickerPr
     return Scaffold(
       appBar: AppBar(
         title: const Text('Kết quả bài kiểm tra'),
-        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            context.read<ProgressNotifier>().notifyProgressChanged();
+            context.pop();
+          },
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -271,10 +279,10 @@ class _QuizResultScreenState extends State<QuizResultScreen> with SingleTickerPr
                     onPressed: () {
                       context.pop();
                     },
-                    icon: const Icon(Icons.menu_book),
-                    label: const Text('Học lại'),
+                    icon: const Icon(Icons.menu_book, size: 18),
+                    label: const FittedBox(child: Text('Học lại')),
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
                     ),
                   ),
                 ),
@@ -285,10 +293,10 @@ class _QuizResultScreenState extends State<QuizResultScreen> with SingleTickerPr
                       context.read<ProgressNotifier>().notifyProgressChanged();
                       context.pop();
                     },
-                    icon: const Icon(Icons.replay),
-                    label: const Text('Làm lại'),
+                    icon: const Icon(Icons.replay, size: 18),
+                    label: const FittedBox(child: Text('Làm lại')),
                     style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
                     ),
                   ),
                 ),
@@ -346,7 +354,11 @@ class _CircularScorePainter extends CustomPainter {
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
     textPainter.text = TextSpan(
       text: score % 1 == 0 ? '${score.toInt()}/$total' : '$score/$total',
-      style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+      style: TextStyle(
+        fontSize: 28, 
+        fontWeight: FontWeight.bold,
+        color: passed ? Colors.green : Colors.red,
+      ),
     );
     textPainter.layout();
     textPainter.paint(canvas, Offset(cx - textPainter.width / 2, cy - textPainter.height / 2));

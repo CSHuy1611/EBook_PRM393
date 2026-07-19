@@ -58,11 +58,16 @@ public class DashboardService : IDashboardService
             : 0;
         var chapterQuizIds = chapterQuizzes.Select(q => q.Id).ToHashSet();
         var chapterAttempts = attempts.Where(a => a.QuizId.HasValue && chapterQuizIds.Contains(a.QuizId.Value)).ToList();
-        var averageScore = chapterAttempts.Count > 0
-            ? Math.Round(chapterAttempts.Average(attempt => (double)attempt.Score10), 2)
+        var bestScores = chapterAttempts
+            .GroupBy(a => a.QuizId!.Value)
+            .Select(g => (double)g.Max(a => a.Score10))
+            .ToList();
+        var averageScore = bestScores.Count > 0
+            ? Math.Round(bestScores.Average(), 2)
             : 0;
 
-        var chapterProgressDtos = chapters.Select(chapter =>
+        var sortedChapters = chapters.OrderBy(chapter => chapter.OrderIndex).ToList();
+        var chapterProgressDtos = sortedChapters.Select((chapter, index) =>
         {
             var chapterLessons = lessons.Where(lesson => lesson.ChapterId == chapter.Id).ToList();
             var passed = chapterLessons.Count(lesson =>
@@ -79,16 +84,37 @@ public class DashboardService : IDashboardService
                         ? "Unlocked"
                         : "Locked";
 
+            var isUnlocked = index == 0;
+            if (!isUnlocked)
+            {
+                var prevChapter = sortedChapters[index - 1];
+                var prevQuiz = chapterQuizzes.FirstOrDefault(q => q.ChapterId == prevChapter.Id);
+                if (prevQuiz is null)
+                {
+                    isUnlocked = true;
+                }
+                else
+                {
+                    var prevProgress = chapterProgresses.FirstOrDefault(p => p.ChapterId == prevChapter.Id);
+                    isUnlocked = prevProgress?.Status == LearningStatus.Passed;
+                }
+            }
+
+            var totalLessons = chapterLessons.Count;
+            var totalItems = totalLessons + (quiz != null ? 1 : 0);
+            var completedItems = passed + (quiz != null && chapterProgress?.Status == LearningStatus.Passed ? 1 : 0);
+
             return new ChapterProgressDto
             {
                 ChapterId = chapter.Id,
                 ChapterTitle = chapter.Title,
-                CompletedLessons = passed,
-                TotalLessons = chapterLessons.Count,
-                CompletionPercentage = chapterLessons.Count > 0
-                    ? Math.Round((double)passed / chapterLessons.Count * 100, 2)
+                CompletedLessons = completedItems,
+                TotalLessons = totalItems,
+                CompletionPercentage = totalItems > 0
+                    ? Math.Round((double)completedItems / totalItems * 100, 2)
                     : 0,
-                ChapterQuizStatus = quizStatus
+                ChapterQuizStatus = isUnlocked ? quizStatus : "Locked",
+                IsUnlocked = isUnlocked
             };
         }).ToList();
 
@@ -113,7 +139,7 @@ public class DashboardService : IDashboardService
                 };
         }).Where(item => item is not null).Cast<BadgeEarnedDto>().ToList();
 
-        var continueLearning = BuildContinueLearning(chapters, lessons, progresses);
+        var continueLearning = BuildContinueLearning(chapters, lessons, progresses, chapterQuizzes, chapterProgresses);
         var recentActivities = await BuildRecentActivitiesAsync(attempts, userBadges, activeBadges, userId);
 
         _logger.LogDebug("Dashboard loaded for user {UserId}", userId);
@@ -136,9 +162,52 @@ public class DashboardService : IDashboardService
     private static ContinueLearningDto? BuildContinueLearning(
         IReadOnlyCollection<Domain.Entities.Chapter> chapters,
         IReadOnlyCollection<Domain.Entities.Lesson> lessons,
-        IReadOnlyCollection<Domain.Entities.Progress> progresses)
+        IReadOnlyCollection<Domain.Entities.Progress> progresses,
+        IReadOnlyCollection<Domain.Entities.Quiz> chapterQuizzes,
+        IReadOnlyCollection<Domain.Entities.ChapterProgress> chapterProgresses)
     {
+        var sortedChapters = chapters.OrderBy(c => c.OrderIndex).ToList();
+        var unlockedChapterIds = new HashSet<Guid>();
+        for (int i = 0; i < sortedChapters.Count; i++)
+        {
+            var ch = sortedChapters[i];
+            if (i == 0)
+            {
+                unlockedChapterIds.Add(ch.Id);
+            }
+            else
+            {
+                var prevChapter = sortedChapters[i - 1];
+                var prevQuiz = chapterQuizzes.FirstOrDefault(q => q.ChapterId == prevChapter.Id);
+                if (prevQuiz == null)
+                {
+                    unlockedChapterIds.Add(ch.Id);
+                }
+                else
+                {
+                    var prevProgress = chapterProgresses.FirstOrDefault(p => p.ChapterId == prevChapter.Id);
+                    if (prevProgress?.Status == LearningStatus.Passed)
+                    {
+                        unlockedChapterIds.Add(ch.Id);
+                    }
+                }
+            }
+        }
+
+        var startedChapterIds = new HashSet<Guid>();
+        var userHasAnyProgress = progresses.Any();
+        foreach (var ch in sortedChapters)
+        {
+            var isFirstChapter = sortedChapters.Count > 0 && sortedChapters[0].Id == ch.Id;
+            var hasChapterProgress = progresses.Any(p => lessons.Any(l => l.ChapterId == ch.Id && l.Id == p.LessonId));
+            if (hasChapterProgress || (isFirstChapter && !userHasAnyProgress))
+            {
+                startedChapterIds.Add(ch.Id);
+            }
+        }
+
         var candidate = lessons
+            .Where(lesson => unlockedChapterIds.Contains(lesson.ChapterId) && startedChapterIds.Contains(lesson.ChapterId))
             .Select(lesson => new
             {
                 Lesson = lesson,
@@ -155,12 +224,12 @@ public class DashboardService : IDashboardService
             return null;
         }
 
-        var chapter = chapters.First(item => item.Id == candidate.Lesson.ChapterId);
+        var parentChapter = chapters.First(item => item.Id == candidate.Lesson.ChapterId);
         return new ContinueLearningDto
         {
-            ChapterId = chapter.Id,
+            ChapterId = parentChapter.Id,
             LessonId = candidate.Lesson.Id,
-            ChapterTitle = chapter.Title,
+            ChapterTitle = parentChapter.Title,
             LessonTitle = candidate.Lesson.Title,
             Status = (candidate.Progress?.Status ?? LearningStatus.NotStarted).ToString()
         };
@@ -204,6 +273,6 @@ public class DashboardService : IDashboardService
             Timestamp = userBadge.EarnedAt
         }));
 
-        return activities.OrderByDescending(activity => activity.Timestamp).Take(10).ToList();
+        return activities.OrderByDescending(activity => activity.Timestamp).Take(3).ToList();
     }
 }

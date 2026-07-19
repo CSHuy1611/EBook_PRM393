@@ -103,6 +103,16 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(lesson.title),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/student/chapters');
+            }
+          },
+        ),
         actions: [
           PopupMenuButton<double>(
             icon: const Icon(Icons.text_fields),
@@ -145,7 +155,10 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
               const SizedBox(height: 8),
               Text(
                 'Câu hỏi tham khảo',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
               ),
               const SizedBox(height: 12),
               ...lesson.questions.asMap().entries.map((entry) {
@@ -163,12 +176,18 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                           children: [
                             Text(
                               'Câu ${idx + 1}: ',
-                              style: const TextStyle(fontWeight: FontWeight.w600),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
                             ),
                             Expanded(
                               child: MathText(
                                 q.questionText,
-                                textStyle: const TextStyle(fontWeight: FontWeight.w600),
+                                textStyle: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: Theme.of(context).colorScheme.onSurface,
+                                ),
                               ),
                             ),
                           ],
@@ -180,7 +199,13 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                             padding: const EdgeInsets.symmetric(vertical: 2),
                             child: Row(
                               children: [
-                                Text('$letter. ', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                Text(
+                                  '$letter. ',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Theme.of(context).colorScheme.onSurface,
+                                  ),
+                                ),
                                 Expanded(child: MathText(opt.value)),
                               ],
                             ),

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:math_ibook/features/auth/domain/auth_provider.dart';
-import 'package:flutter/scheduler.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -19,8 +18,16 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkAuth() async {
+    final startTime = DateTime.now();
     final auth = context.read<AuthProvider>();
     await auth.tryAutoLogin();
+    
+    final elapsed = DateTime.now().difference(startTime);
+    final remaining = const Duration(milliseconds: 1500) - elapsed;
+    if (remaining > Duration.zero) {
+      await Future.delayed(remaining);
+    }
+    
     if (!mounted) return;
     if (!auth.isAuthenticated) {
       context.go('/login');

@@ -245,9 +245,11 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
     final chapters = _dash!.chapterProgress;
     if (chapters.isEmpty) return const SizedBox.shrink();
 
-    final hasStarted = chapters.any((c) => c.completedLessons > 0) ||
-        (_dash!.continueLearning != null && _dash!.continueLearning!.status.toLowerCase() == 'inprogress');
-    if (!hasStarted) return const SizedBox.shrink();
+    // Only show the continue learning card if we have an active continueLearning lesson
+    // OR if there is a chapter that has been started but is not fully complete (completionPercentage < 100).
+    final hasActiveIncomplete = chapters.any((c) => c.completedLessons > 0 && c.completionPercentage < 100);
+    final showBanner = _dash!.continueLearning != null || hasActiveIncomplete;
+    if (!showBanner) return const SizedBox.shrink();
 
     final current = chapters.firstWhere(
       (c) => _dash!.continueLearning != null && c.chapterId == _dash!.continueLearning!.chapterId,
@@ -346,9 +348,9 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
               onPressed: () {
                 final lessonId = _dash?.continueLearning?.lessonId;
                 if (lessonId != null && lessonId.isNotEmpty) {
-                  context.push('/student/lessons/$lessonId');
+                  context.go('/student/lessons/$lessonId');
                 } else {
-                  context.push('/student/chapters/${current.chapterId}');
+                  context.go('/student/chapters/${current.chapterId}');
                 }
               },
               icon: const Icon(Icons.arrow_forward_rounded, size: 18),

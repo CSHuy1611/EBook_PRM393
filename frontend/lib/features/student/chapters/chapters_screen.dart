@@ -145,7 +145,7 @@ class _ChaptersScreenState extends State<ChaptersScreen> {
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 15,
-                                    color: showLocked ? const Color(0xFF94A3B8) : const Color(0xFF1E293B),
+                                    color: showLocked ? const Color(0xFF94A3B8) : Theme.of(context).colorScheme.onSurface,
                                   ),
                                 ),
                                 if (chapter.description.isNotEmpty)
@@ -191,7 +191,7 @@ class _ChaptersScreenState extends State<ChaptersScreen> {
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: showLocked ? const Color(0xFF94A3B8) : const Color(0xFF1E293B),
+                              color: showLocked ? const Color(0xFF94A3B8) : Theme.of(context).colorScheme.onSurface,
                             ),
                           ),
                         ],

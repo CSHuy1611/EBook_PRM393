@@ -29,10 +29,17 @@ public class ProfileServiceTests
         users.Setup(repository => repository.FindAsync(
                 It.IsAny<Expression<Func<User, bool>>>()))
             .ReturnsAsync([user]);
+        var quiz1Id = Guid.NewGuid();
+        var quiz2Id = Guid.NewGuid();
+        var quizzes = RepositoryWithFind(
+        [
+            new Quiz { Id = quiz1Id, QuizType = QuizType.Chapter, IsPublished = true },
+            new Quiz { Id = quiz2Id, QuizType = QuizType.Chapter, IsPublished = true }
+        ]);
         var attempts = RepositoryWithFind(
         [
-            new QuizAttempt { UserId = userId, Score10 = 6 },
-            new QuizAttempt { UserId = userId, Score10 = 10 }
+            new QuizAttempt { UserId = userId, QuizId = quiz1Id, Score10 = 6 },
+            new QuizAttempt { UserId = userId, QuizId = quiz2Id, Score10 = 10 }
         ]);
         var progress = RepositoryWithFind(
         [
@@ -51,6 +58,7 @@ public class ProfileServiceTests
 
         var unitOfWork = new Mock<IUnitOfWork>();
         unitOfWork.SetupGet(unit => unit.Users).Returns(users.Object);
+        unitOfWork.SetupGet(unit => unit.Quizzes).Returns(quizzes.Object);
         unitOfWork.SetupGet(unit => unit.QuizAttempts).Returns(attempts.Object);
         unitOfWork.SetupGet(unit => unit.Progresses).Returns(progress.Object);
         unitOfWork.SetupGet(unit => unit.ChapterProgresses).Returns(chapters.Object);
