@@ -5,15 +5,15 @@ services:
     image: postgres:16-alpine
     container_name: mathibook_db
     environment:
-      POSTGRES_DB: mathbook_db
+      POSTGRES_DB: mathibook_db
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 123
+      POSTGRES_PASSWORD: postgres
     ports:
       - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d mathbook_db"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d mathibook_db" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -27,7 +27,7 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - "ConnectionStrings__DefaultConnection=Host=mathibook_db;Port=5432;Database=mathibook_db;Username=postgres;Password=postgres"
-      - "OpenRouter__ApiKey=${OPENROUTER_API_KEY}"
+      - "OpenRouter__ApiKey=${OPENROUTER_API_KEY:-YOUR_GEMINI_API_KEY_HERE}"
     ports:
       - "5000:5000"
     depends_on:
