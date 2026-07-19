@@ -53,7 +53,7 @@ public class LessonsController : ControllerBase
             .FirstOrDefaultAsync(item => item.UserId == userId && item.LessonId == id);
 
         var activeQuiz = lesson.Quizzes.FirstOrDefault();
-        var questionsToReturn = lesson.Questions.OrderBy(question => question.OrderIndex).ToList();
+        var questionsToReturn = new List<Question>();
         if (activeQuiz != null && activeQuiz.QuizQuestions.Any())
         {
             var linkedIds = activeQuiz.QuizQuestions.Select(q => q.QuestionId).ToHashSet();
