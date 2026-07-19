@@ -155,7 +155,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   // ─── BƯỚC 1: FORM ĐĂNG KÝ ─────────────────────────────
   Widget _buildRegisterForm(ColorScheme colorScheme) {
-    final authProvider = context.watch<AuthProvider>();
     return Form(
       key: _formKey,
       child: Column(

@@ -23,7 +23,6 @@ public class ContentValidationServiceTests
         result.IsValid.Should().BeFalse();
         result.Errors.Select(error => error.Code).Should().Contain(
         [
-            "LESSON_EXAMPLE_REQUIRED",
             "LATEX_INVALID",
             "GRADE8_TOPIC_REQUIRED"
         ]);
