@@ -15,24 +15,28 @@ class ForgotPasswordScreen extends StatefulWidget {
 }
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
+  // GlobalKey quản lý validation cho từng bước (1: Email, 2: OTP, 3: Mật khẩu mới)
   final _emailFormKey = GlobalKey<FormState>();
   final _otpFormKey = GlobalKey<FormState>();
   final _passwordFormKey = GlobalKey<FormState>();
 
+  // Các Controller lưu trữ nội dung nhập vào cho từng ô dữ liệu
   final _emailController = TextEditingController();
   final _otpController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
-  int _currentStep = 1; // 1: Email, 2: OTP, 3: Password, 4: Success
-  bool _obscurePassword = true;
-  bool _obscureConfirm = true;
-  bool _isSendingRequest = false;
-  int _otpCountdown = 0;
-  Timer? _timer;
+  // Biến đếm bước hiện tại (1: Nhập email, 2: Nhập OTP xác thực, 3: Đặt mật khẩu mới, 4: Thành công)
+  int _currentStep = 1;
+  bool _obscurePassword = true; // Ẩn/hiện mật khẩu mới
+  bool _obscureConfirm = true; // Ẩn/hiện xác nhận mật khẩu
+  bool _isSendingRequest = false; // Trạng thái đang tải dữ liệu từ API
+  int _otpCountdown = 0; // Thời gian đếm ngược (giây) để gửi lại OTP
+  Timer? _timer; // Đối tượng Timer đếm ngược
 
   @override
   void dispose() {
+    // Hủy bộ hẹn giờ và giải phóng các Controller khi đóng màn hình
     _timer?.cancel();
     _emailController.dispose();
     _otpController.dispose();
@@ -41,6 +45,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     super.dispose();
   }
 
+  // Hàm đếm ngược 30 giây để gửi lại OTP xác thực
   void _startCountdown() {
     setState(() { _otpCountdown = 30; });
     _timer?.cancel();
@@ -53,12 +58,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     });
   }
 
+  // Hàm validate email
   String? _validateEmail(String? value) {
     if (value == null || value.isEmpty) return 'Vui lòng nhập email';
     if (!RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(value)) return 'Email không hợp lệ';
     return null;
   }
 
+  // Hàm validate mật khẩu mới (tối thiểu 6 ký tự, 1 chữ hoa, 1 số)
   String? _validatePassword(String? value) {
     if (value == null || value.isEmpty) return 'Vui lòng nhập mật khẩu mới';
     if (value.length < 6) return 'Mật khẩu tối thiểu 6 ký tự';
@@ -67,15 +74,17 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     return null;
   }
 
+  // BƯỚC 1: Nhấn gửi -> Gọi API gửi mã OTP quên mật khẩu vào Email
   Future<void> _sendOtp() async {
     if (!_emailFormKey.currentState!.validate()) return;
     setState(() { _isSendingRequest = true; });
 
     try {
+      // Gọi API gửi mã OTP khôi phục mật khẩu tới email
       await context.read<AuthProvider>().forgotPassword(_emailController.text.trim());
       _startCountdown();
       setState(() {
-        _currentStep = 2;
+        _currentStep = 2; // Chuyển sang bước 2 (nhập OTP)
         _isSendingRequest = false;
       });
       if (!mounted) return;
@@ -97,18 +106,21 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     }
   }
 
+  // BƯỚC 2: Kiểm tra sơ bộ định dạng mã OTP và chuyển sang màn đặt Mật khẩu mới
   void _verifyOtpAndGoToPassword() {
     if (!_otpFormKey.currentState!.validate()) return;
     setState(() {
-      _currentStep = 3;
+      _currentStep = 3; // Chuyển sang bước 3 (đặt mật khẩu mới)
     });
   }
 
+  // BƯỚC 3: Gửi Mật khẩu mới kèm OTP và Email lên Server để cập nhật lại mật khẩu mới
   Future<void> _handleResetPassword() async {
     if (!_passwordFormKey.currentState!.validate()) return;
     setState(() { _isSendingRequest = true; });
 
     try {
+      // Gọi API reset password
       await context.read<AuthProvider>().resetPassword(
         _emailController.text.trim(),
         _otpController.text.trim(),
@@ -117,11 +129,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       );
 
       setState(() {
-        _currentStep = 4;
+        _currentStep = 4; // Chuyển sang màn hình báo thành công
         _isSendingRequest = false;
       });
 
-      // Auto redirect to login after 2 seconds
+      // Tự động chuyển hướng về màn hình đăng nhập sau 2 giây
       Timer(const Duration(seconds: 2), () {
         if (mounted) {
           context.go('/login');

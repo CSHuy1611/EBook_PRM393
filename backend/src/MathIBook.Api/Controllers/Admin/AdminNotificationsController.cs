@@ -43,6 +43,7 @@ public class AdminNotificationsController : ControllerBase
         }
 
         var distinctGroups = await query
+            .Where(n => n.RelatedEntityId == null)
             .Select(n => new { n.Title, n.Body, n.CreatedAt })
             .Distinct()
             .OrderByDescending(g => g.CreatedAt)

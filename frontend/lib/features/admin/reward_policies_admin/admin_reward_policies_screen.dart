@@ -332,24 +332,30 @@ class _AdminRewardPoliciesScreenState extends State<AdminRewardPoliciesScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              Wrap(
+                                alignment: WrapAlignment.spaceBetween,
+                                spacing: 16,
+                                runSpacing: 8,
                                 children: [
                                   Text('Xu / câu đúng: ${policy.coinsPerCorrectAnswer}'),
                                   Text('Thưởng đạt 10đ: ${policy.perfectScoreBonusCoins}'),
                                 ],
                               ),
                               const SizedBox(height: 8),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              Wrap(
+                                alignment: WrapAlignment.spaceBetween,
+                                spacing: 16,
+                                runSpacing: 8,
                                 children: [
                                   Text('Vượt qua lần đầu: ${policy.firstPassBonusCoins}'),
                                   Text('Hoàn thành chương: ${policy.chapterCompletionBonusCoins}'),
                                 ],
                               ),
                               const SizedBox(height: 8),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              Wrap(
+                                alignment: WrapAlignment.spaceBetween,
+                                spacing: 16,
+                                runSpacing: 8,
                                 children: [
                                   Text('Thưởng khi làm lại: ${policy.retryRewardPercent}%'),
                                   Text('Giới hạn xu/ngày: ${policy.dailyCoinLimit ?? "Không có"}'),

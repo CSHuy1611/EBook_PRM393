@@ -15,24 +15,30 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
+  // GlobalKey dùng để validation Form Đăng ký thông thường
   final _formKey = GlobalKey<FormState>();
+  
+  // GlobalKey dùng để validation Form nhập mã OTP
   final _otpFormKey = GlobalKey<FormState>();
 
+  // Các Controller quản lý text nhập vào của Form đăng ký và OTP
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _otpController = TextEditingController();
 
-  bool _obscurePassword = true;
-  bool _obscureConfirm = true;
-  bool _showOtpForm = false;
-  int _otpCountdown = 0;
-  Timer? _timer;
-  bool _isSendingOtp = false;
+  // Trạng thái hiển thị giao diện
+  bool _obscurePassword = true; // Ẩn mật khẩu
+  bool _obscureConfirm = true; // Ẩn mật khẩu xác nhận
+  bool _showOtpForm = false; // Trạng thái hiển thị: false = Form đăng ký, true = Form nhập mã OTP
+  int _otpCountdown = 0; // Đếm ngược gửi lại mã OTP (giây)
+  Timer? _timer; // Đối tượng đếm giờ định kỳ
+  bool _isSendingOtp = false; // Trạng thái đang gửi yêu cầu OTP lên server (hiển thị Loading)
 
   @override
   void dispose() {
+    // Hủy bỏ bộ hẹn giờ và giải phóng các Controller khi đóng màn hình
     _timer?.cancel();
     _nameController.dispose();
     _emailController.dispose();
@@ -42,20 +48,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
+  // Hàm đếm ngược 60 giây để cho phép gửi lại mã OTP mới
   void _startCountdown() {
     setState(() { _otpCountdown = 60; });
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_otpCountdown == 0) { timer.cancel(); } else { setState(() { _otpCountdown--; }); }
+      if (_otpCountdown == 0) { 
+        timer.cancel(); 
+      } else { 
+        setState(() { _otpCountdown--; }); 
+      }
     });
   }
 
+  // Xác thực định dạng email nhập vào
   String? _validateEmail(String? value) {
     if (value == null || value.isEmpty) return 'Vui lòng nhập email';
     if (!RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(value)) return 'Email không hợp lệ';
     return null;
   }
 
+  // Xác thực độ phức tạp của mật khẩu (tối thiểu 6 ký tự, 1 chữ hoa, 1 chữ số)
   String? _validatePassword(String? value) {
     if (value == null || value.isEmpty) return 'Vui lòng nhập mật khẩu';
     if (value.length < 6) return 'Mật khẩu tối thiểu 6 ký tự';
@@ -64,13 +77,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return null;
   }
 
+  // BƯỚC 1: Nhấn đăng ký -> Gửi yêu cầu OTP về Email để xác minh chính chủ
   Future<void> _sendOtpAndGoToVerification() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) return; // Xác thực các trường dữ liệu
     setState(() { _isSendingOtp = true; });
     try {
+      // Gọi API yêu cầu Server gửi OTP về Email
       await context.read<AuthProvider>().requestOtp(_emailController.text.trim());
-      _startCountdown();
-      setState(() { _showOtpForm = true; _isSendingOtp = false; });
+      _startCountdown(); // Bắt đầu đếm ngược
+      setState(() { _showOtpForm = true; _isSendingOtp = false; }); // Chuyển sang giao diện nhập OTP
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Mã OTP đã được gửi đến Email của bạn.'), backgroundColor: Colors.green),
@@ -84,6 +99,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  // BƯỚC 1.5: Gửi lại mã OTP mới nếu chưa nhận được
   Future<void> _resendOtp() async {
     try {
       await context.read<AuthProvider>().requestOtp(_emailController.text.trim());
@@ -100,6 +116,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  // BƯỚC 2: Nhập xong OTP -> Gửi toàn bộ thông tin đăng ký kèm mã xác thực OTP lên Server để tạo tài khoản
   Future<void> _handleRegister() async {
     if (!_otpFormKey.currentState!.validate()) return;
     try {

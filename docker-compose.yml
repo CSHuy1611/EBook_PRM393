@@ -26,7 +26,8 @@ services:
     container_name: mathibook_api
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=mathbook_db;Username=postgres;Password=123
+      - "ConnectionStrings__DefaultConnection=Host=mathibook_db;Port=5432;Database=mathibook_db;Username=postgres;Password=postgres"
+      - "OpenRouter__ApiKey=${OPENROUTER_API_KEY}"
     ports:
       - "5000:5000"
     depends_on:

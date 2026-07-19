@@ -172,8 +172,10 @@ class _AutoGenerateQuestionsDialogState extends State<AutoGenerateQuestionsDialo
             ),
             
             // Content
-            Padding(
-              padding: const EdgeInsets.all(24),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -318,6 +320,8 @@ class _AutoGenerateQuestionsDialogState extends State<AutoGenerateQuestionsDialo
                 ],
               ),
             ),
+              ),
+            ),
             
             // Footer
             Container(
@@ -352,9 +356,9 @@ class _AutoGenerateQuestionsDialogState extends State<AutoGenerateQuestionsDialo
               ),
             ),
           ],
-          ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
