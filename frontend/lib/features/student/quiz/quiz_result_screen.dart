@@ -258,11 +258,14 @@ class _QuizResultScreenState extends State<QuizResultScreen> with SingleTickerPr
                       ],
                       if (answer.explanation.isNotEmpty) ...[
                         const SizedBox(height: 8),
-                        MathText(
-                          answer.explanation,
-                          textStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            fontStyle: FontStyle.italic,
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: MathText(
+                            answer.explanation,
+                            textStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              fontStyle: FontStyle.italic,
+                            ),
                           ),
                         ),
                       ],
