@@ -24,7 +24,7 @@ public class NotificationsController : ControllerBase
     {
         var userId = CurrentUserId();
         return Ok(await _unitOfWork.Notifications.Query()
-            .Where(notification => notification.UserId == userId)
+            .Where(notification => notification.UserId == userId && notification.Type == "admin_message")
             .OrderByDescending(notification => notification.CreatedAt)
             .Select(notification => new NotificationDto
             {
@@ -48,7 +48,7 @@ public class NotificationsController : ControllerBase
         {
             Count = await _unitOfWork.Notifications.Query()
                 .CountAsync(notification =>
-                    notification.UserId == userId && !notification.IsRead)
+                    notification.UserId == userId && !notification.IsRead && notification.Type == "admin_message")
         });
     }
 
