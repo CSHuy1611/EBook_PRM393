@@ -173,7 +173,11 @@ class _AdminBadgesScreenState extends State<AdminBadgesScreen> {
           title: Text(isEdit ? 'Sửa huy hiệu' : 'Thêm huy hiệu'),
           content: Form(
             key: formKey,
-            child: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(ctx).size.width > 600 ? 500 : MediaQuery.of(ctx).size.width - 48,
+              ),
+              child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -294,6 +298,7 @@ class _AdminBadgesScreenState extends State<AdminBadgesScreen> {
                     ),
                 ],
               ),
+            ),
             ),
           ),
           actions: [

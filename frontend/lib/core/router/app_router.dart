@@ -29,7 +29,7 @@ import 'package:math_ibook/features/admin/questions_admin/admin_questions_screen
 import 'package:math_ibook/features/admin/badges_admin/admin_badges_screen.dart';
 import 'package:math_ibook/features/admin/users_admin/admin_users_screen.dart';
 import 'package:math_ibook/features/admin/users_admin/user_history_screen.dart';
-import 'package:math_ibook/features/admin/reports/admin_reports_screen.dart';
+
 import 'package:math_ibook/features/admin/reward_policies_admin/admin_reward_policies_screen.dart';
 import 'package:math_ibook/features/admin/notifications_admin/admin_notifications_screen.dart';
 import 'package:math_ibook/features/admin/settings_admin/admin_settings_screen.dart';
@@ -127,9 +127,7 @@ GoRouter createAppRouter(AuthProvider authProvider) {
               routes: [GoRoute(path: ':id/history', builder: (_, state) => UserHistoryScreen(userId: state.pathParameters['id']!))],
             ),
           ]),
-          StatefulShellBranch(routes: [
-            GoRoute(path: '/admin/reports', builder: (_, __) => const AdminReportsScreen()),
-          ]),
+
           StatefulShellBranch(routes: [
             GoRoute(path: '/admin/reward-policies', builder: (_, __) => const AdminRewardPoliciesScreen()),
           ]),

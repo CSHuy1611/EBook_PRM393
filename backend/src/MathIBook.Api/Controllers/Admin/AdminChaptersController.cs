@@ -221,24 +221,29 @@ public class AdminChaptersController : ControllerBase
 
     private async Task<ProblemDetails?> ValidateAsync(string title, Guid? topicId)
     {
-        if (string.IsNullOrWhiteSpace(title) || !topicId.HasValue)
+        if (string.IsNullOrWhiteSpace(title))
         {
             return new ProblemDetails
             {
-                Title = "Tiêu đề và taxonomy Toán lớp 8 là bắt buộc.",
+                Title = "Tiêu đề là bắt buộc.",
                 Status = 400
             };
         }
 
-        var validTopic = await _unitOfWork.CurriculumTopics.Query().AnyAsync(
-            topic => topic.Id == topicId && topic.Grade == 8 && topic.IsActive);
-        return validTopic
-            ? null
-            : new ProblemDetails
-            {
-                Title = "Taxonomy phải thuộc Toán lớp 8 và đang hoạt động.",
-                Status = 400
-            };
+        if (topicId.HasValue)
+        {
+            var validTopic = await _unitOfWork.CurriculumTopics.Query().AnyAsync(
+                topic => topic.Id == topicId);
+            return validTopic
+                ? null
+                : new ProblemDetails
+                {
+                    Title = "Không tìm thấy taxonomy.",
+                    Status = 400
+                };
+        }
+        
+        return null;
     }
 
     private async Task NotifyStudentsAsync(

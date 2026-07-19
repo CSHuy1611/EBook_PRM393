@@ -49,7 +49,7 @@ builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IQuizRewardService, QuizRewardService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<IContentValidationService, ContentValidationService>();
-builder.Services.AddScoped<IQuestionGeneratorService, QuestionGeneratorService>();
+builder.Services.AddHttpClient<IQuestionGeneratorService, QuestionGeneratorService>();
 
 // JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key is not configured");

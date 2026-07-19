@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class LessonModel {
   final String id;
   final String chapterId;
@@ -71,20 +73,22 @@ class LessonModel {
 class QuestionModel {
   final String id;
   final String lessonId;
+  final String? chapterId;
   final String questionText;
   final List<String> options;
   final int? correctOption;
-  final String explanation;
   final int orderIndex;
+  final String explanation;
 
   QuestionModel({
     required this.id,
     required this.lessonId,
+    this.chapterId,
     required this.questionText,
     this.options = const [],
     this.correctOption,
-    this.explanation = '',
     this.orderIndex = 0,
+    this.explanation = '',
   });
 
   factory QuestionModel.fromJson(Map<String, dynamic> json) {
@@ -93,23 +97,28 @@ class QuestionModel {
       if (json['options'] is List) {
         optionsList = (json['options'] as List).map((e) => e.toString()).toList();
       } else if (json['options'] is String) {
-        optionsList = (json['options'] as String).split(',').map((e) => e.trim()).toList();
+        try {
+          final decoded = jsonDecode(json['options']);
+          if (decoded is List) optionsList = decoded.map((e) => e.toString()).toList();
+        } catch (_) {}
       }
     }
     return QuestionModel(
       id: json['id'] ?? '',
       lessonId: json['lessonId'] ?? json['lesson_id'] ?? '',
+      chapterId: json['chapterId'] ?? json['chapter_id'],
       questionText: json['questionText'] ?? json['question_text'] ?? '',
       options: optionsList,
       correctOption: json['correctOption'] ?? json['correct_option'],
-      explanation: json['explanation'] ?? '',
       orderIndex: json['orderIndex'] ?? json['order_index'] ?? 0,
+      explanation: json['explanation'] ?? '',
     );
   }
 
   Map<String, dynamic> toJson() => {
         'id': id,
         'lessonId': lessonId,
+        'chapterId': chapterId,
         'questionText': questionText,
         'options': options,
         'correctOption': correctOption,

@@ -160,13 +160,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         color: Colors.teal,
       ),
     ];
-    if (isWide) {
-      return Row(children: cards.map((c) => Expanded(child: c)).toList());
-    }
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: cards.map((c) => SizedBox(width: MediaQuery.of(context).size.width / 2 - 24, child: c)).toList(),
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        int crossAxisCount = 2;
+        if (constraints.maxWidth > 1200) {
+          crossAxisCount = 6;
+        } else if (constraints.maxWidth > 800) {
+          crossAxisCount = 3;
+        }
+
+        const double spacing = 8.0;
+        final double cardWidth = (constraints.maxWidth - (spacing * (crossAxisCount - 1))) / crossAxisCount;
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: cards.map((c) => SizedBox(width: cardWidth, child: c)).toList(),
+        );
+      },
     );
   }
 

@@ -97,10 +97,7 @@ class AdminShell extends StatelessWidget {
                 icon: Icon(Icons.people),
                 label: Text('Học sinh'),
               ),
-              NavigationRailDestination(
-                icon: Icon(Icons.assessment),
-                label: Text('Báo cáo'),
-              ),
+
               NavigationRailDestination(
                 icon: Icon(Icons.policy),
                 label: Text('Chính sách thưởng'),
@@ -172,10 +169,9 @@ class AdminShell extends StatelessWidget {
             _drawerItem(context, Icons.help, 'Câu hỏi', 3),
             _drawerItem(context, Icons.emoji_events, 'Huy hiệu', 4),
             _drawerItem(context, Icons.people, 'Học sinh', 5),
-            _drawerItem(context, Icons.assessment, 'Báo cáo', 6),
-            _drawerItem(context, Icons.policy, 'Chính sách thưởng', 7),
-            _drawerItem(context, Icons.notifications, 'Thông báo', 8),
-            _drawerItem(context, Icons.settings, 'Cài đặt', 9),
+            _drawerItem(context, Icons.policy, 'Chính sách thưởng', 6),
+            _drawerItem(context, Icons.notifications, 'Thông báo', 7),
+            _drawerItem(context, Icons.settings, 'Cài đặt', 8),
           ],
         ),
       ),
