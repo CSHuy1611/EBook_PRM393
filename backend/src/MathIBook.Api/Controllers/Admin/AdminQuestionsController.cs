@@ -35,6 +35,16 @@ public class AdminQuestionsController : ControllerBase
         return Ok(questions.Select(Map).ToList());
     }
 
+    [HttpGet("chapter/{chapterId}")]
+    public async Task<ActionResult<List<QuestionDto>>> GetByChapter(Guid chapterId)
+    {
+        var questions = await _unitOfWork.Questions.Query()
+            .Where(question => question.ChapterId == chapterId && !question.IsDeleted)
+            .OrderBy(question => question.OrderIndex)
+            .ToListAsync();
+        return Ok(questions.Select(Map).ToList());
+    }
+
     [HttpPost]
     public async Task<ActionResult<QuestionDto>> Create([FromBody] QuestionCreateDto dto)
     {
@@ -101,22 +111,46 @@ public class AdminQuestionsController : ControllerBase
     [HttpPost("auto-generate")]
     public async Task<IActionResult> AutoGenerate([FromBody] AutoGenerateQuestionsDto dto)
     {
-        var lesson = await _unitOfWork.Lessons.GetByIdAsync(dto.LessonId);
-        if (lesson is null || lesson.IsDeleted)
+        if (dto.Count <= 0 || dto.Count > 50) return BadRequest(new ProblemDetails { Title = "Số lượng câu hỏi không hợp lệ.", Status = 400 });
+
+        List<QuestionCreateDto> questionsToCreate;
+        int maxOrder = 0;
+        Quiz? quiz = null;
+
+        if (dto.LessonId.HasValue && dto.LessonId.Value != Guid.Empty)
         {
-            return NotFound(new ProblemDetails { Title = "Không tìm thấy bài học.", Status = 404 });
+            var lesson = await _unitOfWork.Lessons.GetByIdAsync(dto.LessonId.Value);
+            if (lesson is null || lesson.IsDeleted) return NotFound(new ProblemDetails { Title = "Không tìm thấy bài học.", Status = 404 });
+
+            questionsToCreate = await _generatorService.GenerateQuestionsAsync(lesson.Id, null, lesson.Title, dto.Count, "Bài học");
+            
+            maxOrder = await _unitOfWork.Questions.Query()
+                .Where(q => q.LessonId == lesson.Id && !q.IsDeleted)
+                .MaxAsync(q => (int?)q.OrderIndex) ?? 0;
+
+            quiz = await _unitOfWork.Quizzes.Query().FirstOrDefaultAsync(item =>
+                item.LessonId == lesson.Id && item.QuizType == QuizType.Lesson && !item.IsDeleted);
+        }
+        else if (dto.ChapterId.HasValue && dto.ChapterId.Value != Guid.Empty)
+        {
+            var chapter = await _unitOfWork.Chapters.GetByIdAsync(dto.ChapterId.Value);
+            if (chapter is null || chapter.IsDeleted) return NotFound(new ProblemDetails { Title = "Không tìm thấy chương.", Status = 404 });
+
+            questionsToCreate = await _generatorService.GenerateQuestionsAsync(null, chapter.Id, chapter.Title, dto.Count, "Chương");
+            
+            maxOrder = await _unitOfWork.Questions.Query()
+                .Where(q => q.ChapterId == chapter.Id && !q.IsDeleted)
+                .MaxAsync(q => (int?)q.OrderIndex) ?? 0;
+
+            quiz = await _unitOfWork.Quizzes.Query().FirstOrDefaultAsync(item =>
+                item.ChapterId == chapter.Id && item.QuizType == QuizType.Chapter && !item.IsDeleted);
+        }
+        else
+        {
+            return BadRequest(new ProblemDetails { Title = "Vui lòng cung cấp LessonId hoặc ChapterId.", Status = 400 });
         }
 
-        var questionsToCreate = _generatorService.GenerateQuestions(dto.LessonId, lesson.Title, dto.Count);
-        if (!questionsToCreate.Any())
-        {
-            return BadRequest(new ProblemDetails { Title = "Không tạo được câu hỏi nào.", Status = 400 });
-        }
-
-        // Determine current max OrderIndex
-        var maxOrder = await _unitOfWork.Questions.Query()
-            .Where(q => q.LessonId == dto.LessonId && !q.IsDeleted)
-            .MaxAsync(q => (int?)q.OrderIndex) ?? 0;
+        if (!questionsToCreate.Any()) return BadRequest(new ProblemDetails { Title = "Không tạo được câu hỏi nào.", Status = 400 });
 
         var createdQuestions = new List<Question>();
 
@@ -125,7 +159,8 @@ public class AdminQuestionsController : ControllerBase
             maxOrder++;
             var question = new Question
             {
-                LessonId = qDto.LessonId,
+                LessonId = qDto.LessonId != Guid.Empty ? qDto.LessonId : null,
+                ChapterId = qDto.ChapterId,
                 QuestionText = qDto.QuestionText,
                 Options = JsonSerializer.Serialize(qDto.Options),
                 CorrectOption = qDto.CorrectOption,
@@ -138,11 +173,7 @@ public class AdminQuestionsController : ControllerBase
             createdQuestions.Add(question);
         }
 
-        // Also add to quiz if quiz exists
-        var quiz = await _unitOfWork.Quizzes.Query().FirstOrDefaultAsync(item =>
-            item.LessonId == dto.LessonId
-            && item.QuizType == QuizType.Lesson
-            && !item.IsDeleted);
+        await _unitOfWork.SaveChangesAsync();
 
         if (quiz is not null)
         {
@@ -160,9 +191,9 @@ public class AdminQuestionsController : ControllerBase
             quiz.PublishedAt = null;
             quiz.UpdatedAt = DateTime.UtcNow;
             _unitOfWork.Quizzes.Update(quiz);
+            await _unitOfWork.SaveChangesAsync();
         }
 
-        await _unitOfWork.SaveChangesAsync();
         return Ok(createdQuestions.Select(Map).ToList());
     }
 

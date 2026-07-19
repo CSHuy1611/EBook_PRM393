@@ -32,6 +32,7 @@ public class LessonsController : ControllerBase
             .Include(item => item.Questions.Where(question => !question.IsDeleted))
             .Include(item => item.Quizzes.Where(quiz =>
                 quiz.QuizType == QuizType.Lesson && quiz.IsPublished && !quiz.IsDeleted))
+            .ThenInclude(quiz => quiz.QuizQuestions)
             .FirstOrDefaultAsync();
         if (lesson is null)
         {
@@ -51,6 +52,17 @@ public class LessonsController : ControllerBase
         var progress = await _unitOfWork.Progresses.Query()
             .FirstOrDefaultAsync(item => item.UserId == userId && item.LessonId == id);
 
+        var activeQuiz = lesson.Quizzes.FirstOrDefault();
+        var questionsToReturn = lesson.Questions.OrderBy(question => question.OrderIndex).ToList();
+        if (activeQuiz != null && activeQuiz.QuizQuestions.Any())
+        {
+            var linkedIds = activeQuiz.QuizQuestions.Select(q => q.QuestionId).ToHashSet();
+            questionsToReturn = lesson.Questions
+                .Where(q => linkedIds.Contains(q.Id))
+                .OrderBy(q => q.OrderIndex)
+                .ToList();
+        }
+
         return Ok(new LessonDto
         {
             Id = lesson.Id,
@@ -66,18 +78,17 @@ public class LessonsController : ControllerBase
             Status = (progress?.Status ?? LearningStatus.NotStarted).ToString(),
             ContentViewed = progress?.ContentViewed ?? false,
             BestScore = progress is null ? null : (double)progress.BestScore10,
-            QuizId = lesson.Quizzes.FirstOrDefault()?.Id,
-            Questions = lesson.Questions.OrderBy(question => question.OrderIndex)
-                .Select(question => new QuestionDto
-                {
-                    Id = question.Id,
-                    LessonId = question.LessonId,
-                    QuestionText = question.QuestionText,
-                    Options = JsonSerializer.Deserialize<List<string>>(question.Options) ?? new(),
-                    CorrectOption = null,
-                    Explanation = null,
-                    OrderIndex = question.OrderIndex
-                }).ToList()
+            QuizId = activeQuiz?.Id,
+            Questions = questionsToReturn.Select(question => new QuestionDto
+            {
+                Id = question.Id,
+                LessonId = question.LessonId,
+                QuestionText = question.QuestionText,
+                Options = JsonSerializer.Deserialize<List<string>>(question.Options) ?? new(),
+                CorrectOption = null,
+                Explanation = null,
+                OrderIndex = question.OrderIndex
+            }).ToList()
         });
     }
 

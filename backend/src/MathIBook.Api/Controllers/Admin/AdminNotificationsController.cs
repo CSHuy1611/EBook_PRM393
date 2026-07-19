@@ -42,28 +42,38 @@ public class AdminNotificationsController : ControllerBase
                 .ToListAsync());
         }
 
-        query = query.Where(n => n.Type == "admin_message");
-        var notifications = await query
-            .OrderByDescending(n => n.CreatedAt)
-            .Select(n => new NotificationDto
-            {
-                Id = n.Id,
-                Title = n.Title,
-                Body = n.Body,
-                Link = n.Link,
-                Type = n.Type,
-                RelatedEntityId = n.RelatedEntityId,
-                IsRead = n.IsRead,
-                CreatedAt = n.CreatedAt
-            })
+        var distinctGroups = await query
+            .Select(n => new { n.Title, n.Body, n.CreatedAt })
+            .Distinct()
+            .OrderByDescending(g => g.CreatedAt)
+            .Take(50)
             .ToListAsync();
 
-        var distinctNotifications = notifications
-            .GroupBy(n => new { n.Title, n.Body, n.CreatedAt })
-            .Select(g => g.First())
-            .ToList();
+        var result = new List<NotificationDto>();
+        foreach(var g in distinctGroups)
+        {
+            var first = await query
+                .Where(n => n.Title == g.Title && n.Body == g.Body && n.CreatedAt == g.CreatedAt)
+                .Select(n => new NotificationDto
+                {
+                    Id = n.Id,
+                    Title = n.Title,
+                    Body = n.Body,
+                    Link = n.Link,
+                    Type = n.Type,
+                    RelatedEntityId = n.RelatedEntityId,
+                    IsRead = n.IsRead,
+                    CreatedAt = n.CreatedAt
+                })
+                .FirstOrDefaultAsync();
 
-        return Ok(distinctNotifications);
+            if (first != null)
+            {
+                result.Add(first);
+            }
+        }
+
+        return Ok(result);
     }
 
     [HttpPost]

@@ -15,6 +15,7 @@ public class QuestionDto
 public class QuestionCreateDto
 {
     public Guid LessonId { get; set; }
+    public Guid? ChapterId { get; set; }
     public string QuestionText { get; set; } = string.Empty;
     public List<string> Options { get; set; } = new();
     public int CorrectOption { get; set; }
@@ -33,7 +34,7 @@ public class QuestionUpdateDto
 
 public class AutoGenerateQuestionsDto
 {
-    public Guid ChapterId { get; set; }
-    public Guid LessonId { get; set; }
+    public Guid? ChapterId { get; set; }
+    public Guid? LessonId { get; set; }
     public int Count { get; set; }
 }

@@ -95,6 +95,12 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
         final lesson = LessonModel.fromJson(map);
         _lessonTitle = lesson.title;
         _questions = List.from(lesson.questions);
+      } else if (_selectedChapterId != null) {
+        final resp = await ApiClient.instance.get('/admin/questions/chapter/${_selectedChapterId}');
+        final data = resp.data;
+        final list = data is List ? data : (data is Map && data['data'] is List ? data['data'] : []);
+        _questions = (list as List).map((e) => QuestionModel.fromJson(e as Map<String, dynamic>)).toList();
+        _lessonTitle = 'Câu hỏi của Chương';
       } else {
         _lessonTitle = 'Tất cả câu hỏi';
         _questions = [];

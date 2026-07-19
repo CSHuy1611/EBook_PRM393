@@ -67,7 +67,7 @@ class _UserHistoryScreenState extends State<UserHistoryScreen>
             ? null
             : TabBar(
                 controller: _tabCtrl,
-                isScrollable: false,
+                isScrollable: true,
                 labelColor: Colors.white,
                 unselectedLabelColor: Colors.white70,
                 indicatorColor: Colors.white,

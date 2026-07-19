@@ -164,8 +164,10 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(lesson.title),
-        content: SizedBox(
-          width: double.maxFinite,
+        content: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(ctx).size.width > 600 ? 600 : MediaQuery.of(ctx).size.width - 48,
+          ),
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

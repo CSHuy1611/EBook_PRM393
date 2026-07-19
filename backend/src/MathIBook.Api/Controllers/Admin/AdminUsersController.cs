@@ -172,14 +172,7 @@ public class AdminUsersController : ControllerBase
     [HttpPatch("{id}/status")]
     public async Task<IActionResult> ChangeStatus(Guid id, [FromBody] AccountStatusDto dto)
     {
-        if (string.IsNullOrWhiteSpace(dto.Reason))
-        {
-            return BadRequest(new ProblemDetails
-            {
-                Title = "Lý do thay đổi trạng thái là bắt buộc.",
-                Status = 400
-            });
-        }
+        // Reason is no longer required
 
         var student = await _unitOfWork.Users.GetByIdAsync(id);
         if (student is null || student.Role != "Student")
