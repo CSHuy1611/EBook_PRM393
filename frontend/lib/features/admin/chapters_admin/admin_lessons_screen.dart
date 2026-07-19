@@ -7,6 +7,7 @@ import 'package:math_ibook/core/network/api_client.dart';
 import 'package:math_ibook/core/widgets/loading_widget.dart';
 import 'package:math_ibook/core/widgets/error_widget.dart';
 import 'package:math_ibook/features/admin/lessons_admin/lesson_editor_screen.dart';
+import 'package:math_ibook/core/math/math_text.dart';
 
 class AdminLessonsScreen extends StatefulWidget {
   final String? chapterId;
@@ -21,7 +22,6 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
   List<ChapterModel> _chapters = [];
   String? _selectedChapterId;
   bool _isLoading = true;
-  bool _isLoadingChapters = false;
   String? _error;
 
   @override
@@ -38,7 +38,6 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
   Future<void> _fetchChaptersThenLessons() async {
     setState(() {
       _isLoading = true;
-      _isLoadingChapters = true;
       _error = null;
     });
     try {
@@ -57,10 +56,11 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
     } catch (e) {
       _error = e is DioException ? ApiClient.mapDioErrorToMessage(e) : e.toString();
     } finally {
-      if (mounted) setState(() {
-        _isLoading = false;
-        _isLoadingChapters = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -74,7 +74,9 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
     } catch (e) {
       _error = e is DioException ? ApiClient.mapDioErrorToMessage(e) : e.toString();
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -174,7 +176,7 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                   const SizedBox(height: 8),
                   MathText(lesson.contentBody),
                 ],
-                if (lesson.simulationType != null && lesson.simulationType!.isNotEmpty) ...[
+                if (lesson.simulationType.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   Text('Mô phỏng: ${lesson.simulationType}',
                       style: Theme.of(context).textTheme.bodySmall),
