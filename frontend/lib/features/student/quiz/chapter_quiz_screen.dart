@@ -301,7 +301,18 @@ class _ChapterQuizScreenState extends State<ChapterQuizScreen> {
                                       ),
                                     ),
                                     const SizedBox(width: 16),
-                                    Expanded(child: MathText(optText)),
+                                    Expanded(
+                                      child: MathText(
+                                        optText,
+                                        textStyle: TextStyle(
+                                          fontSize: 16,
+                                          color: isSelected
+                                              ? Theme.of(context).colorScheme.onPrimaryContainer
+                                              : Theme.of(context).colorScheme.onSurface,
+                                          fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+                                        ),
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),

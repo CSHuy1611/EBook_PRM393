@@ -78,7 +78,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: colorScheme.primary),
                     ),
                     const SizedBox(height: 4),
-                    Text('Sách Toán 8 Tương Tác', style: TextStyle(fontSize: 14, color: Colors.grey.shade500)),
+                    Text('Sách Toán 8 Tương Tác', style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurfaceVariant)),
                     const SizedBox(height: 40),
 
                     // Email - FULL WIDTH
@@ -168,7 +168,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text('Chưa có tài khoản? ', style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+                        Text('Chưa có tài khoản? ', style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 14)),
                         GestureDetector(
                           onTap: () => context.go('/register'),
                           child: MouseRegion(
