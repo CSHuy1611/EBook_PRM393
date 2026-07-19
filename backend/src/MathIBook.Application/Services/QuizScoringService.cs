@@ -249,9 +249,9 @@ public class QuizScoringService : IQuizScoringService
             throw new InvalidOperationException("Phải trả lời đầy đủ đúng các câu hỏi của bài kiểm tra.");
         }
 
-        if (dto.Answers.Any(answer => answer.SelectedOption is < 0 or > 3))
+        if (dto.Answers.Any(answer => answer.SelectedOption is < -1 or > 3))
         {
-            throw new InvalidOperationException("Đáp án lựa chọn phải nằm trong khoảng 0 đến 3.");
+            throw new InvalidOperationException("Đáp án lựa chọn phải nằm trong khoảng -1 đến 3.");
         }
     }
 

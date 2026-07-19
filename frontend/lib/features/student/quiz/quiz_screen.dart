@@ -29,9 +29,11 @@ class _QuizScreenState extends State<QuizScreen> {
   bool _isSubmitting = false;
   String? _error;
 
+  static const int _totalSeconds = 1200;
+
   int _currentQuestion = 0;
   final Map<String, int> _answers = {};
-  int _durationSeconds = 0;
+  int _durationSeconds = _totalSeconds;
   Timer? _timer;
 
   @override
@@ -84,8 +86,14 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   void _startTimer() {
+    _durationSeconds = _totalSeconds;
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (mounted) setState(() => _durationSeconds++);
+      if (!mounted) return;
+      setState(() => _durationSeconds--);
+      if (_durationSeconds <= 0) {
+        _timer?.cancel();
+        _autoSubmit();
+      }
     });
   }
 
@@ -95,21 +103,21 @@ class _QuizScreenState extends State<QuizScreen> {
     return '${min.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}';
   }
 
-  bool get _allAnswered => _lesson != null && _answers.length == _lesson!.questions.length;
+  void _autoSubmit() {
+    if (_isSubmitting) return;
+    _isSubmitting = true;
+    _timer?.cancel();
+    _submitQuizBody();
+  }
 
   void _submitQuiz() async {
-    if (!_allAnswered) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng trả lời tất cả câu hỏi trước khi nộp bài')),
-      );
-      return;
-    }
-
+    final answered = _answers.length;
+    final total = _lesson?.questions.length ?? 0;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Xác nhận nộp bài'),
-        content: Text('Bạn đã trả lời ${_answers.length} câu hỏi. Bạn có chắc muốn nộp bài không?'),
+        content: Text('Bạn đã trả lời $answered/$total câu hỏi. Các câu chưa trả lời sẽ được tính là sai. Bạn có chắc muốn nộp bài không?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy')),
           FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Nộp bài')),
@@ -122,11 +130,20 @@ class _QuizScreenState extends State<QuizScreen> {
 
     setState(() => _isSubmitting = true);
     _timer?.cancel();
+    await _submitQuizBody();
+  }
+
+  Future<void> _submitQuizBody() async {
+    final elapsed = _totalSeconds - _durationSeconds;
+    final allAnswers = _lesson!.questions.map((q) {
+      final selected = _answers[q.id];
+      return AnswerDto(questionId: q.id, selectedOption: selected ?? -1);
+    }).toList();
     final dto = QuizSubmitDto(
       lessonId: widget.lessonId,
       clientAttemptId: const Uuid().v4(),
-      durationSeconds: _durationSeconds,
-      answers: _answers.entries.map((entry) => AnswerDto(questionId: entry.key, selectedOption: entry.value)).toList(),
+      durationSeconds: elapsed,
+      answers: allAnswers,
       clientCreatedAt: DateTime.now().toUtc().toIso8601String(),
     );
 
@@ -210,7 +227,12 @@ class _QuizScreenState extends State<QuizScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
                 _formatDuration(_durationSeconds),
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'monospace'),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'monospace',
+                  color: _durationSeconds <= 300 ? Colors.red : null,
+                ),
               ),
             ),
           ),
