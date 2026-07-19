@@ -48,7 +48,9 @@ class LocalDbService {
   }
 
   Future<void> _onCreate(Database db, int version) async {
-    // Ba bảng đầu là cache nội dung để đọc khi mất mạng.
+    // [NGOẠI TUYẾN] NHÓM 1: CACHE ĐỂ ĐỌC OFFLINE
+    // Ba bảng đầu (local_chapters, local_lessons, local_questions) là dữ liệu tải sẵn. 
+    // Khi rớt mạng, học sinh vẫn có nội dung để đọc và câu hỏi để làm bài.
     await db.execute(
       'CREATE TABLE local_chapters (id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT, order_index INTEGER NOT NULL DEFAULT 0, lesson_count INTEGER NOT NULL DEFAULT 0, cached_at TEXT NOT NULL)',
     );
@@ -58,11 +60,14 @@ class LocalDbService {
     await db.execute(
       'CREATE TABLE local_questions (id TEXT PRIMARY KEY, lesson_id TEXT NOT NULL, question_text TEXT NOT NULL, options TEXT NOT NULL, order_index INTEGER NOT NULL DEFAULT 0)',
     );
-    // local_progress là queue theo user+lesson; UNIQUE giúp upsert thay vì tạo nhiều dòng.
+    // [NGOẠI TUYẾN] NHÓM 2: SỔ NHÁP ĐỂ LƯU KẾT QUẢ KHI MẤT MẠNG
+    // local_progress: Lưu việc học sinh vừa đọc xong bài nào.
     await db.execute(
       'CREATE TABLE local_progress (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, lesson_id TEXT NOT NULL, client_updated_at TEXT NOT NULL, is_synced INTEGER NOT NULL DEFAULT 0, UNIQUE(user_id, lesson_id))',
     );
-    // client_attempt_id UNIQUE là định danh ổn định cho cùng một lần làm quiz khi retry.
+    // local_quiz_attempts:
+    // Lưu lại bài kiểm tra gồm: ai làm (user_id), bài thi nào (quiz_id), đã chọn đáp án gì (answers_json).
+    // client_attempt_id UNIQUE giúp chống trùng lặp nếu ứng dụng vô tình lặp lại việc gửi khi mạng chập chờn.
     await db.execute(
       'CREATE TABLE local_quiz_attempts (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, lesson_id TEXT NOT NULL, quiz_id TEXT, client_attempt_id TEXT NOT NULL UNIQUE, duration_seconds INTEGER NOT NULL DEFAULT 0, answers_json TEXT NOT NULL, client_created_at TEXT NOT NULL, sync_status TEXT NOT NULL DEFAULT \'pending\', retry_count INTEGER NOT NULL DEFAULT 0, last_sync_error TEXT)',
     );
@@ -290,16 +295,17 @@ class LocalDbService {
     required DateTime createdAt,
   }) async {
     if (!isAvailable) return;
-    // Lưu input của người học, không lưu điểm/xu/badge tự tính ở client.
+    // [NGOẠI TUYẾN] Bước 2: "Người giữ sổ nháp" nhận lệnh lưu bài kiểm tra.
+    // Dữ liệu đáp án (answers) được chuyển thành chuỗi JSON để nhét vào SQLite.
+    // Điểm, xu không được tính ở đây vì Server mới là nơi nắm công thức chấm điểm chuẩn xác nhất (Tránh gian lận).
     await (await database).insert('local_quiz_attempts', {
       'user_id': userId,
       'lesson_id': lessonId,
       'quiz_id': quizId,
       'client_attempt_id': clientAttemptId,
-      // answers phải giữ nguyên để backend là nơi chấm điểm khi có mạng.
       'duration_seconds': durationSeconds, 'answers_json': jsonEncode(answers),
       'client_created_at': createdAt.toUtc().toIso8601String(),
-      'sync_status': 'pending',
+      'sync_status': 'pending', // Đánh dấu là 'pending' (Đang chờ) để tý nữa đi nộp.
       'retry_count': 0,
       // ignore làm thao tác idempotent nếu cùng clientAttemptId bị queue lại.
     }, conflictAlgorithm: ConflictAlgorithm.ignore);
