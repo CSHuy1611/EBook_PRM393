@@ -84,38 +84,35 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
 
   Future<void> _showStatusDialog(AdminUserDto user) async {
     final isLocking = user.isActive;
-    final reasonCtrl = TextEditingController();
     final formKey = GlobalKey<FormState>();
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(isLocking ? 'Khóa tài khoản' : 'Mở khóa tài khoản'),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(isLocking 
-                  ? 'Bạn có chắc chắn muốn khóa tài khoản của ${user.name} không?'
-                  : 'Bạn có chắc chắn muốn mở khóa tài khoản của ${user.name} không?'),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: reasonCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Lý do *',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (v) => v == null || v.trim().isEmpty ? 'Vui lòng nhập lý do' : null,
-              ),
-            ],
+        content: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(ctx).size.width > 600 ? 450 : MediaQuery.of(ctx).size.width - 48,
+          ),
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(isLocking 
+                    ? 'Bạn có chắc chắn muốn khóa tài khoản của ${user.name} không?'
+                    : 'Bạn có chắc chắn muốn mở khóa tài khoản của ${user.name} không?'),
+                const SizedBox(height: 16),
+// No reason field needed
+              ],
+            ),
           ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
           ElevatedButton(
             onPressed: () {
-              if (formKey.currentState!.validate()) {
+              if (formKey.currentState?.validate() ?? true) {
                 Navigator.pop(ctx, true);
               }
             },
@@ -131,7 +128,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         setState(() => _isLoading = true);
         await ApiClient.instance.patch(
           '/admin/users/${user.id}/status',
-          data: {'isActive': !isLocking, 'reason': reasonCtrl.text.trim()},
+          data: {'isActive': !isLocking, 'reason': ''},
         );
         await _fetchUsers();
       } catch (e) {
@@ -223,36 +220,30 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                                       _buildInfoChip(Icons.leaderboard, '#${user.rank}', Colors.deepOrange),
                                     if (!user.isActive)
                                       _buildInfoChip(Icons.lock, 'Bị khóa', Colors.red),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: (user.role == 'Admin' ? Colors.orange : Colors.blue).withAlpha(25),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        user.role,
+                                        style: TextStyle(fontSize: 11, color: user.role == 'Admin' ? Colors.orange : Colors.blue, fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ],
                             ),
                             isThreeLine: true,
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Chip(
-                                  label: Text(
-                                    user.role,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: user.role == 'Admin' ? Colors.orange : Colors.blue,
-                                    ),
-                                  ),
-                                  backgroundColor: (user.role == 'Admin' ? Colors.orange : Colors.blue).withAlpha(25),
-                                  side: BorderSide.none,
-                                  visualDensity: VisualDensity.compact,
+                              trailing: IconButton(
+                                icon: Icon(
+                                  user.isActive ? Icons.lock_open : Icons.lock,
+                                  color: user.isActive ? Colors.green : Colors.red,
                                 ),
-                                IconButton(
-                                  icon: Icon(
-                                    user.isActive ? Icons.lock_open : Icons.lock,
-                                    color: user.isActive ? Colors.green : Colors.red,
-                                  ),
-                                  tooltip: user.isActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản',
-                                  onPressed: () => _showStatusDialog(user),
-                                ),
-                              ],
-                            ),
+                                tooltip: user.isActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản',
+                                onPressed: () => _showStatusDialog(user),
+                              ),
                             onTap: () => context.go('/admin/users/${user.id}/history'),
                           ),
                         );

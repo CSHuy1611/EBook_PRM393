@@ -585,20 +585,14 @@ public class AdminQuizzesController : ControllerBase
                 .AnyAsync(lesson =>
                     lesson.Id == quiz.LessonId
                     && lesson.IsPublished
-                    && !lesson.IsDeleted
-                    && lesson.CurriculumTopic != null
-                    && lesson.CurriculumTopic.Grade == 8
-                    && lesson.CurriculumTopic.IsActive);
+                    && !lesson.IsDeleted);
         }
 
         return await _unitOfWork.Chapters.Query()
             .AnyAsync(chapter =>
                 chapter.Id == quiz.ChapterId
                 && chapter.IsPublished
-                && !chapter.IsDeleted
-                && chapter.CurriculumTopic != null
-                && chapter.CurriculumTopic.Grade == 8
-                && chapter.CurriculumTopic.IsActive);
+                && !chapter.IsDeleted);
     }
 
     private async Task<bool> QuestionBelongsToQuiz(Question question, Quiz quiz)

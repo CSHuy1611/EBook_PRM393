@@ -69,8 +69,10 @@ class _AdminRewardPoliciesScreenState extends State<AdminRewardPoliciesScreen> {
           title: Text(isEdit ? 'Sửa chính sách xu' : 'Thêm chính sách xu'),
           content: Form(
             key: formKey,
-            child: SizedBox(
-              width: 500,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(ctx).size.width > 600 ? 550 : MediaQuery.of(ctx).size.width - 48,
+              ),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -101,24 +103,21 @@ class _AdminRewardPoliciesScreenState extends State<AdminRewardPoliciesScreen> {
                           children: [
                             const Text('Thưởng cơ bản', style: TextStyle(fontWeight: FontWeight.bold)),
                             const SizedBox(height: 12),
-                            Row(
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: coinsPerCorrectCtrl,
-                                    decoration: const InputDecoration(labelText: 'Xu / câu trả lời đúng *', border: OutlineInputBorder()),
-                                    keyboardType: TextInputType.number,
-                                    validator: (v) => (v == null || int.tryParse(v) == null) ? 'Hợp lệ?' : null,
-                                  ),
+                                TextFormField(
+                                  controller: coinsPerCorrectCtrl,
+                                  decoration: const InputDecoration(labelText: 'Xu / câu trả lời đúng *', border: OutlineInputBorder()),
+                                  keyboardType: TextInputType.number,
+                                  validator: (v) => (v == null || int.tryParse(v) == null) ? 'Hợp lệ?' : null,
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: perfectScoreBonusCtrl,
-                                    decoration: const InputDecoration(labelText: 'Thưởng đạt điểm tối đa *', border: OutlineInputBorder()),
-                                    keyboardType: TextInputType.number,
-                                    validator: (v) => (v == null || int.tryParse(v) == null) ? 'Hợp lệ?' : null,
-                                  ),
+                                const SizedBox(height: 12),
+                                TextFormField(
+                                  controller: perfectScoreBonusCtrl,
+                                  decoration: const InputDecoration(labelText: 'Thưởng đạt điểm tối đa *', border: OutlineInputBorder()),
+                                  keyboardType: TextInputType.number,
+                                  validator: (v) => (v == null || int.tryParse(v) == null) ? 'Hợp lệ?' : null,
                                 ),
                               ],
                             ),
@@ -135,45 +134,39 @@ class _AdminRewardPoliciesScreenState extends State<AdminRewardPoliciesScreen> {
                           children: [
                             const Text('Thưởng nâng cao & Khác', style: TextStyle(fontWeight: FontWeight.bold)),
                             const SizedBox(height: 12),
-                            Row(
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: firstPassBonusCtrl,
-                                    decoration: const InputDecoration(labelText: 'Thưởng vượt qua lần đầu *', border: OutlineInputBorder()),
-                                    keyboardType: TextInputType.number,
-                                    validator: (v) => (v == null || int.tryParse(v) == null) ? 'Hợp lệ?' : null,
-                                  ),
+                                TextFormField(
+                                  controller: firstPassBonusCtrl,
+                                  decoration: const InputDecoration(labelText: 'Thưởng vượt qua lần đầu *', border: OutlineInputBorder()),
+                                  keyboardType: TextInputType.number,
+                                  validator: (v) => (v == null || int.tryParse(v) == null) ? 'Hợp lệ?' : null,
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: chapterCompletionBonusCtrl,
-                                    decoration: const InputDecoration(labelText: 'Thưởng hoàn thành chương *', border: OutlineInputBorder()),
-                                    keyboardType: TextInputType.number,
-                                    validator: (v) => (v == null || int.tryParse(v) == null) ? 'Hợp lệ?' : null,
-                                  ),
+                                const SizedBox(height: 12),
+                                TextFormField(
+                                  controller: chapterCompletionBonusCtrl,
+                                  decoration: const InputDecoration(labelText: 'Thưởng hoàn thành chương *', border: OutlineInputBorder()),
+                                  keyboardType: TextInputType.number,
+                                  validator: (v) => (v == null || int.tryParse(v) == null) ? 'Hợp lệ?' : null,
                                 ),
                               ],
                             ),
                             const SizedBox(height: 12),
-                            Row(
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: retryRewardPercentCtrl,
-                                    decoration: const InputDecoration(labelText: 'Tỷ lệ thưởng làm lại (%) *', border: OutlineInputBorder()),
-                                    keyboardType: TextInputType.number,
-                                    validator: (v) => (v == null || int.tryParse(v) == null) ? 'Hợp lệ?' : null,
-                                  ),
+                                TextFormField(
+                                  controller: retryRewardPercentCtrl,
+                                  decoration: const InputDecoration(labelText: 'Tỷ lệ thưởng làm lại (%) *', border: OutlineInputBorder()),
+                                  keyboardType: TextInputType.number,
+                                  validator: (v) => (v == null || int.tryParse(v) == null) ? 'Hợp lệ?' : null,
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: dailyCoinLimitCtrl,
-                                    decoration: const InputDecoration(labelText: 'Giới hạn xu/ngày (trống = Không)', border: OutlineInputBorder()),
-                                    keyboardType: TextInputType.number,
-                                  ),
+                                const SizedBox(height: 12),
+                                TextFormField(
+                                  controller: dailyCoinLimitCtrl,
+                                  decoration: const InputDecoration(labelText: 'Giới hạn xu/ngày (trống = Không)', border: OutlineInputBorder()),
+                                  keyboardType: TextInputType.number,
                                 ),
                               ],
                             ),
@@ -206,11 +199,7 @@ class _AdminRewardPoliciesScreenState extends State<AdminRewardPoliciesScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    SwitchListTile(
-                      title: const Text('Đang hoạt động (Kích hoạt)'),
-                      value: isActive,
-                      onChanged: (v) => setDialogState(() => isActive = v),
-                    ),
+                    // Removed isActive toggle
                   ],
                 ),
               ),
@@ -232,7 +221,7 @@ class _AdminRewardPoliciesScreenState extends State<AdminRewardPoliciesScreen> {
                     'retryRewardPercent': int.parse(retryRewardPercentCtrl.text),
                     'dailyCoinLimit': dailyCoinLimitCtrl.text.trim().isEmpty ? null : int.parse(dailyCoinLimitCtrl.text),
                     'effectiveFrom': effectiveFrom.toUtc().toIso8601String(),
-                    'isActive': isActive,
+                    'isActive': true,
                   };
                   if (isEdit) {
                     await ApiClient.instance.put('/admin/reward-policies/${policy!.id}', data: body);
@@ -257,29 +246,29 @@ class _AdminRewardPoliciesScreenState extends State<AdminRewardPoliciesScreen> {
     if (result == true) _fetchPolicies();
   }
 
-  Future<void> _deactivatePolicy(RewardPolicyDto policy) async {
+  Future<void> _deletePolicy(RewardPolicyDto policy) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Xác nhận vô hiệu hóa'),
-        content: Text('Bạn có chắc muốn vô hiệu hóa chính sách "${policy.name}"?'),
+        title: const Text('Xác nhận xóa'),
+        content: Text('Bạn có chắc muốn xóa chính sách "${policy.name}"?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
-            child: const Text('Vô hiệu hóa'),
+            child: const Text('Xóa'),
           ),
         ],
       ),
     );
     if (confirmed != true) return;
     try {
-      await ApiClient.instance.put('/admin/reward-policies/${policy.id}/deactivate', data: {});
+      await ApiClient.instance.delete('/admin/reward-policies/${policy.id}');
       _fetchPolicies();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đã vô hiệu hóa chính sách')),
+          const SnackBar(content: Text('Đã xóa chính sách')),
         );
       }
     } catch (e) {
@@ -376,13 +365,12 @@ class _AdminRewardPoliciesScreenState extends State<AdminRewardPoliciesScreen> {
                                     onPressed: () => _showPolicyDialog(policy: policy),
                                   ),
                                   const SizedBox(width: 8),
-                                  if (policy.isActive)
-                                    FilledButton.icon(
-                                      icon: const Icon(Icons.block),
-                                      label: const Text('Vô hiệu hóa'),
-                                      style: FilledButton.styleFrom(backgroundColor: Colors.red),
-                                      onPressed: () => _deactivatePolicy(policy),
-                                    ),
+                                  FilledButton.icon(
+                                    icon: const Icon(Icons.delete),
+                                    label: const Text('Xóa'),
+                                    style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                                    onPressed: () => _deletePolicy(policy),
+                                  ),
                                 ],
                               ),
                             ],

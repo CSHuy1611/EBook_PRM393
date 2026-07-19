@@ -125,7 +125,7 @@ public class AdminLessonsController : ControllerBase
 
         return Ok(_validationService.ValidateLesson(
             lesson,
-            lesson.CurriculumTopic is { Grade: 8, IsActive: true }));
+            true));
     }
 
     [HttpPatch("{id}/publish")]
@@ -150,7 +150,7 @@ public class AdminLessonsController : ControllerBase
         {
             var validation = _validationService.ValidateLesson(
                 lesson,
-                lesson.CurriculumTopic is { Grade: 8, IsActive: true });
+                true);
             if (!validation.IsValid)
             {
                 return BadRequest(validation);
@@ -256,13 +256,13 @@ public class AdminLessonsController : ControllerBase
             return new ProblemDetails { Title = "Không tìm thấy chương.", Status = 400 };
         }
 
-        if (!topicId.HasValue
-            || !await _unitOfWork.CurriculumTopics.Query().AnyAsync(topic =>
-                topic.Id == topicId && topic.Grade == 8 && topic.IsActive))
+        if (topicId.HasValue
+            && !await _unitOfWork.CurriculumTopics.Query().AnyAsync(topic =>
+                topic.Id == topicId))
         {
             return new ProblemDetails
             {
-                Title = "Bài học phải thuộc taxonomy Toán lớp 8 đang hoạt động.",
+                Title = "Không tìm thấy chủ đề.",
                 Status = 400
             };
         }

@@ -7,8 +7,10 @@ namespace MathIBook.Infrastructure.Data;
 
 public static class SeedData
 {
+    // Mật khẩu demo chỉ phục vụ môi trường seed/kiểm thử, được hash trước khi lưu.
     private const string DemoStudentPassword = "Student@123";
 
+    // Năm Student có số xu khác nhau để kiểm tra thứ tự bảng xếp hạng.
     private static readonly (string Name, string Email, int Coins)[] AdditionalStudentDefinitions =
     {
         ("Nguyễn Minh Anh", "student1@mathibook.vn", 1250),
@@ -20,13 +22,16 @@ public static class SeedData
 
     public static async Task SeedAsync(AppDbContext context)
     {
+        // Database phát triển đã có User: không seed lại toàn bộ giáo trình.
         if (await context.Users.AnyAsync())
         {
+            // Vẫn bổ sung Student mẫu còn thiếu và sửa rule badge legacy.
             await SeedAdditionalStudentsAsync(context);
             await RepairLegacyBadgeRuleThresholdsAsync(context);
             return;
         }
 
+        // Database mới: tạo Admin, Student mặc định và các Student dùng cho ranking.
         var adminId = Guid.NewGuid();
         var studentId = Guid.NewGuid();
 
@@ -51,6 +56,7 @@ public static class SeedData
                 Coins = 0,
                 CreatedAt = DateTime.UtcNow
             });
+        // Hàm helper hash mật khẩu và gắn Role/Coins/timestamps thống nhất.
         context.Users.AddRange(CreateAdditionalStudents(AdditionalStudentDefinitions));
 
         var topicPoly = Id("poly"); var topicFrac = Id("frac");
@@ -585,6 +591,7 @@ public static class SeedData
     // ──────────────────────────────────────────────
     private static async Task SeedAdditionalStudentsAsync(AppDbContext context)
     {
+        // Chỉ query các email thuộc bộ seed, không tải toàn bộ bảng Users.
         var seedEmails = AdditionalStudentDefinitions
             .Select(student => student.Email)
             .ToArray();
@@ -592,11 +599,14 @@ public static class SeedData
             .Where(user => seedEmails.Contains(user.Email))
             .Select(user => user.Email)
             .ToListAsync();
+        // So sánh không phân biệt hoa/thường để email seed không bị tạo trùng logic.
         var existingEmailSet = existingEmails.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // Lọc đúng những định nghĩa chưa tồn tại trong database hiện tại.
         var missingStudents = AdditionalStudentDefinitions
             .Where(student => !existingEmailSet.Contains(student.Email))
             .ToArray();
 
+        // Idempotent: chạy startup lần sau sẽ thoát tại đây và không insert thêm.
         if (missingStudents.Length == 0)
             return;
 
@@ -607,14 +617,17 @@ public static class SeedData
     private static IEnumerable<User> CreateAdditionalStudents(
         IEnumerable<(string Name, string Email, int Coins)> definitions)
     {
+        // Dùng cùng mốc thời gian cho toàn bộ batch seed.
         var now = DateTime.UtcNow;
         foreach (var definition in definitions)
         {
+            // yield return tạo từng entity nhưng chỉ AddRange mới đưa vào DbContext.
             yield return new User
             {
                 Id = Guid.NewGuid(),
                 Name = definition.Name,
                 Email = definition.Email,
+                // Không lưu mật khẩu thuần trong database.
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(DemoStudentPassword),
                 Role = "Student",
                 Coins = definition.Coins,

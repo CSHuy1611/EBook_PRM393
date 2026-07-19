@@ -20,6 +20,7 @@ class _AutoGenerateQuestionsDialogState extends State<AutoGenerateQuestionsDialo
   bool _isLoadingChapters = true;
   bool _isLoadingLessons = false;
   bool _isGenerating = false;
+  bool _generateForChapter = false; // Add toggle state
 
   @override
   void initState() {
@@ -67,9 +68,16 @@ class _AutoGenerateQuestionsDialogState extends State<AutoGenerateQuestionsDialo
   }
 
   Future<void> _generate() async {
-    if (_selectedChapterId == null || _selectedLessonId == null) {
+    if (_selectedChapterId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng chọn chương và bài học.')),
+        const SnackBar(content: Text('Vui lòng chọn chương.')),
+      );
+      return;
+    }
+    
+    if (!_generateForChapter && _selectedLessonId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng chọn bài học.')),
       );
       return;
     }
@@ -78,7 +86,7 @@ class _AutoGenerateQuestionsDialogState extends State<AutoGenerateQuestionsDialo
     try {
       final data = {
         'chapterId': _selectedChapterId,
-        'lessonId': _selectedLessonId,
+        'lessonId': _generateForChapter ? null : _selectedLessonId,
         'count': _count,
       };
       await ApiClient.instance.post('/admin/questions/auto-generate', data: data);
@@ -106,23 +114,24 @@ class _AutoGenerateQuestionsDialogState extends State<AutoGenerateQuestionsDialo
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       elevation: 10,
       backgroundColor: Colors.transparent,
-      child: Container(
-        width: 450,
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(20),
-              blurRadius: 15,
-              offset: const Offset(0, 5),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 450),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(20),
+                blurRadius: 15,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
             // Header
             Container(
               padding: const EdgeInsets.all(20),
@@ -183,7 +192,7 @@ class _AutoGenerateQuestionsDialogState extends State<AutoGenerateQuestionsDialo
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Hệ thống sẽ tự động phân tích tiêu đề Bài học để lọc ra các câu hỏi Toán 8 phù hợp từ Ngân hàng Dữ liệu (kèm đáp án và giải thích chi tiết).',
+                            'Hệ thống sẽ gọi API của ChatGPT để tự động tạo câu hỏi trắc nghiệm Toán 8 kèm đáp án và giải thích chi tiết.',
                             style: TextStyle(
                               color: Theme.of(context).colorScheme.onSurfaceVariant,
                               fontSize: 13,
@@ -196,8 +205,35 @@ class _AutoGenerateQuestionsDialogState extends State<AutoGenerateQuestionsDialo
                   ),
                   const SizedBox(height: 24),
                   
+                  // Toggle Cấp độ tạo
+                  Text('1. Chọn Cấp Độ', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: RadioListTile<bool>(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Theo Bài Học', style: TextStyle(fontSize: 14)),
+                          value: false,
+                          groupValue: _generateForChapter,
+                          onChanged: (val) => setState(() => _generateForChapter = val!),
+                        ),
+                      ),
+                      Expanded(
+                        child: RadioListTile<bool>(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Theo Chương', style: TextStyle(fontSize: 14)),
+                          value: true,
+                          groupValue: _generateForChapter,
+                          onChanged: (val) => setState(() => _generateForChapter = val!),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
                   // Dropdown Chương
-                  Text('1. Chọn Chương', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                  Text('2. Chọn Chương', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   _isLoadingChapters 
                     ? const Center(child: Padding(padding: EdgeInsets.all(8), child: CircularProgressIndicator()))
@@ -222,42 +258,44 @@ class _AutoGenerateQuestionsDialogState extends State<AutoGenerateQuestionsDialo
                         },
                       ),
                   
-                  const SizedBox(height: 20),
-                  
-                  // Dropdown Bài Học
-                  Text('2. Chọn Bài Học', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  _isLoadingLessons
-                    ? const Center(child: Padding(padding: EdgeInsets.all(8), child: CircularProgressIndicator()))
-                    : DropdownButtonFormField<String>(
-                        decoration: InputDecoration(
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                          filled: true,
-                          fillColor: _selectedChapterId == null 
-                              ? Colors.grey.withAlpha(20) 
-                              : Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha(50),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          prefixIcon: const Icon(Icons.play_lesson, size: 20),
+                  if (!_generateForChapter) ...[
+                    const SizedBox(height: 20),
+                    
+                    // Dropdown Bài Học
+                    Text('3. Chọn Bài Học', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    _isLoadingLessons
+                      ? const Center(child: Padding(padding: EdgeInsets.all(8), child: CircularProgressIndicator()))
+                      : DropdownButtonFormField<String>(
+                          decoration: InputDecoration(
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            filled: true,
+                            fillColor: _selectedChapterId == null 
+                                ? Colors.grey.withAlpha(20) 
+                                : Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha(50),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            prefixIcon: const Icon(Icons.play_lesson, size: 20),
+                          ),
+                          hint: const Text('Nhấp để chọn bài học...'),
+                          value: _selectedLessonId,
+                          isExpanded: true,
+                          items: _lessons.map((l) => DropdownMenuItem(
+                            value: l.id, 
+                            child: Text(l.title, overflow: TextOverflow.ellipsis),
+                          )).toList(),
+                          onChanged: _selectedChapterId == null 
+                              ? null 
+                              : (val) {
+                                  setState(() => _selectedLessonId = val);
+                                },
+                          disabledHint: const Text('Vui lòng chọn chương trước'),
                         ),
-                        hint: const Text('Nhấp để chọn bài học...'),
-                        value: _selectedLessonId,
-                        isExpanded: true,
-                        items: _lessons.map((l) => DropdownMenuItem(
-                          value: l.id, 
-                          child: Text(l.title, overflow: TextOverflow.ellipsis),
-                        )).toList(),
-                        onChanged: _selectedChapterId == null 
-                            ? null 
-                            : (val) {
-                                setState(() => _selectedLessonId = val);
-                              },
-                        disabledHint: const Text('Vui lòng chọn chương trước'),
-                      ),
+                  ],
                   
                   const SizedBox(height: 20),
 
                   // Dropdown Số lượng
-                  Text('3. Số Lượng Câu Hỏi Cần Tạo', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                  Text(_generateForChapter ? '3. Số Lượng Câu Hỏi Cần Tạo' : '4. Số Lượng Câu Hỏi Cần Tạo', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<int>(
                     decoration: InputDecoration(
@@ -268,6 +306,7 @@ class _AutoGenerateQuestionsDialogState extends State<AutoGenerateQuestionsDialo
                       prefixIcon: const Icon(Icons.format_list_numbered, size: 20),
                     ),
                     value: _count,
+                    isExpanded: true, // Fixed overflow
                     items: [3, 5, 10, 15, 20].map((n) => DropdownMenuItem(
                       value: n, 
                       child: Text('$n câu hỏi (Trắc nghiệm 4 đáp án)'),
@@ -313,6 +352,7 @@ class _AutoGenerateQuestionsDialogState extends State<AutoGenerateQuestionsDialo
               ),
             ),
           ],
+          ),
         ),
       ),
     );

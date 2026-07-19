@@ -53,7 +53,6 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
     final formKey = GlobalKey<FormState>();
     final titleCtrl = TextEditingController();
     final bodyCtrl = TextEditingController();
-    final linkCtrl = TextEditingController();
     final userIdCtrl = TextEditingController(); // Stores selected ID
     final searchCtrl = TextEditingController(); // Search query
     String type = 'admin_message';
@@ -85,8 +84,10 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
           title: const Text('Gửi thông báo mới'),
           content: Form(
             key: formKey,
-            child: SizedBox(
-              width: 500,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(ctx).size.width > 600 ? 500 : MediaQuery.of(ctx).size.width - 48,
+              ),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -104,11 +105,6 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
                       validator: (v) => (v == null || v.trim().isEmpty) ? 'Vui lòng nhập nội dung' : null,
                       maxLines: 4,
                       maxLength: 1000,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: linkCtrl,
-                      decoration: const InputDecoration(labelText: 'Liên kết đích (Tùy chọn)', border: OutlineInputBorder()),
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
@@ -178,7 +174,6 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
                   final reqBody = {
                     'title': titleCtrl.text.trim(),
                     'body': bodyCtrl.text.trim(),
-                    'link': linkCtrl.text.trim().isEmpty ? null : linkCtrl.text.trim(),
                     'type': type,
                     'userId': userIdCtrl.text.trim().isEmpty ? null : userIdCtrl.text.trim(),
                   };

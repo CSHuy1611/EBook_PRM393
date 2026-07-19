@@ -23,12 +23,15 @@ public class BadgeCheckService : IBadgeCheckService
         Guid userId,
         Guid? contextChapterId = null)
     {
+        // Không thể xét badge nếu user trong JWT không còn tồn tại.
         var user = await _unitOfWork.Users.GetByIdAsync(userId)
             ?? throw new InvalidOperationException("User not found.");
         var earnedBadges = new List<BadgeEarnedDto>();
+        // Chỉ badge đang hoạt động và chưa soft-delete mới được xét.
         var badges = (await _unitOfWork.Badges.GetAllAsync())
             .Where(badge => badge.IsActive && !badge.IsDeleted)
             .ToList();
+        // HashSet giúp kiểm tra badge đã nhận O(1) và là lớp chống trao trùng đầu tiên.
         var alreadyEarned = (await _unitOfWork.UserBadges.FindAsync(
                 userBadge => userBadge.UserId == userId))
             .Select(userBadge => userBadge.BadgeId)
@@ -36,11 +39,13 @@ public class BadgeCheckService : IBadgeCheckService
 
         foreach (var badge in badges)
         {
+            // Badge đã nhận không được đánh giá/cộng thưởng lại.
             if (alreadyEarned.Contains(badge.Id))
             {
                 continue;
             }
 
+            // Ưu tiên rules cấu trúc; badge cũ chưa migrate vẫn dùng condition legacy.
             var rules = (await _unitOfWork.BadgeRules.FindAsync(rule => rule.BadgeId == badge.Id))
                 .OrderBy(rule => rule.OrderIndex)
                 .ToList();
@@ -48,11 +53,13 @@ public class BadgeCheckService : IBadgeCheckService
                 ? await CheckStructuredRulesAsync(userId, badge, badge.RuleMatchMode, rules)
                 : await CheckLegacyConditionAsync(userId, badge);
 
+            // Không đạt thì chuyển sang badge tiếp theo mà không ghi database.
             if (!conditionMet)
             {
                 continue;
             }
 
+            // Dùng chung một timestamp cho UserBadge, CoinTransaction và Notification.
             var occurredAt = DateTime.UtcNow;
             await _unitOfWork.UserBadges.AddAsync(new UserBadge
             {
@@ -63,6 +70,7 @@ public class BadgeCheckService : IBadgeCheckService
                 EarnedAt = occurredAt
             });
 
+            // RewardCoins chỉ do server quyết định; client không được truyền số xu thưởng.
             if (badge.RewardCoins > 0)
             {
                 user.Coins += badge.RewardCoins;
@@ -70,6 +78,7 @@ public class BadgeCheckService : IBadgeCheckService
                 user.UpdatedAt = occurredAt;
                 _unitOfWork.Users.Update(user);
 
+                // IdempotencyKey duy nhất theo user+badge ngăn giao dịch xu bị ghi hai lần.
                 await _unitOfWork.CoinTransactions.AddAsync(new CoinTransaction
                 {
                     UserId = userId,
@@ -83,6 +92,7 @@ public class BadgeCheckService : IBadgeCheckService
                 });
             }
 
+            // Mỗi badge mới tạo một thông báo để Student thấy thành tích vừa đạt.
             await _unitOfWork.Notifications.AddAsync(new Notification
             {
                 UserId = userId,
@@ -93,8 +103,10 @@ public class BadgeCheckService : IBadgeCheckService
                 RelatedEntityId = badge.Id,
                 CreatedAt = occurredAt
             });
+            // Lưu badge, xu và notification sau khi toàn bộ entity đã được chuẩn bị.
             await _unitOfWork.SaveChangesAsync();
 
+            // Cập nhật bộ nhớ trong vòng lặp để không xét lại badge vừa trao.
             alreadyEarned.Add(badge.Id);
             earnedBadges.Add(new BadgeEarnedDto
             {
@@ -119,12 +131,14 @@ public class BadgeCheckService : IBadgeCheckService
         string matchMode,
         IReadOnlyCollection<BadgeRule> rules)
     {
+        // Đánh giá từng rule độc lập rồi kết hợp theo RuleMatchMode.
         var results = new List<bool>();
         foreach (var rule in rules)
         {
             results.Add(await CheckRuleAsync(userId, badge, rule));
         }
 
+        // ANY chỉ cần một rule đúng; mặc định còn lại là ALL.
         return string.Equals(matchMode, "ANY", StringComparison.OrdinalIgnoreCase)
             ? results.Any(result => result)
             : results.All(result => result);

@@ -16,6 +16,7 @@ namespace MathIBook.Api.Controllers;
 [Authorize(Roles = "Student")]
 public class BadgesController : ControllerBase
 {
+    // UnitOfWork dùng đọc dữ liệu tiến độ; BadgeCheckService phụ trách trao thưởng.
     private readonly IUnitOfWork _unitOfWork;
     private readonly IBadgeCheckService _badgeCheckService;
 
@@ -30,7 +31,9 @@ public class BadgesController : ControllerBase
     [HttpPost("reconcile")]
     public async Task<ActionResult<List<BadgeEarnedDto>>> Reconcile()
     {
+        // Lấy user từ JWT để client không thể reconcile badge cho tài khoản khác.
         var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        // Service chỉ trả các badge vừa mới được trao trong lần kiểm tra này.
         return Ok(await _badgeCheckService.CheckAndAwardBadgesAsync(userId));
     }
 
@@ -38,32 +41,39 @@ public class BadgesController : ControllerBase
     public async Task<ActionResult<BadgeCollectionDto>> GetAll()
     {
         var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        // User.Coins cần cho rule total_coins.
         var user = await _unitOfWork.Users.GetByIdAsync(userId);
         if (user is null)
         {
             return NotFound();
         }
 
+        // Include rules theo OrderIndex để requirement hiển thị đúng thứ tự cấu hình.
         var badges = await _unitOfWork.Badges.Query()
             .Where(badge => badge.IsActive && !badge.IsDeleted)
             .Include(badge => badge.Rules.OrderBy(rule => rule.OrderIndex))
             .OrderBy(badge => badge.CreatedAt)
             .ToListAsync();
+        // Dictionary BadgeId → UserBadge giúp xác định Earned và ngày nhận nhanh.
         var earned = await _unitOfWork.UserBadges.Query()
             .Where(item => item.UserId == userId)
             .ToDictionaryAsync(item => item.BadgeId);
+        // Attempts mới nhất trước phục vụ passed quiz và perfect streak.
         var attempts = await _unitOfWork.QuizAttempts.Query()
             .Where(attempt => attempt.UserId == userId)
             .OrderByDescending(attempt => attempt.CreatedAt)
             .ToListAsync();
+        // ChapterProgress dùng rule complete_chapter và complete_book.
         var chapterProgress = await _unitOfWork.ChapterProgresses.Query()
             .Where(progress => progress.UserId == userId)
             .ToListAsync();
+        // Tổng chương published là mẫu số của tiến độ hoàn thành cả sách.
         var publishedChapterCount = await _unitOfWork.Chapters.Query()
             .CountAsync(chapter => chapter.IsPublished && !chapter.IsDeleted);
 
         var items = badges.Select(badge =>
         {
+            // Badge mới dùng BadgeRules; badge legacy dùng ConditionType/ConditionValue.
             var evaluations = badge.Rules.Count > 0
                 ? badge.Rules.Select(rule => EvaluateRule(
                     badge,
@@ -81,12 +91,14 @@ public class BadgesController : ControllerBase
                         chapterProgress,
                         publishedChapterCount)
                 };
+            // ANY lấy progress cao nhất; ALL lấy thấp nhất vì mọi rule đều phải đạt.
             var isAny = string.Equals(badge.RuleMatchMode, "ANY", StringComparison.OrdinalIgnoreCase);
             var progressPercentage = evaluations.Count == 0
                 ? 0
                 : isAny
                     ? evaluations.Max(item => item.Percentage)
                     : evaluations.Min(item => item.Percentage);
+            // Bản ghi UserBadge là nguồn sự thật cho trạng thái Earned.
             earned.TryGetValue(badge.Id, out var userBadge);
 
             return new BadgeCollectionItemDto
@@ -95,12 +107,14 @@ public class BadgesController : ControllerBase
                 Title = badge.Title,
                 Description = badge.Description,
                 IconUrl = badge.IconUrl,
+                // Chưa Earned nhưng progress > 0 là InProgress; bằng 0 là Locked.
                 Status = userBadge is not null
                     ? "Earned"
                     : progressPercentage > 0
                         ? "InProgress"
                         : "Locked",
                 EarnedAt = userBadge?.EarnedAt,
+                // Earned luôn hiển thị 100% dù rule/config sau này thay đổi.
                 ProgressPercentage = userBadge is not null ? 100 : progressPercentage,
                 Requirement = string.Join(
                     isAny ? " hoặc " : " và ",
@@ -117,6 +131,7 @@ public class BadgesController : ControllerBase
             };
         }).ToList();
 
+        // Summary giúp UI hiển thị “Đã đạt X/Y” mà không phải tự đếm lại.
         return Ok(new BadgeCollectionDto
         {
             EarnedCount = items.Count(item => item.Status == "Earned"),
@@ -133,6 +148,7 @@ public class BadgesController : ControllerBase
         IReadOnlyCollection<ChapterProgress> chapterProgress,
         int publishedChapterCount)
     {
+        // Mỗi RuleType chọn nguồn dữ liệu và cách tính Current/Target riêng.
         return rule.RuleType.ToLowerInvariant() switch
         {
             "complete_chapter" => Binary(
@@ -198,7 +214,9 @@ public class BadgesController : ControllerBase
 
     private static RuleProgress Threshold(int current, int target, string requirement)
     {
+        // Target tối thiểu 1 để tránh chia cho 0 khi dữ liệu cấu hình cũ bị thiếu.
         target = Math.Max(1, target);
+        // Percentage bị chặn tối đa 100 để progress bar không vượt giới hạn.
         return new RuleProgress(
             current,
             target,

@@ -91,8 +91,8 @@ public class AdminRewardPoliciesController : ControllerBase
         return NoContent();
     }
 
-    [HttpPut("{id}/deactivate")]
-    public async Task<IActionResult> Deactivate(Guid id)
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(Guid id)
     {
         var policy = await _unitOfWork.RewardPolicies.GetByIdAsync(id);
         if (policy is null)
@@ -100,10 +100,18 @@ public class AdminRewardPoliciesController : ControllerBase
             return NotFound();
         }
 
-        policy.IsActive = false;
-        policy.EffectiveTo ??= DateTime.UtcNow;
-        policy.UpdatedAt = DateTime.UtcNow;
-        _unitOfWork.RewardPolicies.Update(policy);
+        var isUsed = await _unitOfWork.Quizzes.Query()
+            .AnyAsync(quiz => quiz.RewardPolicyId == id && !quiz.IsDeleted);
+        if (isUsed)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Title = "Không thể xóa chính sách đang được sử dụng.",
+                Status = 409
+            });
+        }
+
+        _unitOfWork.RewardPolicies.Remove(policy);
         await _unitOfWork.SaveChangesAsync();
         return NoContent();
     }
