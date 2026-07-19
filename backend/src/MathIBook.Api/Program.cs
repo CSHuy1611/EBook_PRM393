@@ -141,6 +141,18 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowFlutterDev");
 
+var webRootPath = app.Environment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+if (!Directory.Exists(webRootPath))
+{
+    Directory.CreateDirectory(webRootPath);
+}
+app.Environment.WebRootPath = webRootPath;
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(webRootPath),
+    RequestPath = ""
+});
 // Thứ tự middleware quan trọng: xác thực trước kiểm tra active user và phân quyền.
 app.UseAuthentication();
 app.UseMiddleware<ActiveUserMiddleware>();

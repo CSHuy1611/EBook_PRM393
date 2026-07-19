@@ -11,4 +11,6 @@ class AppConfig {
     if (Platform.isIOS) return 'http://localhost:5000/api';
     return 'http://localhost:5000/api';
   }
+
+  static String get rootUrl => baseUrl.replaceAll(RegExp(r'/api$'), '');
 }

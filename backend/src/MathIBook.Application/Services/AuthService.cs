@@ -213,7 +213,8 @@ public partial class AuthService : IAuthService
                 Name = user.Name,
                 Email = user.Email,
                 Role = user.Role,
-                Coins = user.Coins
+                Coins = user.Coins,
+                AvatarUrl = user.AvatarUrl
             }
         };
     }

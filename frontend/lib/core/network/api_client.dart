@@ -308,6 +308,7 @@ class AuthInterceptor extends Interceptor {
         return;
       }
 
+      bool refreshSuccess = false;
       try {
         // Dùng Dio riêng, không gắn AuthInterceptor, để tránh vòng lặp interceptor.
         final refreshDio = Dio(BaseOptions(baseUrl: AppConfig.baseUrl));
@@ -325,14 +326,8 @@ class AuthInterceptor extends Interceptor {
         if (data['refreshToken'] != null) {
           await _storage.saveRefreshToken(data['refreshToken'] as String);
         }
-
-        // Gắn access token mới trực tiếp vào request đã thất bại.
-        err.requestOptions.headers['Authorization'] =
-            'Bearer ${data['accessToken']}';
-        // Gửi lại đúng method, URL, body và query của request ban đầu.
-        final retryDio = Dio(BaseOptions(baseUrl: AppConfig.baseUrl));
-        final retryResponse = await retryDio.fetch(err.requestOptions);
-        handler.resolve(retryResponse);
+        
+        refreshSuccess = true;
       } catch (e) {
         // Refresh thất bại: xóa credential cũ để tránh lặp 401 vô hạn.
         await _storage.clearAll();
@@ -345,6 +340,30 @@ class AuthInterceptor extends Interceptor {
             response: err.response,
           ),
         );
+        return;
+      }
+
+      if (refreshSuccess) {
+        try {
+          // Gắn access token mới trực tiếp vào request đã thất bại.
+          final newToken = await _storage.getAccessToken();
+          err.requestOptions.headers['Authorization'] = 'Bearer $newToken';
+          
+          // Gửi lại đúng method, URL, body và query của request ban đầu.
+          final retryDio = Dio(BaseOptions(baseUrl: AppConfig.baseUrl));
+          final retryResponse = await retryDio.fetch(err.requestOptions);
+          handler.resolve(retryResponse);
+        } catch (e) {
+          // Retry thất bại (thường do FormData không thể fetch lại). Không xóa session!
+          handler.reject(
+            DioException(
+              requestOptions: err.requestOptions,
+              message: 'Vui lòng thực hiện lại thao tác (Token đã được làm mới).',
+              error: e.toString(),
+              type: DioExceptionType.unknown,
+            ),
+          );
+        }
       }
     } else if (err.response?.statusCode == 403) {
       // 403 là đã xác thực nhưng role/quyền không cho phép thực hiện request.

@@ -9,6 +9,8 @@ import 'package:math_ibook/core/widgets/loading_widget.dart';
 import 'package:math_ibook/features/auth/domain/auth_provider.dart';
 import 'package:dio/dio.dart';
 import 'package:math_ibook/core/network/api_client.dart';
+import 'package:math_ibook/core/network/app_config.dart';
+import 'package:image_picker/image_picker.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -53,11 +55,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  String _getFullAvatarUrl(String url) {
+    if (url.startsWith('http')) return url;
+    return '${AppConfig.rootUrl}$url';
+  }
+
+  Future<void> _pickAndUploadAvatar() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile == null) return;
+    
+    setState(() => _loading = true);
+    try {
+      final bytes = await pickedFile.readAsBytes();
+      final updated = await StudentFeatureApi.instance.uploadAvatar(bytes, pickedFile.name);
+      if (mounted) {
+        setState(() {
+          _profile = updated;
+          _loading = false;
+        });
+        
+        // Cập nhật AuthProvider để hiển thị avatar toàn hệ thống (Home, Leaderboard)
+        final authProvider = context.read<AuthProvider>();
+        if (authProvider.currentUser != null) {
+          authProvider.updateUser(authProvider.currentUser!.copyWith(avatarUrl: updated.avatarUrl));
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đã cập nhật ảnh đại diện')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Không thể tải ảnh: $error')),
+        );
+      }
+    }
+  }
+
   Future<void> _editProfile() async {
     // Dữ liệu hiện tại được đưa vào controller để dialog có giá trị ban đầu.
     final profile = _profile!;
     final name = TextEditingController(text: profile.name);
-    final avatar = TextEditingController(text: profile.avatarUrl ?? '');
     final saved = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -69,13 +109,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               TextField(
                 controller: name,
                 decoration: const InputDecoration(labelText: 'Họ và tên'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: avatar,
-                decoration: const InputDecoration(
-                  labelText: 'URL avatar (không bắt buộc)',
-                ),
               ),
             ],
           ),
@@ -98,11 +131,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // Trim trước khi gửi; server tiếp tục validate để bảo đảm an toàn.
       final updated = await StudentFeatureApi.instance.updateProfile(
         name: name.text.trim(),
-        avatarUrl: avatar.text.trim(),
+        avatarUrl: profile.avatarUrl,
       );
       // Response PUT là profile đầy đủ nên thay state trực tiếp, không cần GET lần hai.
       if (mounted) {
         setState(() => _profile = updated);
+        
+        final authProvider = context.read<AuthProvider>();
+        if (authProvider.currentUser != null) {
+          authProvider.updateUser(authProvider.currentUser!.copyWith(name: updated.name));
+        }
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Đã cập nhật hồ sơ')));
@@ -228,17 +266,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Row(
             children: [
               // Không có avatar URL thì dùng chữ cái đầu tên làm fallback.
-              CircleAvatar(
-                radius: 38,
-                backgroundImage: p.avatarUrl?.isNotEmpty == true
-                    ? NetworkImage(p.avatarUrl!)
-                    : null,
-                child: p.avatarUrl?.isNotEmpty == true
-                    ? null
-                    : Text(
-                        p.name.isEmpty ? '?' : p.name[0].toUpperCase(),
-                        style: const TextStyle(fontSize: 28),
+              Stack(
+                children: [
+                  CircleAvatar(
+                    radius: 38,
+                    backgroundImage: p.avatarUrl?.isNotEmpty == true
+                        ? NetworkImage(_getFullAvatarUrl(p.avatarUrl!))
+                        : null,
+                    child: p.avatarUrl?.isNotEmpty == true
+                        ? null
+                        : Text(
+                            p.name.isEmpty ? '?' : p.name[0].toUpperCase(),
+                            style: const TextStyle(fontSize: 28),
+                          ),
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: InkWell(
+                      onTap: _pickAndUploadAvatar,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.camera_alt,
+                          size: 16,
+                          color: Theme.of(context).colorScheme.onPrimary,
+                        ),
                       ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(width: 16),
               Expanded(

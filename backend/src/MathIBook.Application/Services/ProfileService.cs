@@ -109,6 +109,22 @@ public class ProfileService : IProfileService
         return await GetAsync(userId);
     }
 
+    public async Task<StudentProfileDto> UpdateAvatarAsync(Guid userId, string avatarUrl)
+    {
+        var user = await GetActiveStudentAsync(userId);
+        
+        if (avatarUrl.Length > 500)
+        {
+            throw new InvalidOperationException("Đường dẫn ảnh đại diện quá dài.");
+        }
+
+        user.AvatarUrl = avatarUrl;
+        user.UpdatedAt = DateTime.UtcNow;
+        _unitOfWork.Users.Update(user);
+        await _unitOfWork.SaveChangesAsync();
+        return await GetAsync(userId);
+    }
+
     public async Task ChangePasswordAsync(Guid userId, ChangePasswordDto dto)
     {
         var user = await GetActiveStudentAsync(userId);

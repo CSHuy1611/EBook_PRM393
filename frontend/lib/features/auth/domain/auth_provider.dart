@@ -155,4 +155,11 @@ class AuthProvider extends ChangeNotifier {
     _secureStorage.saveUser(_currentUser!);
     notifyListeners(); // Thông báo giao diện vẽ lại số xu mới
   }
+
+  // Cập nhật thông tin User (ví dụ khi đổi Avatar hoặc Tên)
+  void updateUser(UserModel updatedUser) {
+    _currentUser = updatedUser;
+    _secureStorage.saveUser(_currentUser!);
+    notifyListeners();
+  }
 }

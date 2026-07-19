@@ -1,5 +1,6 @@
 import 'package:math_ibook/core/models/student_feature_models.dart';
 import 'package:math_ibook/core/network/api_client.dart';
+import 'package:dio/dio.dart';
 
 class StudentFeatureApi {
   // Lớp adapter gom endpoint của Student để Screen không phụ thuộc trực tiếp Dio.
@@ -53,6 +54,17 @@ class StudentFeatureApi {
     final response = await ApiClient.instance.put<Map<String, dynamic>>(
       '/profile/me',
       data: {'name': name, 'avatarUrl': avatarUrl},
+    );
+    return StudentProfileModel.fromJson(response.data ?? const {});
+  }
+
+  Future<StudentProfileModel> uploadAvatar(List<int> bytes, String filename) async {
+    final formData = FormData.fromMap({
+      'file': MultipartFile.fromBytes(bytes, filename: filename),
+    });
+    final response = await ApiClient.instance.post<Map<String, dynamic>>(
+      '/profile/avatar',
+      data: formData,
     );
     return StudentProfileModel.fromJson(response.data ?? const {});
   }

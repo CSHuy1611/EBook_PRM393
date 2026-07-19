@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import 'package:math_ibook/core/models/student_feature_models.dart';
+import 'package:math_ibook/core/network/app_config.dart';
 import 'package:math_ibook/core/network/student_feature_api.dart';
 import 'package:math_ibook/core/progress/progress_notifier.dart';
 import 'package:math_ibook/core/widgets/error_widget.dart';
@@ -638,7 +639,9 @@ class _UserAvatar extends StatelessWidget {
       foregroundColor: theme.colorScheme.onSecondaryContainer,
       foregroundImage: avatarUrl == null || avatarUrl.isEmpty
           ? null
-          : NetworkImage(avatarUrl),
+          : NetworkImage(
+              avatarUrl.startsWith('http') ? avatarUrl : '${AppConfig.rootUrl}$avatarUrl'
+            ),
       onForegroundImageError: avatarUrl == null || avatarUrl.isEmpty
           ? null
           : (_, _) {},

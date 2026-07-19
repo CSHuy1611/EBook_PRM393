@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:math_ibook/core/network/app_config.dart';
 import 'package:math_ibook/core/models/dashboard_model.dart';
 import 'package:math_ibook/core/network/api_client.dart';
 import 'package:math_ibook/features/auth/domain/auth_provider.dart';
@@ -96,14 +97,24 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: 26,
-                backgroundColor: Colors.white.withAlpha(30),
-                child: Text(
-                  initial,
-                  style: const TextStyle(fontSize: 22, color: Colors.white, fontWeight: FontWeight.bold),
+              if (user?.avatarUrl?.isNotEmpty == true)
+                CircleAvatar(
+                  radius: 26,
+                  backgroundImage: NetworkImage(
+                    user!.avatarUrl!.startsWith('http') 
+                        ? user.avatarUrl! 
+                        : '${AppConfig.rootUrl}${user.avatarUrl}'
+                  ),
+                )
+              else
+                CircleAvatar(
+                  radius: 26,
+                  backgroundColor: Colors.white.withAlpha(30),
+                  child: Text(
+                    initial,
+                    style: const TextStyle(fontSize: 22, color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
                 ),
-              ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(

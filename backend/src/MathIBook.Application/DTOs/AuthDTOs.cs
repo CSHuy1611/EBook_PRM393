@@ -39,6 +39,7 @@ public class UserInfo
     public string Email { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;
     public int Coins { get; set; }
+    public string? AvatarUrl { get; set; }
 }
 
 public class ForgotPasswordRequest
