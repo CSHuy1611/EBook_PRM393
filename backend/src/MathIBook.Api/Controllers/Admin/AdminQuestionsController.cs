@@ -98,8 +98,6 @@ public class AdminQuestionsController : ControllerBase
                 OrderIndex = dto.OrderIndex,
                 Weight = 1
             });
-            quiz.IsPublished = false;
-            quiz.PublishedAt = null;
             quiz.UpdatedAt = DateTime.UtcNow;
             _unitOfWork.Quizzes.Update(quiz);
         }
@@ -201,8 +199,6 @@ public class AdminQuestionsController : ControllerBase
                     Weight = 1
                 });
             }
-            quiz.IsPublished = false;
-            quiz.PublishedAt = null;
             quiz.UpdatedAt = DateTime.UtcNow;
             _unitOfWork.Quizzes.Update(quiz);
             await _unitOfWork.SaveChangesAsync();
@@ -233,7 +229,6 @@ public class AdminQuestionsController : ControllerBase
         question.OrderIndex = dto.OrderIndex;
         question.UpdatedAt = DateTime.UtcNow;
         _unitOfWork.Questions.Update(question);
-        await UnpublishLinkedQuizzesAsync(id);
         await _unitOfWork.SaveChangesAsync();
         return NoContent();
     }
@@ -250,24 +245,8 @@ public class AdminQuestionsController : ControllerBase
         question.IsDeleted = true;
         question.UpdatedAt = DateTime.UtcNow;
         _unitOfWork.Questions.Update(question);
-        await UnpublishLinkedQuizzesAsync(id);
         await _unitOfWork.SaveChangesAsync();
         return NoContent();
-    }
-
-    private async Task UnpublishLinkedQuizzesAsync(Guid questionId)
-    {
-        var quizzes = await _unitOfWork.QuizQuestions.Query()
-            .Where(link => link.QuestionId == questionId)
-            .Select(link => link.Quiz)
-            .ToListAsync();
-        foreach (var quiz in quizzes)
-        {
-            quiz.IsPublished = false;
-            quiz.PublishedAt = null;
-            quiz.UpdatedAt = DateTime.UtcNow;
-            _unitOfWork.Quizzes.Update(quiz);
-        }
     }
 
     private static ProblemDetails? Validate(
