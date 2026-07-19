@@ -60,6 +60,12 @@ public class AdminQuestionsController : ControllerBase
             return NotFound(new ProblemDetails { Title = "Không tìm thấy bài học.", Status = 404 });
         }
 
+        int maxOrder = await _unitOfWork.Questions.Query()
+            .Where(q => q.LessonId == dto.LessonId && !q.IsDeleted)
+            .MaxAsync(q => (int?)q.OrderIndex) ?? 0;
+            
+        int newOrderIndex = dto.OrderIndex > 0 ? dto.OrderIndex : maxOrder + 1;
+
         var question = new Question
         {
             LessonId = dto.LessonId,
@@ -67,7 +73,7 @@ public class AdminQuestionsController : ControllerBase
             Options = JsonSerializer.Serialize(dto.Options.Select(option => option.Trim())),
             CorrectOption = dto.CorrectOption,
             Explanation = dto.Explanation,
-            OrderIndex = dto.OrderIndex,
+            OrderIndex = newOrderIndex,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -79,9 +85,15 @@ public class AdminQuestionsController : ControllerBase
             && !item.IsDeleted);
         if (quiz is not null)
         {
+            var maxQuizQuestionOrder = await _unitOfWork.QuizQuestions.Query()
+                .Where(qq => qq.QuizId == quiz.Id)
+                .MaxAsync(qq => (int?)qq.OrderIndex) ?? 0;
+                
+            int newQuizQuestionOrderIndex = dto.OrderIndex > 0 ? dto.OrderIndex : maxQuizQuestionOrder + 1;
+
             var occupied = await _unitOfWork.QuizQuestions.Query()
                 .AnyAsync(link =>
-                    link.QuizId == quiz.Id && link.OrderIndex == dto.OrderIndex);
+                    link.QuizId == quiz.Id && link.OrderIndex == newQuizQuestionOrderIndex);
             if (occupied)
             {
                 return Conflict(new ProblemDetails
@@ -95,11 +107,10 @@ public class AdminQuestionsController : ControllerBase
             {
                 QuizId = quiz.Id,
                 QuestionId = question.Id,
-                OrderIndex = dto.OrderIndex,
+                OrderIndex = newQuizQuestionOrderIndex,
                 Weight = 1
             });
-            quiz.IsPublished = false;
-            quiz.PublishedAt = null;
+            // We don't change IsPublished to false here to avoid disrupting an active quiz
             quiz.UpdatedAt = DateTime.UtcNow;
             _unitOfWork.Quizzes.Update(quiz);
         }
@@ -189,24 +200,56 @@ public class AdminQuestionsController : ControllerBase
 
         await _unitOfWork.SaveChangesAsync();
 
-        if (quiz is not null)
+        if (quiz is null)
         {
-            foreach (var q in createdQuestions)
+            var title = "Bài trắc nghiệm";
+            if (dto.LessonId.HasValue && dto.LessonId.Value != Guid.Empty)
             {
-                await _unitOfWork.QuizQuestions.AddAsync(new QuizQuestion
-                {
-                    QuizId = quiz.Id,
-                    QuestionId = q.Id,
-                    OrderIndex = q.OrderIndex,
-                    Weight = 1
-                });
+                var lesson = await _unitOfWork.Lessons.GetByIdAsync(dto.LessonId.Value);
+                if (lesson != null) title = "Trắc nghiệm: " + lesson.Title;
             }
-            quiz.IsPublished = false;
-            quiz.PublishedAt = null;
-            quiz.UpdatedAt = DateTime.UtcNow;
-            _unitOfWork.Quizzes.Update(quiz);
+            else if (dto.ChapterId.HasValue && dto.ChapterId.Value != Guid.Empty)
+            {
+                var chapter = await _unitOfWork.Chapters.GetByIdAsync(dto.ChapterId.Value);
+                if (chapter != null) title = "Trắc nghiệm chương: " + chapter.Title;
+            }
+
+            quiz = new Quiz
+            {
+                QuizType = dto.LessonId.HasValue && dto.LessonId.Value != Guid.Empty ? QuizType.Lesson : QuizType.Chapter,
+                LessonId = dto.LessonId.HasValue && dto.LessonId.Value != Guid.Empty ? dto.LessonId : null,
+                ChapterId = dto.ChapterId,
+                Title = title,
+                PassScore = 5m,
+                DurationSeconds = 1200, // 20 phút
+                IsPublished = true,
+                PublishedAt = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            await _unitOfWork.Quizzes.AddAsync(quiz);
             await _unitOfWork.SaveChangesAsync();
         }
+
+        var maxQuizQuestionOrder = await _unitOfWork.QuizQuestions.Query()
+            .Where(qq => qq.QuizId == quiz.Id)
+            .MaxAsync(qq => (int?)qq.OrderIndex) ?? 0;
+
+        foreach (var q in createdQuestions)
+        {
+            maxQuizQuestionOrder++;
+            await _unitOfWork.QuizQuestions.AddAsync(new QuizQuestion
+            {
+                QuizId = quiz.Id,
+                QuestionId = q.Id,
+                OrderIndex = maxQuizQuestionOrder,
+                Weight = 1
+            });
+        }
+        
+        quiz.UpdatedAt = DateTime.UtcNow;
+        _unitOfWork.Quizzes.Update(quiz);
+        await _unitOfWork.SaveChangesAsync();
 
         return Ok(createdQuestions.Select(Map).ToList());
     }
