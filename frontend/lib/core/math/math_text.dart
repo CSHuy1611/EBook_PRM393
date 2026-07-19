@@ -88,7 +88,7 @@ class MathText extends StatelessWidget {
             child: Math.tex(
               match.group(1)!,
               textStyle: mathStyle ??
-                  const TextStyle(fontSize: 16, fontStyle: FontStyle.italic),
+                  TextStyle(fontSize: 16, fontStyle: FontStyle.italic, color: textStyle?.color ?? DefaultTextStyle.of(context).style.color),
             ),
           ),
         );
@@ -119,7 +119,7 @@ class MathText extends StatelessWidget {
           child: Math.tex(
             latex,
             textStyle:
-                mathStyle ?? const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+                mathStyle ?? TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: textStyle?.color),
           ),
         ),
       );

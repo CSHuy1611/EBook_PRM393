@@ -110,7 +110,7 @@ class _ChaptersScreenState extends State<ChaptersScreen> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: showLocked ? const Color(0xFFE2E8F0).withAlpha(120) : const Color(0xFFE2E8F0),
+                      color: showLocked ? Theme.of(context).colorScheme.outlineVariant.withAlpha(120) : Theme.of(context).colorScheme.outlineVariant,
                     ),
                   ),
                   child: Column(
@@ -143,16 +143,16 @@ class _ChaptersScreenState extends State<ChaptersScreen> {
                                 Text(
                                   chapter.title,
                                   style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                    color: showLocked ? const Color(0xFF94A3B8) : const Color(0xFF1E293B),
-                                  ),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                      color: showLocked ? const Color(0xFF94A3B8) : Theme.of(context).colorScheme.onSurface,
+                                    ),
                                 ),
                                 if (chapter.description.isNotEmpty)
                                   Text(
-                                    chapter.description,
-                                    style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-                                    maxLines: 1,
+                                      chapter.description,
+                                      style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                                      maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                               ],
@@ -191,7 +191,7 @@ class _ChaptersScreenState extends State<ChaptersScreen> {
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: showLocked ? const Color(0xFF94A3B8) : const Color(0xFF1E293B),
+                              color: showLocked ? const Color(0xFF94A3B8) : Theme.of(context).colorScheme.onSurface,
                             ),
                           ),
                         ],
@@ -201,7 +201,7 @@ class _ChaptersScreenState extends State<ChaptersScreen> {
                         children: [
                           Text(
                             'Đã đạt: ${chapter.passedLessonCount}/${chapter.lessonCount} bài',
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                            style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.w500),
                           ),
                           if (chapter.relatedBadgeTitle != null && chapter.relatedBadgeTitle!.isNotEmpty) ...[
                             const SizedBox(width: 8),
