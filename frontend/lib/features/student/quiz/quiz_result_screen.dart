@@ -252,7 +252,9 @@ class _QuizResultScreenState extends State<QuizResultScreen> with SingleTickerPr
                           style: TextStyle(color: Colors.green.shade700),
                         ),
                         Text(
-                          'Bạn chọn: ${String.fromCharCode(65 + answer.selectedOption)}',
+                          answer.selectedOption == -1
+                              ? 'Bạn chọn: (Không chọn)'
+                              : 'Bạn chọn: ${String.fromCharCode(65 + answer.selectedOption)}',
                           style: TextStyle(color: Colors.red.shade700),
                         ),
                       ],
