@@ -1,7 +1,8 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 /// Persistent cache and per-student sync queue. Scores, rewards and badges
 /// remain server-authoritative; this database stores only the learner's inputs.
@@ -36,6 +37,13 @@ class LocalDbService {
   }
 
   Future<Database> _initDb() async {
+    if (defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.linux ||
+        defaultTargetPlatform == TargetPlatform.macOS) {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+    }
+
     // getDatabasesPath trả thư mục riêng phù hợp Android/iOS/desktop.
     final dbPath = await getDatabasesPath();
     // version=3 kích hoạt _onUpgrade cho thiết bị đã cài phiên bản cũ.

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:math_ibook/core/layout/responsive_layout.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:math_ibook/features/auth/domain/auth_provider.dart';
@@ -29,6 +30,7 @@ import 'package:math_ibook/features/admin/questions_admin/admin_questions_screen
 import 'package:math_ibook/features/admin/badges_admin/admin_badges_screen.dart';
 import 'package:math_ibook/features/admin/users_admin/admin_users_screen.dart';
 import 'package:math_ibook/features/admin/users_admin/user_history_screen.dart';
+import 'package:math_ibook/features/admin/quizzes_admin/admin_quizzes_screen.dart';
 
 import 'package:math_ibook/features/admin/reward_policies_admin/admin_reward_policies_screen.dart';
 import 'package:math_ibook/features/admin/notifications_admin/admin_notifications_screen.dart';
@@ -92,28 +94,44 @@ GoRouter createAppRouter(AuthProvider authProvider) {
       ),
       GoRoute(
         path: '/student/notifications',
-        builder: (_, __) => const NotificationsScreen(),
+        builder: (_, __) => const ResponsiveContent(
+          maxWidth: 960,
+          child: NotificationsScreen(),
+        ),
         parentNavigatorKey: _rootNavigator,
       ),
       GoRoute(
         path: '/student/coins',
-        builder: (_, __) => const CoinsScreen(),
+        builder: (_, __) => const ResponsiveContent(
+          maxWidth: 960,
+          child: CoinsScreen(),
+        ),
         parentNavigatorKey: _rootNavigator,
       ),
       GoRoute(
         path: '/student/badges',
-        builder: (_, __) => const BadgesScreen(),
+        builder: (_, __) => const ResponsiveContent(
+          maxWidth: 960,
+          child: BadgesScreen(),
+        ),
         parentNavigatorKey: _rootNavigator,
       ),
       GoRoute(
         path: '/student/offline-sync',
-        builder: (_, __) => const OfflineSyncScreen(),
+        builder: (_, __) => const ResponsiveContent(
+          maxWidth: 960,
+          child: OfflineSyncScreen(),
+        ),
         parentNavigatorKey: _rootNavigator,
       ),
       GoRoute(
         path: '/student/chapter-quiz/:chapterId',
-        builder: (_, state) =>
-            ChapterQuizScreen(chapterId: state.pathParameters['chapterId']!),
+        builder: (_, state) => ResponsiveContent(
+          maxWidth: 960,
+          child: ChapterQuizScreen(
+            chapterId: state.pathParameters['chapterId']!,
+          ),
+        ),
         parentNavigatorKey: _rootNavigator,
       ),
       StatefulShellRoute.indexedStack(
@@ -233,6 +251,14 @@ GoRouter createAppRouter(AuthProvider authProvider) {
               GoRoute(
                 path: '/admin/questions',
                 builder: (_, __) => const AdminQuestionsScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/admin/quizzes',
+                builder: (_, __) => const AdminQuizzesScreen(),
               ),
             ],
           ),

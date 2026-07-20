@@ -29,11 +29,11 @@ class _QuizScreenState extends State<QuizScreen> {
   bool _isSubmitting = false;
   String? _error;
 
-  static const int _totalSeconds = 1200;
+  int _totalSeconds = 1200;
 
   int _currentQuestion = 0;
   final Map<String, int> _answers = {};
-  int _durationSeconds = _totalSeconds;
+  int _durationSeconds = 1200;
   Timer? _timer;
 
   @override
@@ -54,22 +54,33 @@ class _QuizScreenState extends State<QuizScreen> {
       _error = null;
     });
     try {
-      final response = await ApiClient.instance.get('/lessons/${widget.lessonId}');
+      final response = await ApiClient.instance.get(
+        '/lessons/${widget.lessonId}',
+      );
       final data = response.data as Map<String, dynamic>;
       final lesson = LessonModel.fromJson(data);
       await _cacheLesson(lesson);
       setState(() {
         _lesson = lesson;
         _isLoading = false;
+        _totalSeconds = lesson.quizDurationSeconds;
       });
       _startTimer();
     } catch (e) {
       final cached = await LocalDbService().getCachedLessonDto(widget.lessonId);
       if (cached != null) {
-        setState(() { _lesson = LessonModel.fromJson(cached); _isLoading = false; });
+        final lesson = LessonModel.fromJson(cached);
+        setState(() {
+          _lesson = lesson;
+          _isLoading = false;
+          _totalSeconds = lesson.quizDurationSeconds;
+        });
         _startTimer();
       } else {
-        setState(() { _error = e.toString(); _isLoading = false; });
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
       }
     }
   }
@@ -77,12 +88,15 @@ class _QuizScreenState extends State<QuizScreen> {
   Future<void> _cacheLesson(LessonModel lesson) async {
     final db = LocalDbService();
     await db.cacheLesson(lesson.toJson());
-    await db.cacheQuestions(lesson.id, lesson.questions.map((question) {
-      final value = question.toJson();
-      value.remove('correctOption');
-      value.remove('explanation');
-      return value;
-    }).toList());
+    await db.cacheQuestions(
+      lesson.id,
+      lesson.questions.map((question) {
+        final value = question.toJson();
+        value.remove('correctOption');
+        value.remove('explanation');
+        return value;
+      }).toList(),
+    );
   }
 
   void _startTimer() {
@@ -117,10 +131,18 @@ class _QuizScreenState extends State<QuizScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Xác nhận nộp bài'),
-        content: Text('Bạn đã trả lời $answered/$total câu hỏi. Các câu chưa trả lời sẽ được tính là sai. Bạn có chắc muốn nộp bài không?'),
+        content: Text(
+          'Bạn đã trả lời $answered/$total câu hỏi. Các câu chưa trả lời sẽ được tính là sai. Bạn có chắc muốn nộp bài không?',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Nộp bài')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Nộp bài'),
+          ),
         ],
       ),
     );
@@ -176,12 +198,23 @@ class _QuizScreenState extends State<QuizScreen> {
         if (userId != null && userId.isNotEmpty) {
           // [NGOẠI TUYẾN] Bước 2: Lưu kết quả bài làm cùng thời gian, đáp án vào SQLite.
           await LocalDbService().queueQuizAttempt(
-            userId: userId, lessonId: dto.lessonId!, quizId: dto.quizId, clientAttemptId: dto.clientAttemptId,
-            durationSeconds: dto.durationSeconds, answers: dto.answers.map((answer) => answer.toJson()).toList(), createdAt: DateTime.parse(dto.clientCreatedAt),
+            userId: userId,
+            lessonId: dto.lessonId!,
+            quizId: dto.quizId,
+            clientAttemptId: dto.clientAttemptId,
+            durationSeconds: dto.durationSeconds,
+            answers: dto.answers.map((answer) => answer.toJson()).toList(),
+            createdAt: DateTime.parse(dto.clientCreatedAt),
           );
           if (mounted) {
             // [NGOẠI TUYẾN] Bước 3: Báo cho học sinh yên tâm tắt máy.
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã lưu bài làm. Server sẽ chấm điểm khi đồng bộ lại.')));
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Đã lưu bài làm. Server sẽ chấm điểm khi đồng bộ lại.',
+                ),
+              ),
+            );
             context.pop();
           }
           return;
@@ -192,24 +225,30 @@ class _QuizScreenState extends State<QuizScreen> {
         final detail = (e is DioException && e.response?.data != null)
             ? 'Lỗi: ${e.response?.data}'
             : 'Lỗi khi nộp bài: $e';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(detail)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(detail)));
       }
     }
   }
 
-  bool _isNetworkError(Object error) => error is DioException &&
+  bool _isNetworkError(Object error) =>
+      error is DioException &&
       (error.type == DioExceptionType.connectionError ||
-       error.type == DioExceptionType.connectionTimeout ||
-       error.type == DioExceptionType.receiveTimeout ||
-       error.type == DioExceptionType.sendTimeout);
+          error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.receiveTimeout ||
+          error.type == DioExceptionType.sendTimeout);
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) return const Scaffold(body: AppLoadingWidget(message: 'Đang tải bài kiểm tra...'));
+    if (_isLoading)
+      return const Scaffold(
+        body: AppLoadingWidget(message: 'Đang tải bài kiểm tra...'),
+      );
     if (_error != null) {
-      return Scaffold(body: AppErrorWidget(message: _error!, onRetry: _fetchLesson));
+      return Scaffold(
+        body: AppErrorWidget(message: _error!, onRetry: _fetchLesson),
+      );
     }
     if (_lesson == null || _lesson!.questions.isEmpty) {
       return Scaffold(
@@ -251,7 +290,8 @@ class _QuizScreenState extends State<QuizScreen> {
                     children: [
                       Text(
                         'Câu ${_currentQuestion + 1} / ${questions.length}',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       const Spacer(),
                       Text(
@@ -273,7 +313,8 @@ class _QuizScreenState extends State<QuizScreen> {
                       children: [
                         MathText(
                           currentQ.questionText,
-                          textStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+                          textStyle: Theme.of(context).textTheme.bodyLarge
+                              ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 20),
                         ...currentQ.options.asMap().entries.map((entry) {
@@ -287,20 +328,32 @@ class _QuizScreenState extends State<QuizScreen> {
                             child: InkWell(
                               borderRadius: BorderRadius.circular(12),
                               onTap: () {
-                                setState(() => _answers[currentQ.id] = optIndex);
+                                setState(
+                                  () => _answers[currentQ.id] = optIndex,
+                                );
                               },
                               child: Container(
                                 width: double.infinity,
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 14,
+                                ),
                                 decoration: BoxDecoration(
                                   color: isSelected
-                                      ? Theme.of(context).colorScheme.primaryContainer
-                                      : Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha(100),
+                                      ? Theme.of(
+                                          context,
+                                        ).colorScheme.primaryContainer
+                                      : Theme.of(context)
+                                            .colorScheme
+                                            .surfaceContainerHighest
+                                            .withAlpha(100),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
                                     color: isSelected
                                         ? Theme.of(context).colorScheme.primary
-                                        : Theme.of(context).colorScheme.outline.withAlpha(60),
+                                        : Theme.of(
+                                            context,
+                                          ).colorScheme.outline.withAlpha(60),
                                     width: isSelected ? 2 : 1,
                                   ),
                                 ),
@@ -312,22 +365,34 @@ class _QuizScreenState extends State<QuizScreen> {
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
                                         color: isSelected
-                                            ? Theme.of(context).colorScheme.primary
+                                            ? Theme.of(
+                                                context,
+                                              ).colorScheme.primary
                                             : Colors.transparent,
                                         border: Border.all(
                                           color: isSelected
-                                              ? Theme.of(context).colorScheme.primary
-                                              : Theme.of(context).colorScheme.outline,
+                                              ? Theme.of(
+                                                  context,
+                                                ).colorScheme.primary
+                                              : Theme.of(
+                                                  context,
+                                                ).colorScheme.outline,
                                         ),
                                       ),
                                       child: Center(
                                         child: isSelected
-                                            ? const Icon(Icons.check, color: Colors.white, size: 18)
+                                            ? const Icon(
+                                                Icons.check,
+                                                color: Colors.white,
+                                                size: 18,
+                                              )
                                             : Text(
                                                 letter,
                                                 style: TextStyle(
                                                   fontWeight: FontWeight.bold,
-                                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
                                                 ),
                                               ),
                                       ),
@@ -356,7 +421,9 @@ class _QuizScreenState extends State<QuizScreen> {
                       ),
                     ],
                   ),
-                  child: Row(
+                  child: Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    spacing: 8,
                     children: [
                       if (_currentQuestion > 0)
                         OutlinedButton(
@@ -365,7 +432,6 @@ class _QuizScreenState extends State<QuizScreen> {
                         )
                       else
                         const SizedBox(),
-                      const Spacer(),
                       if (_currentQuestion < questions.length - 1)
                         FilledButton(
                           onPressed: () => setState(() => _currentQuestion++),

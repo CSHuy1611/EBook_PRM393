@@ -79,6 +79,7 @@ public class LessonsController : ControllerBase
             ContentViewed = progress?.ContentViewed ?? false,
             BestScore = progress is null ? null : (double)progress.BestScore10,
             QuizId = activeQuiz?.Id,
+            QuizDurationSeconds = activeQuiz?.DurationSeconds,
             Questions = questionsToReturn.Select(question => new QuestionDto
             {
                 Id = question.Id,

@@ -12,6 +12,7 @@ class LessonModel {
   final bool isCompleted;
   final String status;
   final double bestScore;
+  final int quizDurationSeconds;
   final List<QuestionModel> questions;
 
   LessonModel({
@@ -26,6 +27,7 @@ class LessonModel {
     this.isCompleted = false,
     this.status = 'NotStarted',
     this.bestScore = 0.0,
+    this.quizDurationSeconds = 1200,
     this.questions = const [],
   });
 
@@ -50,6 +52,7 @@ class LessonModel {
       status: json['status'] ?? 'NotStarted',
       bestScore:
           (json['bestScore'] ?? json['best_score'] ?? 0.0).toDouble(),
+      quizDurationSeconds: json['quizDurationSeconds'] ?? json['quiz_duration_seconds'] ?? 1200,
       questions: questionsList,
     );
   }
@@ -66,6 +69,7 @@ class LessonModel {
         'isCompleted': isCompleted,
         'status': status,
         'bestScore': bestScore,
+        'quizDurationSeconds': quizDurationSeconds,
         'questions': questions.map((q) => q.toJson()).toList(),
       };
 }

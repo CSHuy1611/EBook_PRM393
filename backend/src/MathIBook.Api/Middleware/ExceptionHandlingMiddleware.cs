@@ -44,12 +44,22 @@ public class ExceptionHandlingMiddleware
             var result = JsonSerializer.Serialize(new { statusCode = 404, message = ex.Message });
             await context.Response.WriteAsync(result);
         }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
+        {
+            _logger.LogError(ex, "Database update exception");
+            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+            context.Response.ContentType = "application/json";
+            var isDev = context.RequestServices.GetService<IHostEnvironment>()?.IsDevelopment() == true;
+            var result = JsonSerializer.Serialize(new { statusCode = 409, message = isDev ? ex.InnerException?.Message ?? ex.Message : "Database constraint violation" });
+            await context.Response.WriteAsync(result);
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unhandled exception");
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
             context.Response.ContentType = "application/json";
-            var result = JsonSerializer.Serialize(new { statusCode = 500, message = "Internal server error" });
+            var isDev = context.RequestServices.GetService<IHostEnvironment>()?.IsDevelopment() == true;
+            var result = JsonSerializer.Serialize(new { statusCode = 500, message = isDev ? ex.Message : "Internal server error" });
             await context.Response.WriteAsync(result);
         }
     }

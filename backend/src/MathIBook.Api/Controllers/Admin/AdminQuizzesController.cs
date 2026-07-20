@@ -84,9 +84,92 @@ public class AdminQuizzesController : ControllerBase
             UpdatedAt = DateTime.UtcNow
         };
         await _unitOfWork.Quizzes.AddAsync(quiz);
-        await AddAuditAsync("Quiz", quiz.Id, "Create", null, quiz);
+        await AddAuditAsync("Quiz", quiz.Id, "Create", null, Snapshot(quiz));
         await _unitOfWork.SaveChangesAsync();
         return CreatedAtAction(nameof(GetById), new { id = quiz.Id }, Map(quiz));
+    }
+
+    [HttpPost("generate")]
+    public async Task<ActionResult<AdminQuizDto>> Generate([FromBody] AdminQuizGenerateDto dto)
+    {
+        if (!dto.LessonId.HasValue && !dto.ChapterId.HasValue)
+        {
+            return BadRequest(new ProblemDetails { Title = "Phải cung cấp LessonId hoặc ChapterId.", Status = 400 });
+        }
+
+        var quizType = dto.LessonId.HasValue ? QuizType.Lesson : QuizType.Chapter;
+
+        string title = !string.IsNullOrWhiteSpace(dto.Title) ? dto.Title.Trim() : "Bài Trắc Nghiệm";
+        
+        // Nếu không cung cấp tiêu đề, tự sinh tiêu đề theo tên bài học/chương
+        if (string.IsNullOrWhiteSpace(dto.Title))
+        {
+            if (dto.LessonId.HasValue)
+            {
+                var lesson = await _unitOfWork.Lessons.GetByIdAsync(dto.LessonId.Value);
+                if (lesson == null || lesson.IsDeleted) return NotFound(new ProblemDetails { Title = "Không tìm thấy bài học.", Status = 404 });
+                title = $"Quiz Bài Học: {lesson.Title}";
+            }
+            else if (dto.ChapterId.HasValue)
+            {
+                var chapter = await _unitOfWork.Chapters.GetByIdAsync(dto.ChapterId.Value);
+                if (chapter == null || chapter.IsDeleted) return NotFound(new ProblemDetails { Title = "Không tìm thấy chương.", Status = 404 });
+                title = $"Quiz Chương: {chapter.Title}";
+            }
+        }
+
+        var qQuery = _unitOfWork.Questions.Query().Where(q => !q.IsDeleted);
+        qQuery = dto.LessonId.HasValue
+            ? qQuery.Where(q => q.LessonId == dto.LessonId)
+            : qQuery.Where(q => q.ChapterId == dto.ChapterId);
+
+        var allQuestions = await qQuery.ToListAsync();
+        int finalQuestionCount = Math.Min(dto.QuestionCount, allQuestions.Count);
+        
+        if (finalQuestionCount == 0)
+        {
+            return BadRequest(new ProblemDetails { Title = "Không có câu hỏi nào trong ngân hàng cho phạm vi này.", Status = 400 });
+        }
+
+        var randomQuestions = allQuestions.OrderBy(x => Guid.NewGuid()).Take(finalQuestionCount).ToList();
+
+        var quiz = new Quiz
+        {
+            QuizType = quizType,
+            LessonId = dto.LessonId,
+            ChapterId = dto.ChapterId,
+            Title = title,
+            PassScore = dto.PassScore,
+            DurationSeconds = dto.DurationSeconds,
+            IsPublished = false, // Tạo mới mặc định là tắt, Admin sẽ gạt công tắc sau
+            PublishedAt = null,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        await _unitOfWork.Quizzes.AddAsync(quiz);
+
+        int orderIndex = 1;
+        foreach (var q in randomQuestions)
+        {
+            await _unitOfWork.QuizQuestions.AddAsync(new QuizQuestion
+            {
+                QuizId = quiz.Id,
+                QuestionId = q.Id,
+                OrderIndex = orderIndex++,
+                Weight = 1
+            });
+        }
+
+        await AddAuditAsync("Quiz", quiz.Id, "Generate", null, Snapshot(quiz));
+        await _unitOfWork.SaveChangesAsync();
+        
+        var generatedQuiz = await _unitOfWork.Quizzes.Query()
+            .Include(q => q.QuizQuestions)
+            .ThenInclude(qq => qq.Question)
+            .FirstOrDefaultAsync(q => q.Id == quiz.Id);
+
+        return Ok(Map(generatedQuiz ?? quiz));
     }
 
     [HttpPut("{id}")]
@@ -98,16 +181,23 @@ public class AdminQuizzesController : ControllerBase
             return NotFound(new ProblemDetails { Title = "Không tìm thấy quiz.", Status = 404 });
         }
 
+        var existingQuestions = await _unitOfWork.QuizQuestions.Query()
+            .Where(qq => qq.QuizId == id)
+            .ToListAsync();
+        
+        bool isChangingQuestionCount = dto.QuestionCount.HasValue && dto.QuestionCount.Value != existingQuestions.Count;
+
         var hasAttempts = await _unitOfWork.QuizAttempts.Query()
             .AnyAsync(attempt => attempt.QuizId == id);
         if (hasAttempts
             && (quiz.QuizType != dto.QuizType
                 || quiz.LessonId != dto.LessonId
-                || quiz.ChapterId != dto.ChapterId))
+                || quiz.ChapterId != dto.ChapterId
+                || isChangingQuestionCount))
         {
             return Conflict(new ProblemDetails
             {
-                Title = "Không thể đổi phạm vi quiz đã có lịch sử làm bài.",
+                Title = "Không thể đổi phạm vi hoặc số lượng câu hỏi của quiz đã có lịch sử làm bài.",
                 Status = 409
             });
         }
@@ -129,7 +219,39 @@ public class AdminQuizzesController : ControllerBase
         quiz.FirstPassCoins = dto.FirstPassCoins;
         quiz.UpdatedAt = DateTime.UtcNow;
         _unitOfWork.Quizzes.Update(quiz);
-        await AddAuditAsync("Quiz", quiz.Id, "Update", before, quiz);
+        await AddAuditAsync("Quiz", quiz.Id, "Update", before, Snapshot(quiz));
+
+        if (isChangingQuestionCount)
+        {
+            foreach (var existing in existingQuestions)
+            {
+                _unitOfWork.QuizQuestions.Remove(existing);
+            }
+            await _unitOfWork.SaveChangesAsync();
+            
+            var qQuery = _unitOfWork.Questions.Query().Where(q => !q.IsDeleted);
+            qQuery = dto.LessonId.HasValue
+                ? qQuery.Where(q => q.LessonId == dto.LessonId)
+                : qQuery.Where(q => q.ChapterId == dto.ChapterId);
+                
+            var allQuestions = await qQuery.ToListAsync();
+            int finalQuestionCount = Math.Min(dto.QuestionCount!.Value, allQuestions.Count);
+            
+            var randomQuestions = allQuestions.OrderBy(x => Guid.NewGuid()).Take(finalQuestionCount).ToList();
+            
+            foreach (var q in randomQuestions)
+            {
+                var qq = new QuizQuestion
+                {
+                    QuizId = quiz.Id,
+                    QuestionId = q.Id,
+                    OrderIndex = randomQuestions.IndexOf(q) + 1,
+                    Weight = 1
+                };
+                await _unitOfWork.QuizQuestions.AddAsync(qq);
+            }
+        }
+
         await _unitOfWork.SaveChangesAsync();
         return NoContent();
     }
@@ -148,7 +270,7 @@ public class AdminQuizzesController : ControllerBase
         quiz.IsPublished = false;
         quiz.UpdatedAt = DateTime.UtcNow;
         _unitOfWork.Quizzes.Update(quiz);
-        await AddAuditAsync("Quiz", quiz.Id, "SoftDelete", before, quiz);
+        await AddAuditAsync("Quiz", quiz.Id, "SoftDelete", before, Snapshot(quiz));
         await _unitOfWork.SaveChangesAsync();
         return NoContent();
     }
@@ -380,7 +502,7 @@ public class AdminQuizzesController : ControllerBase
             quiz.PublishedAt = null;
             quiz.UpdatedAt = DateTime.UtcNow;
             _unitOfWork.Quizzes.Update(quiz);
-            await AddAuditAsync("Quiz", id, "Unpublish", before, quiz);
+            await AddAuditAsync("Quiz", id, "Unpublish", before, Snapshot(quiz));
             await _unitOfWork.SaveChangesAsync();
             return NoContent();
         }
@@ -406,7 +528,26 @@ public class AdminQuizzesController : ControllerBase
         quiz.PublishedAt = DateTime.UtcNow;
         quiz.UpdatedAt = DateTime.UtcNow;
         _unitOfWork.Quizzes.Update(quiz);
-        await AddAuditAsync("Quiz", id, "Publish", beforePublish, quiz);
+        
+        // Đảm bảo chỉ 1 Quiz được Publish cho 1 bài học/chương
+        var otherQuizzesQuery = _unitOfWork.Quizzes.Query().Where(q => q.Id != id && !q.IsDeleted && q.IsPublished);
+        if (quiz.QuizType == QuizType.Lesson)
+        {
+            otherQuizzesQuery = otherQuizzesQuery.Where(q => q.LessonId == quiz.LessonId && q.QuizType == QuizType.Lesson);
+        }
+        else
+        {
+            otherQuizzesQuery = otherQuizzesQuery.Where(q => q.ChapterId == quiz.ChapterId && q.QuizType == QuizType.Chapter);
+        }
+        var otherQuizzes = await otherQuizzesQuery.ToListAsync();
+        foreach (var otherQuiz in otherQuizzes)
+        {
+            otherQuiz.IsPublished = false;
+            otherQuiz.UpdatedAt = DateTime.UtcNow;
+            _unitOfWork.Quizzes.Update(otherQuiz);
+        }
+
+        await AddAuditAsync("Quiz", id, "Publish", beforePublish, Snapshot(quiz));
         await _unitOfWork.SaveChangesAsync();
         return NoContent();
     }
@@ -498,21 +639,6 @@ public class AdminQuizzesController : ControllerBase
         if (!targetExists)
         {
             return new ProblemDetails { Title = "Không tìm thấy nội dung đích.", Status = 400 };
-        }
-
-        var duplicate = await _unitOfWork.Quizzes.Query().AnyAsync(quiz =>
-            quiz.Id != currentQuizId
-            && !quiz.IsDeleted
-            && (dto.QuizType == QuizType.Lesson
-                ? quiz.LessonId == dto.LessonId
-                : quiz.ChapterId == dto.ChapterId));
-        if (duplicate)
-        {
-            return new ProblemDetails
-            {
-                Title = "Mỗi bài học/chương chỉ được có một quiz đang quản lý.",
-                Status = 409
-            };
         }
 
         if (dto.RewardPolicyId.HasValue)
@@ -641,6 +767,12 @@ public class AdminQuizzesController : ControllerBase
         OrderIndex = question.OrderIndex
     };
 
+    private static readonly JsonSerializerOptions _auditJsonOptions = new()
+    {
+        ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
+
     private async Task AddAuditAsync(
         string entityType,
         Guid entityId,
@@ -654,8 +786,8 @@ public class AdminQuizzesController : ControllerBase
             EntityType = entityType,
             EntityId = entityId,
             Action = action,
-            BeforeData = before is null ? null : JsonSerializer.Serialize(before),
-            AfterData = after is null ? null : JsonSerializer.Serialize(after),
+            BeforeData = before is null ? null : JsonSerializer.Serialize(before, _auditJsonOptions),
+            AfterData = after is null ? null : JsonSerializer.Serialize(after, _auditJsonOptions),
             CreatedAt = DateTime.UtcNow
         });
     }

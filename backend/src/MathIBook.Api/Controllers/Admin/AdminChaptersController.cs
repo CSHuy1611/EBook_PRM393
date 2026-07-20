@@ -68,7 +68,7 @@ public class AdminChaptersController : ControllerBase
             UpdatedAt = DateTime.UtcNow
         };
         await _unitOfWork.Chapters.AddAsync(chapter);
-        await AuditAsync(chapter.Id, "Create", null, chapter);
+        await AuditAsync(chapter.Id, "Create", null, Snapshot(chapter));
         await _unitOfWork.SaveChangesAsync();
         return Ok(new ChapterDto
         {
@@ -102,7 +102,7 @@ public class AdminChaptersController : ControllerBase
         chapter.CurriculumTopicId = dto.CurriculumTopicId;
         chapter.UpdatedAt = DateTime.UtcNow;
         _unitOfWork.Chapters.Update(chapter);
-        await AuditAsync(chapter.Id, "Update", before, chapter);
+        await AuditAsync(chapter.Id, "Update", before, Snapshot(chapter));
         await _unitOfWork.SaveChangesAsync();
         return NoContent();
     }
@@ -214,7 +214,7 @@ public class AdminChaptersController : ControllerBase
         chapter.PublishedAt = null;
         chapter.UpdatedAt = DateTime.UtcNow;
         _unitOfWork.Chapters.Update(chapter);
-        await AuditAsync(chapter.Id, "SoftDelete", before, chapter);
+        await AuditAsync(chapter.Id, "SoftDelete", before, Snapshot(chapter));
         await _unitOfWork.SaveChangesAsync();
         return NoContent();
     }
