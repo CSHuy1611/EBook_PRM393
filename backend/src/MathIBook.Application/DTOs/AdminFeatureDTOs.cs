@@ -19,6 +19,16 @@ public class AdminQuizDto
     public List<QuestionDto> Questions { get; set; } = new();
 }
 
+public class AdminQuizGenerateDto
+{
+    public Guid? LessonId { get; set; }
+    public Guid? ChapterId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public int QuestionCount { get; set; } = 10;
+    public int DurationSeconds { get; set; } = 1200;
+    public decimal PassScore { get; set; } = 5.0m;
+}
+
 public class AdminQuizUpsertDto
 {
     public QuizType QuizType { get; set; }
@@ -29,6 +39,12 @@ public class AdminQuizUpsertDto
     public decimal PassScore { get; set; } = 5;
     public int DurationSeconds { get; set; } = 900;
     public int FirstPassCoins { get; set; }
+    public int? QuestionCount { get; set; }
+}
+
+public class TogglePublishDto
+{
+    public bool IsPublished { get; set; }
 }
 
 public class QuizQuestionUpsertDto

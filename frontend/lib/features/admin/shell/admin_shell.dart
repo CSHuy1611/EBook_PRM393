@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:math_ibook/core/layout/responsive_layout.dart';
 import 'package:math_ibook/features/auth/domain/auth_provider.dart';
 
 class AdminShell extends StatelessWidget {
@@ -15,7 +16,7 @@ class AdminShell extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth > 900) {
-          return _buildNavigationRail(context, user);
+          return _buildNavigationRail(context, user, constraints.maxWidth);
         }
         return _buildDrawer(context, user);
       },
@@ -29,7 +30,10 @@ class AdminShell extends StatelessWidget {
         title: const Text('Đăng xuất'),
         content: const Text('Bạn có chắc muốn đăng xuất không?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy'),
+          ),
           FilledButton(
             onPressed: () {
               Navigator.pop(ctx);
@@ -43,7 +47,12 @@ class AdminShell extends StatelessWidget {
     );
   }
 
-  Widget _buildNavigationRail(BuildContext context, dynamic user) {
+  Widget _buildNavigationRail(
+    BuildContext context,
+    dynamic user,
+    double maxWidth,
+  ) {
+    final bool isExtended = maxWidth >= 1100;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Math IBook - Quản trị'),
@@ -67,53 +76,102 @@ class AdminShell extends StatelessWidget {
       body: Row(
         children: [
           NavigationRail(
+            extended: isExtended,
+            minExtendedWidth: 200,
             selectedIndex: navigationShell.currentIndex,
             onDestinationSelected: (index) {
               navigationShell.goBranch(index, initialLocation: true);
             },
-            labelType: NavigationRailLabelType.all,
+            labelType: isExtended
+                ? NavigationRailLabelType.none
+                : NavigationRailLabelType.all,
             destinations: const [
               NavigationRailDestination(
                 icon: Icon(Icons.dashboard),
-                label: Text('Bảng điều khiển'),
+                label: Text(
+                  'Bảng điều khiển',
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.book),
-                label: Text('Chương học'),
+                label: Text(
+                  'Chương học',
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.menu_book),
-                label: Text('Bài học'),
+                label: Text(
+                  'Bài học',
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.help),
-                label: Text('Câu hỏi'),
+                label: Text(
+                  'Câu hỏi',
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.quiz),
+                label: Text(
+                  'Bài Quiz',
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.emoji_events),
-                label: Text('Huy hiệu'),
+                label: Text(
+                  'Huy hiệu',
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.people),
-                label: Text('Học sinh'),
+                label: Text(
+                  'Học sinh',
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-
               NavigationRailDestination(
                 icon: Icon(Icons.policy),
-                label: Text('Chính sách thưởng'),
+                label: Text(
+                  'CS. Thưởng',
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.notifications),
-                label: Text('Thông báo'),
+                label: Text(
+                  'Thông báo',
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.settings),
-                label: Text('Cài đặt'),
+                label: Text(
+                  'Cài đặt',
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),
           const VerticalDivider(width: 1),
-          Expanded(child: navigationShell),
+          Expanded(
+            child: ResponsiveContent(maxWidth: 1440, child: navigationShell),
+          ),
         ],
       ),
     );
@@ -150,15 +208,23 @@ class AdminShell extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  const Icon(Icons.library_books, size: 40, color: Colors.white),
+                  const Icon(
+                    Icons.library_books,
+                    size: 40,
+                    color: Colors.white,
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     'Math IBook',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.white),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.titleLarge?.copyWith(color: Colors.white),
                   ),
                   Text(
                     user?.name ?? 'Admin',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white70),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: Colors.white70),
                   ),
                 ],
               ),
@@ -167,19 +233,25 @@ class AdminShell extends StatelessWidget {
             _drawerItem(context, Icons.book, 'Chương học', 1),
             _drawerItem(context, Icons.menu_book, 'Bài học', 2),
             _drawerItem(context, Icons.help, 'Câu hỏi', 3),
-            _drawerItem(context, Icons.emoji_events, 'Huy hiệu', 4),
-            _drawerItem(context, Icons.people, 'Học sinh', 5),
-            _drawerItem(context, Icons.policy, 'Chính sách thưởng', 6),
-            _drawerItem(context, Icons.notifications, 'Thông báo', 7),
-            _drawerItem(context, Icons.settings, 'Cài đặt', 8),
+            _drawerItem(context, Icons.quiz, 'Bài Quiz', 4),
+            _drawerItem(context, Icons.emoji_events, 'Huy hiệu', 5),
+            _drawerItem(context, Icons.people, 'Học sinh', 6),
+            _drawerItem(context, Icons.policy, 'Chính sách thưởng', 7),
+            _drawerItem(context, Icons.notifications, 'Thông báo', 8),
+            _drawerItem(context, Icons.settings, 'Cài đặt', 9),
           ],
         ),
       ),
-      body: navigationShell,
+      body: ResponsiveContent(maxWidth: 1200, child: navigationShell),
     );
   }
 
-  Widget _drawerItem(BuildContext context, IconData icon, String label, int index) {
+  Widget _drawerItem(
+    BuildContext context,
+    IconData icon,
+    String label,
+    int index,
+  ) {
     return ListTile(
       leading: Icon(icon),
       title: Text(label),

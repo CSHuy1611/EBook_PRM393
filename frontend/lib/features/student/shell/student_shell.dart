@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:math_ibook/core/network/api_client.dart';
+import 'package:math_ibook/core/layout/responsive_layout.dart';
 import 'package:math_ibook/core/progress/progress_notifier.dart';
 import 'package:math_ibook/core/sync/offline_sync_service.dart';
 import 'package:math_ibook/features/auth/domain/auth_provider.dart';
@@ -422,7 +423,7 @@ class _StudentShellState extends State<StudentShell> {
           ),
         ],
       ),
-      body: nav,
+      body: ResponsiveContent(maxWidth: 1080, child: nav),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           border: Border(

@@ -30,11 +30,11 @@ class _ChapterQuizScreenState extends State<ChapterQuizScreen> {
   String? _quizId;
   String? _title;
 
-  static const int _totalSeconds = 1200;
+  int _totalSeconds = 1200;
 
   int _currentQuestion = 0;
   final Map<String, int> _answers = {};
-  int _durationSeconds = _totalSeconds;
+  int _durationSeconds = 1200;
   Timer? _timer;
 
   @override
@@ -55,13 +55,18 @@ class _ChapterQuizScreenState extends State<ChapterQuizScreen> {
       _error = null;
     });
     try {
-      final response = await ApiClient.instance.get('/quizzes/chapter/${widget.chapterId}');
+      final response = await ApiClient.instance.get(
+        '/quizzes/chapter/${widget.chapterId}',
+      );
       final data = response.data as Map<String, dynamic>;
       _quizId = data['id'] ?? '';
       _title = data['title'] ?? 'Bài kiểm tra chương';
+      _totalSeconds = data['durationSeconds'] ?? 1200;
 
       final questionsRaw = data['questions'] as List? ?? [];
-      _questions = questionsRaw.map((q) => StudentQuestion.fromJson(q as Map<String, dynamic>)).toList();
+      _questions = questionsRaw
+          .map((q) => StudentQuestion.fromJson(q as Map<String, dynamic>))
+          .toList();
 
       if (_questions.isEmpty) {
         setState(() {
@@ -113,10 +118,18 @@ class _ChapterQuizScreenState extends State<ChapterQuizScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Xác nhận nộp bài'),
-        content: Text('Bạn đã trả lời $answered/$total câu hỏi. Các câu chưa trả lời sẽ được tính là sai. Bạn có chắc muốn nộp bài không?'),
+        content: Text(
+          'Bạn đã trả lời $answered/$total câu hỏi. Các câu chưa trả lời sẽ được tính là sai. Bạn có chắc muốn nộp bài không?',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Nộp bài')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Nộp bài'),
+          ),
         ],
       ),
     );
@@ -170,12 +183,23 @@ class _ChapterQuizScreenState extends State<ChapterQuizScreen> {
         if (userId != null && userId.isNotEmpty) {
           // [NGOẠI TUYẾN] Bước 2: Kế hoạch B - Đưa dữ liệu tạm vào hàng đợi (Queue) trong kho SQLite cục bộ.
           await LocalDbService().queueQuizAttempt(
-            userId: userId, lessonId: '', quizId: dto.quizId, clientAttemptId: dto.clientAttemptId,
-            durationSeconds: dto.durationSeconds, answers: dto.answers.map((answer) => answer.toJson()).toList(), createdAt: DateTime.parse(dto.clientCreatedAt),
+            userId: userId,
+            lessonId: '',
+            quizId: dto.quizId,
+            clientAttemptId: dto.clientAttemptId,
+            durationSeconds: dto.durationSeconds,
+            answers: dto.answers.map((answer) => answer.toJson()).toList(),
+            createdAt: DateTime.parse(dto.clientCreatedAt),
           );
           if (mounted) {
             // [NGOẠI TUYẾN] Bước 3: Hiện câu thông báo trấn an học sinh, sau đó thoát ra ngoài an toàn.
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã lưu bài làm chương. Server sẽ chấm điểm khi đồng bộ lại.')));
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Đã lưu bài làm chương. Server sẽ chấm điểm khi đồng bộ lại.',
+                ),
+              ),
+            );
             context.pop();
           }
           return;
@@ -186,24 +210,30 @@ class _ChapterQuizScreenState extends State<ChapterQuizScreen> {
         final detail = (e is DioException && e.response?.data != null)
             ? 'Lỗi: ${e.response?.data}'
             : 'Lỗi khi nộp bài: $e';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(detail)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(detail)));
       }
     }
   }
 
-  bool _isNetworkError(Object error) => error is DioException &&
+  bool _isNetworkError(Object error) =>
+      error is DioException &&
       (error.type == DioExceptionType.connectionError ||
-       error.type == DioExceptionType.connectionTimeout ||
-       error.type == DioExceptionType.receiveTimeout ||
-       error.type == DioExceptionType.sendTimeout);
+          error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.receiveTimeout ||
+          error.type == DioExceptionType.sendTimeout);
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) return const Scaffold(body: AppLoadingWidget(message: 'Đang tải bài kiểm tra chương...'));
+    if (_isLoading)
+      return const Scaffold(
+        body: AppLoadingWidget(message: 'Đang tải bài kiểm tra chương...'),
+      );
     if (_error != null) {
-      return Scaffold(body: AppErrorWidget(message: _error!, onRetry: _fetchQuiz));
+      return Scaffold(
+        body: AppErrorWidget(message: _error!, onRetry: _fetchQuiz),
+      );
     }
     if (_questions.isEmpty) {
       return Scaffold(
@@ -244,7 +274,8 @@ class _ChapterQuizScreenState extends State<ChapterQuizScreen> {
                     children: [
                       Text(
                         'Câu ${_currentQuestion + 1} / ${_questions.length}',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       const Spacer(),
                       Text(
@@ -266,7 +297,8 @@ class _ChapterQuizScreenState extends State<ChapterQuizScreen> {
                       children: [
                         MathText(
                           currentQ.questionText,
-                          textStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+                          textStyle: Theme.of(context).textTheme.bodyLarge
+                              ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 20),
                         ...currentQ.options.asMap().entries.map((entry) {
@@ -280,20 +312,32 @@ class _ChapterQuizScreenState extends State<ChapterQuizScreen> {
                             child: InkWell(
                               borderRadius: BorderRadius.circular(12),
                               onTap: () {
-                                setState(() => _answers[currentQ.id] = optIndex);
+                                setState(
+                                  () => _answers[currentQ.id] = optIndex,
+                                );
                               },
                               child: Container(
                                 width: double.infinity,
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 14,
+                                ),
                                 decoration: BoxDecoration(
                                   color: isSelected
-                                      ? Theme.of(context).colorScheme.primaryContainer
-                                      : Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha(100),
+                                      ? Theme.of(
+                                          context,
+                                        ).colorScheme.primaryContainer
+                                      : Theme.of(context)
+                                            .colorScheme
+                                            .surfaceContainerHighest
+                                            .withAlpha(100),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
                                     color: isSelected
                                         ? Theme.of(context).colorScheme.primary
-                                        : Theme.of(context).colorScheme.outline.withAlpha(60),
+                                        : Theme.of(
+                                            context,
+                                          ).colorScheme.outline.withAlpha(60),
                                     width: isSelected ? 2 : 1,
                                   ),
                                 ),
@@ -305,22 +349,34 @@ class _ChapterQuizScreenState extends State<ChapterQuizScreen> {
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
                                         color: isSelected
-                                            ? Theme.of(context).colorScheme.primary
+                                            ? Theme.of(
+                                                context,
+                                              ).colorScheme.primary
                                             : Colors.transparent,
                                         border: Border.all(
                                           color: isSelected
-                                              ? Theme.of(context).colorScheme.primary
-                                              : Theme.of(context).colorScheme.outline,
+                                              ? Theme.of(
+                                                  context,
+                                                ).colorScheme.primary
+                                              : Theme.of(
+                                                  context,
+                                                ).colorScheme.outline,
                                         ),
                                       ),
                                       child: Center(
                                         child: isSelected
-                                            ? const Icon(Icons.check, color: Colors.white, size: 18)
+                                            ? const Icon(
+                                                Icons.check,
+                                                color: Colors.white,
+                                                size: 18,
+                                              )
                                             : Text(
                                                 letter,
                                                 style: TextStyle(
                                                   fontWeight: FontWeight.bold,
-                                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
                                                 ),
                                               ),
                                       ),
@@ -332,9 +388,15 @@ class _ChapterQuizScreenState extends State<ChapterQuizScreen> {
                                         textStyle: TextStyle(
                                           fontSize: 16,
                                           color: isSelected
-                                              ? Theme.of(context).colorScheme.onPrimaryContainer
-                                              : Theme.of(context).colorScheme.onSurface,
-                                          fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+                                              ? Theme.of(
+                                                  context,
+                                                ).colorScheme.onPrimaryContainer
+                                              : Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurface,
+                                          fontWeight: isSelected
+                                              ? FontWeight.w500
+                                              : FontWeight.normal,
                                         ),
                                       ),
                                     ),
@@ -360,7 +422,9 @@ class _ChapterQuizScreenState extends State<ChapterQuizScreen> {
                       ),
                     ],
                   ),
-                  child: Row(
+                  child: Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    spacing: 8,
                     children: [
                       if (_currentQuestion > 0)
                         OutlinedButton(
@@ -369,7 +433,6 @@ class _ChapterQuizScreenState extends State<ChapterQuizScreen> {
                         )
                       else
                         const SizedBox(),
-                      const Spacer(),
                       if (_currentQuestion < _questions.length - 1)
                         FilledButton(
                           onPressed: () => setState(() => _currentQuestion++),
@@ -406,9 +469,14 @@ class StudentQuestion {
     List<String> optionsList = [];
     if (json['options'] != null) {
       if (json['options'] is List) {
-        optionsList = (json['options'] as List).map((e) => e.toString()).toList();
+        optionsList = (json['options'] as List)
+            .map((e) => e.toString())
+            .toList();
       } else if (json['options'] is String) {
-        optionsList = (json['options'] as String).split(',').map((e) => e.trim()).toList();
+        optionsList = (json['options'] as String)
+            .split(',')
+            .map((e) => e.trim())
+            .toList();
       }
     }
     return StudentQuestion(
@@ -420,9 +488,9 @@ class StudentQuestion {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'questionText': questionText,
-        'options': options,
-        'orderIndex': orderIndex,
-      };
+    'id': id,
+    'questionText': questionText,
+    'options': options,
+    'orderIndex': orderIndex,
+  };
 }

@@ -16,6 +16,7 @@ public class LessonDto
     public bool ContentViewed { get; set; }
     public double? BestScore { get; set; }
     public Guid? QuizId { get; set; }
+    public int? QuizDurationSeconds { get; set; }
     public List<QuestionDto> Questions { get; set; } = new();
 }
 

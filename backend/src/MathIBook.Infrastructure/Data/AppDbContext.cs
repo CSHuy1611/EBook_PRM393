@@ -148,12 +148,8 @@ public class AppDbContext : DbContext
                 .WithMany(p => p.Quizzes)
                 .HasForeignKey(q => q.RewardPolicyId)
                 .OnDelete(DeleteBehavior.SetNull);
-            e.HasIndex(q => q.LessonId)
-                .IsUnique()
-                .HasFilter("\"LessonId\" IS NOT NULL AND \"IsDeleted\" = FALSE");
-            e.HasIndex(q => q.ChapterId)
-                .IsUnique()
-                .HasFilter("\"ChapterId\" IS NOT NULL AND \"IsDeleted\" = FALSE");
+            e.HasIndex(q => q.LessonId);
+            e.HasIndex(q => q.ChapterId);
             e.HasIndex(q => new { q.QuizType, q.IsPublished, q.IsDeleted });
             e.ToTable(t =>
             {
