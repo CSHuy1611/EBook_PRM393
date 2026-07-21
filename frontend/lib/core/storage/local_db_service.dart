@@ -17,7 +17,7 @@ class LocalDbService {
   bool get isAvailable => !_isWeb;
 
   Future<void> init() async {
-    // sqflite trong dự án chưa hỗ trợ Web; Web bỏ qua cache thay vì làm crash startup.
+
     if (kIsWeb) {
       _isWeb = true;
       return;

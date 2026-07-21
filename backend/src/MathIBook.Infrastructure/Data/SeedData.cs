@@ -13,7 +13,7 @@ public static class SeedData
     // Năm Student có số xu khác nhau để kiểm tra thứ tự bảng xếp hạng.
     private static readonly (string Name, string Email, int Coins)[] AdditionalStudentDefinitions =
     {
-        ("Nguyễn Minh Anh", "student1@mathibook.vn", 1250),
+        ("Nguyễn Minh Anh", "", 1250),
         ("Trần Gia Huy", "student2@mathibook.vn", 980),
         ("Lê Khánh Linh", "student3@mathibook.vn", 760),
         ("Phạm Hoài Nam", "student4@mathibook.vn", 540),
